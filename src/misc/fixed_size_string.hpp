@@ -28,7 +28,9 @@ public:
   fixed_string& operator= (fixed_string &&that) = default;
 
   explicit operator std::string (void) const {
-    return std::string(_data.data());
+    auto last = std::prev(_data.end());
+    while (*last == '\0')  --last;
+    return std::string(_data.begin(), std::next(last));
   }
 
   friend void to_json(nlohmann::json &j, const fixed_string &s) {

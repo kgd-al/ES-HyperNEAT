@@ -58,12 +58,16 @@ find_package(APOGeT REQUIRED)
 include_directories(${APOGeT_INCLUDE_DIRS})
 message("> APOGeT found at " ${APOGeT_DIR})
 message("  > Core libraries " "${APOGeT_LIBRARIES}")
+list(APPEND CORE_LIBS ${APOGeT_LIBRARIES})
 message("  > Gui libraries " "${APOGeT_GUI_LIBRARIES}")
+list(APPEND GUI_LIBS ${APOGeT_GUI_LIBRARIES})
 
 find_package(PkgConfig)
 pkg_search_module(gvc libgvc libcgraph libcdt)
 if (${gvc_FOUND})
     add_definitions(-DWITH_GVC)
+    include_directories(${gvc_INCLUDE_DIRS})
+    list(APPEND CORE_LIBS ${gvc_LIBRARIES})
 endif()
 
 ################################################################################
@@ -80,9 +84,9 @@ ENDFUNCTION(PREPEND)
 
 set(CORE_SRC
     "genotype/es-hyperneat.cpp"
-    "cppn/phenotype.cpp"
+    "phenotype/cppn.cpp"
 )
-PREPEND(CPPN_SRC "src" ${CPPN_SRC})
+PREPEND(CORE_SRC "src" ${CORE_SRC})
 
 set(MISC_SRC
     "fixed_size_string.hpp"
@@ -109,7 +113,7 @@ PREPEND(MISC_SRC "src/misc" ${MISC_SRC})
 # )
 # PREPEND(SIMU_SRC "src/simu" ${SIMU_SRC})
 
-add_library(SIMU_OBJS OBJECT ${CPPN_SRC} ${MISC_SRC})
+add_library(SIMU_OBJS OBJECT ${CORE_SRC} ${MISC_SRC})
 
 ################################################################################
 ## Target (simulation)
@@ -117,8 +121,10 @@ add_library(SIMU_OBJS OBJECT ${CPPN_SRC} ${MISC_SRC})
 add_executable(
   cppn_test
   $<TARGET_OBJECTS:SIMU_OBJS>
-  "src/cppn/test.cpp")
-target_link_libraries(cppn_test ${SIMU_LIBS} ${APOGeT_LIBRARIES})
+  "src/tests/cppn.cpp")
+target_link_libraries(cppn_test ${CORE_LIBS})
+
+message("core libs: ${CORE_LIBS}")
 
 ################################################################################
 ## Target (evaluation)
@@ -200,10 +206,10 @@ target_link_libraries(cppn_test ${SIMU_LIBS} ${APOGeT_LIBRARIES})
 #  target_link_libraries(test-cgp ${APOGeT_LIBRARIES})
 #endif()
 
-#if (NOT CLUSTER_BUILD)
-#################################################################################
-### Sources files (visualizer)
-#################################################################################
+if (NOT CLUSTER_BUILD)
+################################################################################
+## Sources files (visualizer)
+################################################################################
 
 #    set(VISU_SRC
 #        "critter.h"
@@ -267,18 +273,19 @@ target_link_libraries(cppn_test ${SIMU_LIBS} ${APOGeT_LIBRARIES})
 #                                     ${QT_LIBS} ${MultiNEAT_LIBS})
 
 
-##################################################################################
-#### Target (visualizer)
-##################################################################################
+################################################################################
+## Target (gui test)
+################################################################################
 
-##    add_executable(
-##      pviewer
-##      $<TARGET_OBJECTS:SIMU_OBJS>
-##      "src/phylogenyviewer.cpp"
-##    )
-##    set_property(TARGET pviewer PROPERTY AUTOMOC ON)
-##    target_link_libraries(pviewer ${QT_LIBS} ${APOGeT_LIBRARIES}
-##                                             ${APOGeT_GUI_LIBRARIES})
+    add_executable(
+      cppn_gui_test
+      $<TARGET_OBJECTS:SIMU_OBJS>
+      "src/tests/gui_cppn.cpp"
+    )
+    set_property(TARGET cppn_gui_test PROPERTY AUTOMOC ON)
+    target_link_libraries(cppn_gui_test ${QT_LIBS} ${CORE_LIBS}
+                                        ${APOGeT_LIBRARIES}
+                                        ${APOGeT_GUI_LIBRARIES})
 
 
 ##################################################################################
@@ -314,7 +321,7 @@ target_link_libraries(cppn_test ${SIMU_LIBS} ${APOGeT_LIBRARIES})
 #                                    ${QT_LIBS} ${MultiNEAT_LIBS})
 
 
-#endif()
+endif()
 
 ################################################################################
 ## Target (tester may be with gui)

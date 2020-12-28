@@ -7,77 +7,87 @@
 
 namespace genotype {
 
-class CPPN : public genotype::EDNA<CPPN> {
+class ES_HyperNEAT : public genotype::EDNA<ES_HyperNEAT> {
   APT_EDNA()
 
 public:
 
-  template <typename T>
-  struct ID_CMP {
-    using ID = decltype(T::id);
-    using is_transparent = void;
-    bool operator() (ID lhs, ID rhs) const {  return lhs < rhs; }
+  struct CPPN {
 
-    bool operator() (const T &lhs, ID rhs) const {
-      return operator() (lhs.id, rhs);
-    }
+    template <typename T>
+    struct ID_CMP {
+      using ID = decltype(T::id);
+      using is_transparent = void;
+      bool operator() (ID lhs, ID rhs) const {  return lhs < rhs; }
 
-    bool operator() (ID lhs, const T &rhs) const {
-      return operator() (lhs, rhs.id);
-    }
+      bool operator() (const T &lhs, ID rhs) const {
+       return operator() (lhs.id, rhs);
+      }
 
-    bool operator() (const T &lhs, const T &rhs) const {
-      return operator() (lhs.id, rhs.id);
-    }
-  };
+      bool operator() (ID lhs, const T &rhs) const {
+       return operator() (lhs, rhs.id);
+      }
 
-  struct Node {
-    HAS_GENOME_ID(Node)
-    using FuncID = utils::fixed_string<4>;
-    FuncID func;
+      bool operator() (const T &lhs, const T &rhs) const {
+       return operator() (lhs.id, rhs.id);
+      }
+    };
 
-    Node (ID id, FuncID f) : id(id), func(f) {}
-  };
-  using Nodes = std::set<Node, ID_CMP<Node>>;
+    struct Node {
+      HAS_GENOME_ID(Node)
+      using FuncID = utils::fixed_string<4>;
+      FuncID func;
 
-  struct Link {
-    HAS_GENOME_ID(Link)
-    Node::ID nid_src, nid_dst;
-    float weight;
+      Node (ID id, FuncID f) : id(id), func(f) {}
+    };
+    using Nodes = std::set<Node, ID_CMP<Node>>;
 
-    Link (ID id, Node::ID in, Node::ID out, float w)
-      : id(id), nid_src(in), nid_dst(out), weight(w) {}
-  };
-  using Links = std::set<Link, ID_CMP<Link>>;
+    struct Link {
+      HAS_GENOME_ID(Link)
+      Node::ID nid_src, nid_dst;
+      float weight;
 
-  struct Data {
+      Link (ID id, Node::ID in, Node::ID out, float w)
+       : id(id), nid_src(in), nid_dst(out), weight(w) {}
+    };
+    using Links = std::set<Link, ID_CMP<Link>>;
+
     Nodes nodes;
     Links links;
     uint inputs, outputs;
     Node::ID nextNID;
     Link::ID nextLID;
-  } data;
+    std::array<Node::FuncID, 2> outputFunctions;
 
-  CPPN(void);
+    CPPN (void) : inputs(0), outputs(0) {}
 
-private:
-  friend std::ostream& operator<< (std::ostream &os, const Data &d);
+#ifdef WITH_GVC
+    void graphviz_render (const std::string &path);
+#endif
 
-  friend void to_json (json &j, const Data &d);
-  friend void from_json (const json &j, Data &d);
+    static CPPN fromDot (const std::string &data);
 
-  friend bool operator== (const Data &lhs, const Data &rhs);
-  friend void assertEqual(const Data &lhs, const Data &rhs, bool deepcopy);
+    friend std::ostream& operator<< (std::ostream &os, const CPPN &d);
+
+    friend void to_json (json &j, const CPPN &d);
+    friend void from_json (const json &j, CPPN &d);
+
+    friend bool operator== (const CPPN &lhs, const CPPN &rhs);
+    friend void assertEqual(const CPPN &lhs, const CPPN &rhs, bool deepcopy);
+  } cppn;
+
+  ES_HyperNEAT(void) {}
 };
-DECLARE_GENOME_FIELD(CPPN, CPPN::Data, data)
+DECLARE_GENOME_FIELD(ES_HyperNEAT, ES_HyperNEAT::CPPN, cppn)
 
 } // end of namespace genotype
 
 namespace config {
 
 template <>
-struct EDNA_CONFIG_FILE(CPPN) {
-  using FunctionSet = std::set<genotype::CPPN::Node::FuncID>;
+struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
+  using FuncID = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
+  using FunctionSet = std::set<FuncID>;
   DECLARE_PARAMETER(FunctionSet, functions)
   DECLARE_PARAMETER(Bounds<float>, weightBounds)
 
@@ -86,8 +96,11 @@ struct EDNA_CONFIG_FILE(CPPN) {
 
   DECLARE_PARAMETER(bool, withLEO)
 
-  DECLARE_PARAMETER(MutationRates, d_mutationRates)
-  DECLARE_PARAMETER(DistanceWeights, d_distanceWeights)
+  using OFunctions = decltype(genotype::ES_HyperNEAT::CPPN::outputFunctions);
+  DECLARE_PARAMETER(OFunctions, outputFunctions)
+
+  DECLARE_PARAMETER(MutationRates, cppn_mutationRates)
+  DECLARE_PARAMETER(DistanceWeights, cppn_distanceWeights)
 
   DECLARE_PARAMETER(MutationRates, mutationRates)
   DECLARE_PARAMETER(DistanceWeights, distanceWeights)
