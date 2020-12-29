@@ -1,5 +1,8 @@
 CMakeLists.txt.user
 
+*.eps
 *.pdf
+*.png
+*.ps
 
 build_*/

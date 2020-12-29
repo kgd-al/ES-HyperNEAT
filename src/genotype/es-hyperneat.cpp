@@ -98,13 +98,13 @@ void CPPN::graphviz_render(const std::string &path) {
 
   // input nodes
   for (uint i=0; i<inputs; i++)
-    ag_nodes[NID(i)] = graphviz_add_node(g_i, "I", NID(i));//ilabel(i, inputs));
+    ag_nodes[NID(i)] = graphviz_add_node(g_i, ilabel(i, inputs));
 
   // output nodes (and their labels)
   for (uint i=0; i<outputs; i++) {
     auto n = ag_nodes[NID(i+inputs)]
            = graphviz_add_node(g_o, "O", NID(i+inputs));
-//    graphviz_set(n, "label", "");
+    graphviz_set(n, "label", "");
     graphviz_set(n, "image", "ps/", outputFunctions.at(i), img_ext);
     graphviz_set(n, "shape", "plain");
 
@@ -116,7 +116,7 @@ void CPPN::graphviz_render(const std::string &path) {
   // internal nodes
   for (const Node &n: nodes) {
     auto gn = ag_nodes[n.id] = graphviz_add_node(g_h, "H", n.id);
-//    graphviz_set(gn, "label", "");
+    graphviz_set(gn, "label", "");
     graphviz_set(gn, "image", "ps/", n.func, img_ext);
     graphviz_set(gn, "shape", "plain");
   }
@@ -157,6 +157,10 @@ void CPPN::graphviz_render(const std::string &path) {
   gvRenderFilename(gvc, g, ext, path.c_str());
   gvFreeLayout(gvc, g);
   agclose(g);
+}
+
+void CPPN::graphviz_build_graph(void) {
+
 }
 #endif
 

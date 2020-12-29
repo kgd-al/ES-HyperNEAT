@@ -46,6 +46,9 @@ public:
   auto inputs (void) const {  return Inputs((_inputs.size()>>2)<<2); }
   auto outputs (void) const {  return Outputs(_outputs.size()); }
 
+  auto inputSize (void) const { return _inputs.size();  }
+  auto outputSize (void) const {  return _outputs.size();  }
+
   using Inputs = std::vector<float>;
   using Outputs = Inputs;
   void operator() (const Inputs &inputs, Outputs &outputs);

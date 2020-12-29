@@ -32,38 +32,66 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   std::map<NID, Node_ptr> nodes;
 
   cppn._inputs.resize(cppn_g.inputs);
-  for (uint i=0; i<cppn_g.inputs; i++)
+  for (uint i=0; i<cppn_g.inputs; i++) {
+    std::cerr << "(I) " << NID(i) << " " << i << std::endl;
     nodes[NID(i)] = cppn._inputs[i] = std::make_shared<INode>();
+  }
 
   cppn._outputs.resize(cppn_g.outputs);
-  for (uint i=0; i<cppn_g.outputs; i++)
-    nodes[NID(i+cppn_g.outputs)] = cppn._outputs[i] = fnode(ofuncs[i]);
+  for (uint i=0; i<cppn_g.outputs; i++) {
+    std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
+              << ofuncs[i] << std::endl;
+    nodes[NID(i+cppn_g.inputs)] = cppn._outputs[i] = fnode(ofuncs[i]);
+  }
 
   uint i=0;
   cppn._hidden.resize(cppn_g.nodes.size());
-  for (const CPPN_g::Node &n_g: cppn_g.nodes)
+  for (const CPPN_g::Node &n_g: cppn_g.nodes) {
+    std::cerr << "(H) " << n_g.id << " " << i << " " << n_g.func << std::endl;
     nodes[n_g.id] = cppn._hidden[i++] = fnode(n_g.func);
+  }
+
+  for (const CPPN_g::Link &l_g: cppn_g.links) {
+    FNode &n = dynamic_cast<FNode&>(*nodes.at(l_g.nid_dst));
+    n.links.push_back({l_g.weight, nodes.at(l_g.nid_src)});
+  }
 
   return cppn;
 }
 
 float CPPN::INode::value (void) {
+//  utils::IndentingOStreambuf indent (std::cout);
+//  std::cout << "I: " << data << std::endl;
   return data;
 }
 
 float CPPN::FNode::value (void) {
+//  utils::IndentingOStreambuf indent (std::cout);
+//  std::cout << "F:\n";
   if (std::isnan(data)) {
     data = 0;
     for (Link &l: links)
       data += l.weight * l.node->value();
+//    std::cout << func(data) << " = func(" << data << ")\n";
+    data = func(data);
   }
+//  std::cout << data << "\n";
   return data;
+}
+
+std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
+  os << "[";
+  for (float f: v)  os << " " << f;
+  return os << " ]";
 }
 
 void CPPN::operator() (const Inputs &inputs, Outputs &outputs) {
   bool bias = ((_inputs.size() % 2) == 1);
   assert(inputs.size() == _inputs.size()-bias);
   assert(outputs.size() == _outputs.size());
+
+//  utils::IndentingOStreambuf indent (std::cout);
+//  std::cout << "compute step\n" << inputs << std::endl;
 
   for (uint i=0; i<inputs.size(); i++)  _inputs[i]->data = inputs[i];
   if (bias) _inputs.back()->data = 1;
@@ -72,6 +100,8 @@ void CPPN::operator() (const Inputs &inputs, Outputs &outputs) {
   for (auto &n: _outputs)  n->data = NAN;
 
   for (uint i=0; i<outputs.size(); i++) outputs[i] = _outputs[i]->value();
+
+//  std::cout << outputs << "\n" << std::endl;
 }
 
 } // end of namespace phenotype
