@@ -29,8 +29,15 @@ public:
 
   explicit operator std::string (void) const {
     auto last = std::prev(_data.end());
-    while (*last == '\0')  --last;
+    while (*last == '\0') {
+      if (last == _data.begin())  return std::string();
+      --last;
+    }
     return std::string(_data.begin(), std::next(last));
+  }
+
+  bool empty (void) const {
+    return _data.front() == '\0';
   }
 
   friend void to_json(nlohmann::json &j, const fixed_string &s) {

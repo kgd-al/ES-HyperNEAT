@@ -4,6 +4,7 @@
 #include "kgd/genotype/selfawaregenome.hpp"
 
 #include "../misc/fixed_size_string.hpp"
+#include "../misc/gvc_wrapper.h"
 
 namespace genotype {
 
@@ -62,7 +63,8 @@ public:
     CPPN (void) : inputs(0), outputs(0) {}
 
 #ifdef WITH_GVC
-    void graphviz_render (const std::string &path);
+    gvc::GraphWrapper graphviz_build_graph (const char *ext) const;
+    void graphviz_render_graph (const std::string &path) const;
 #endif
 
     static CPPN fromDot (const std::string &data);

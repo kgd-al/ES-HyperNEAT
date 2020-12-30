@@ -1,70 +1,20 @@
 #include "es-hyperneat.h"
 
-#ifdef WITH_GVC
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <graphviz/gvc.h>
-#ifdef __cplusplus
-}
-#endif
-#endif
-
 using CPPN = genotype::ES_HyperNEAT::CPPN;
 
 namespace genotype {
 
 #ifdef WITH_GVC
-auto graphviz_context (void) {
-  static const auto c = std::unique_ptr<GVC_t, decltype(&gvFreeContext)>(
-        gvContext(), &gvFreeContext);
-  return c.get();
-}
+gvc::GraphWrapper CPPN::graphviz_build_graph(const char *ext) const {
+  using namespace gvc;
 
-template <typename ...ARGS>
-auto toCString (ARGS... args) {
-  std::ostringstream oss;
-  ((oss << std::forward<ARGS>(args)), ...);
-  auto str = oss.str();
-  auto raw = std::unique_ptr<char[]>(new char [str.length()+1]);
-  strcpy(raw.get(), str.c_str());
-  return raw;
-}
-
-template <typename... ARGS>
-auto graphviz_add_node(Agraph_t *g, ARGS... args) {
-  auto str = toCString(args...);
-  return agnode(g, str.get(), 1);
-}
-
-template <typename ...ARGS>
-auto graphviz_add_edge(Agraph_t *g, Agnode_t *src, Agnode_t *dst,
-                       ARGS... args) {
-  auto str = toCString(args...);
-  return agedge(g, src, dst, str.get(), 1);
-}
-
-template <typename T>
-auto graphviz_add_graph(Agraph_t *g, const T &name) {
-  auto str = toCString(name);
-  return agsubg(g, str.get(), 1);
-}
-
-template <typename O, typename K, typename ...ARGS>
-auto graphviz_set(O *o, const K &key, ARGS... args) {
-  auto k_str = toCString(key), v_str = toCString(args...),
-      v_def = toCString("");
-  agsafeset(o, k_str.get(), v_str.get(), v_def.get());
-}
-
-void CPPN::graphviz_render(const std::string &path) {
   static constexpr auto ilabel = [] (uint index, uint total) {
     if (index == total-1) return std::string("B");
     else {
       static constexpr std::array<char, 3> coords { 'x', 'y', 'z' };
       std::ostringstream oss;
       auto m = (total-1)/2;
-      oss << coords.at(index%m) << "_" << index/m;
+      oss << coords.at(index%m) << "<sub>" << index/m << "</sub>";
       return oss.str();
     }
   };
@@ -80,88 +30,94 @@ void CPPN::graphviz_render(const std::string &path) {
     return std::string(".png");
   };
 
-  const char *ext = path.data()+(path.find_last_of('.')+1);
   const auto img_ext = img_exts(ext);
 
   using NID = Node::ID;
-  GVC_t *gvc = graphviz_context();
-  Agraph_t *g = agopen((char*)"g", Agdirected, NULL),
-           *g_i = graphviz_add_graph(g, "i"),
-           *g_h = graphviz_add_graph(g, "h"),
-           *g_o = graphviz_add_graph(g, "o"),
-           *g_ol = graphviz_add_graph(g, "ol");
-  graphviz_set(g, "rankdir", "BT");
-  graphviz_set(g_i, "rank", "source");
-  graphviz_set(g_o, "rank", "same");
-  graphviz_set(g_ol, "rank", "sink");
-  std::map<NID, Agnode_t*> ag_nodes, ag_lnodes;
+  GraphWrapper g ("cppn");
+  Agraph_t *g_i = g.add_graph("i"),
+           *g_h = g.add_graph("h"),
+           *g_o = g.add_graph("o");
+
+//  set(g.graph, "rankdir", "BT");
+  set(g_i, "rank", "source");
+  set(g_o, "rank", "same");
+  std::map<NID, Agnode_t*> ag_nodes;
 
   // input nodes
-  for (uint i=0; i<inputs; i++)
-    ag_nodes[NID(i)] = graphviz_add_node(g_i, ilabel(i, inputs));
+  for (uint i=0; i<inputs; i++) {
+    auto n = ag_nodes[NID(i)] = add_node(g_i, "I", i);
+    set_html(g.graph, n, "label", ilabel(i, inputs));
+    set(n, "shape", "plain");
+  }
 
   // output nodes (and their labels)
   for (uint i=0; i<outputs; i++) {
-    auto n = ag_nodes[NID(i+inputs)]
-           = graphviz_add_node(g_o, "O", NID(i+inputs));
-    graphviz_set(n, "label", "");
-    graphviz_set(n, "image", "ps/", outputFunctions.at(i), img_ext);
-    graphviz_set(n, "shape", "plain");
-
-    auto l = ag_lnodes[NID(i+inputs)] =
-        graphviz_add_node(g_ol, olabels.at(i));
-    graphviz_set(l, "shape", "plaintext");
+    auto nid = NID(i+inputs);
+    auto n = ag_nodes[nid] = add_node(g_o, "O", nid);
+    set(n, "label", "");
+    set(n, "kgdfunc", outputFunctions.at(i));
+    set(n, "image", "ps/", outputFunctions.at(i), img_ext);
+    set(n, "width", "0.5in");
+    set(n, "height", "0.5in");
+    set(n, "margin", "0");
+    set(n, "fixedsize", "shape");
+    set(n, "label", olabels.at(i));
   }
 
   // internal nodes
   for (const Node &n: nodes) {
-    auto gn = ag_nodes[n.id] = graphviz_add_node(g_h, "H", n.id);
-    graphviz_set(gn, "label", "");
-    graphviz_set(gn, "image", "ps/", n.func, img_ext);
-    graphviz_set(gn, "shape", "plain");
+    auto gn = ag_nodes[n.id] = add_node(g_h, "H", n.id);
+    set(gn, "label", "");
+    set(gn, "kgdfunc", n.func);
+    set(gn, "image", "ps/", n.func, img_ext);
+    set(gn, "width", "0.5in");
+    set(gn, "height", "0.5in");
+    set(gn, "margin", "0");
+    set(gn, "fixedsize", "shape");
   }
 
   // cppn edges
   for (const Link &l: links) {
     if (l.weight == 0) continue;
-    auto e = graphviz_add_edge(g, ag_nodes.at(l.nid_src),
-                               ag_nodes.at(l.nid_dst), "E", l.id);
-    graphviz_set(e, "color", l.weight < 0 ? "red" : "black");
+    auto e = g.add_edge(ag_nodes.at(l.nid_src), ag_nodes.at(l.nid_dst),
+                        "E", l.id);
+    set(e, "color", l.weight < 0 ? "red" : "black");
     auto w = std::fabs(l.weight) / config_t::weightBounds().max;
-    graphviz_set(e, "penwidth", 5*w*w);
-    graphviz_set(e, "weight", w);
-//    graphviz_set(e, "label", w);
-  }
-
-  // edges to output labels
-  for (const auto &p: ag_lnodes) {
-    auto l = graphviz_add_edge(g, ag_nodes.at(p.first), p.second,
-                               "EL", p.first);
-    graphviz_set(l, "len", "0.1");
+    set(e, "penwidth", 3.75*w+.25);
+    set(e, "weight", w);
+//    set(e, "label", w);
   }
 
   // enforce i/o order
   for (uint i=0; i<inputs-1; i++) {
-    auto e = graphviz_add_edge(g, ag_nodes.at(NID(i)), ag_nodes.at(NID(i+1)),
-                               "EIO", i);
-    graphviz_set(e, "style", "invis");
+    auto e = g.add_edge(ag_nodes.at(NID(i)), ag_nodes.at(NID(i+1)), "EIO", i);
+    set(e, "style", "invis");
   }
   for (uint i=0; i<outputs-1; i++) {
-    auto e = graphviz_add_edge(g, ag_nodes.at(NID(i+inputs)),
-                               ag_nodes.at(NID(i+1+inputs)), "EIO", i);
-    graphviz_set(e, "style", "invis");
+    auto e = g.add_edge(ag_nodes.at(NID(i+inputs)),
+                        ag_nodes.at(NID(i+1+inputs)),
+                        "EIO", i);
+    set(e, "style", "invis");
   }
 
-  gvLayout(gvc, g, "dot");
-
-  gvRenderFilename(gvc, g, ext, path.c_str());
-  gvFreeLayout(gvc, g);
-  agclose(g);
+  return g;
 }
 
-void CPPN::graphviz_build_graph(void) {
+void CPPN::graphviz_render_graph(const std::string &path) const {
+  auto ext_i = path.find_last_of('.')+1;
+  const char *ext = path.data()+ext_i;
 
+  gvc::GraphWrapper g = graphviz_build_graph(ext);
+
+  g.layout("dot");
+  gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());
+//  gvRender(gvc::context(), g.graph, "dot", stdout);
+
+  auto dpath = path;
+  dpath.replace(ext_i, 3, "dot");
+  gvRenderFilename(gvc::context(), g.graph, "dot", dpath.c_str());
 }
+
 #endif
 
 CPPN CPPN::fromDot(const std::string &data) {
@@ -179,7 +135,7 @@ CPPN CPPN::fromDot(const std::string &data) {
     if (std::regex_match(line, matches, header)/* && matches.size() == 3*/) {
       std::istringstream (matches[1]) >> cppn.inputs;
       std::istringstream (matches[2]) >> cppn.outputs;
-      std::cout << "\tCPPN: i=" << cppn.inputs << ", o=" << cppn.outputs << "\n";
+//      std::cout << "\tCPPN: i=" << cppn.inputs << ", o=" << cppn.outputs << "\n";
       cppn.nextNID = NID(cppn.inputs+cppn.outputs);
       cppn.nextLID = LID(0);
 
@@ -193,7 +149,7 @@ CPPN CPPN::fromDot(const std::string &data) {
         cppn.outputFunctions[id] = func;
       } else
         cppn.nodes.emplace(NID(id), func);
-      std::cout << "\tnode: " << matches[1] << ", f=" << matches[2] << "\n";
+//      std::cout << "\tnode: " << matches[1] << ", f=" << matches[2] << "\n";
 
     } else if (std::regex_match(line, matches, link) && matches.size() > 2) {
       uint lid, rid;
@@ -203,12 +159,12 @@ CPPN CPPN::fromDot(const std::string &data) {
       std::istringstream (matches[3]) >> w;
       cppn.links.emplace(CPPN::Link::ID::next(cppn.nextLID),
                          NID(lid-1), NID(rid-1), w);
-      std::cout << "\tlink: " << matches[1] << " to " << matches[2]
-                << " w=" << matches[3] << "\n";
-    } else
-      std::cout << "unmatched line '" << line << "'\n";
+//      std::cout << "\tlink: " << matches[1] << " to " << matches[2]
+//                << " w=" << matches[3] << "\n";
+    }/* else
+      std::cout << "unmatched line '" << line << "'\n";*/
   }
-  std::cout << std::endl;
+//  std::cout << std::endl;
   return cppn;
 }
 

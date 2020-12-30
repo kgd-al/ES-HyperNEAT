@@ -8,6 +8,8 @@ namespace phenotype {
 class CPPN {
 public:
   using Function = float (*) (float);
+  static const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
+                        CPPN::Function> functions;
 
 private:
   struct Node_base {

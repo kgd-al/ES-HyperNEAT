@@ -44,9 +44,16 @@ message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 ## Managing uneven support of std 17 filesystem
 ################################################################################
 
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    set(FS_LIB stdc++fs)
+    add_definitions(-DEXPERIMENTAL_STD_FILESYSTEM)
+    message("> Using experimental g++ std 17 filesystem support")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   link_directories(/usr/local/opt/llvm/lib/)
+  set(FS_LIB c++fs)
+  message("> Using experimental clang std 17 filesystem support")
 endif()
 
 
@@ -85,11 +92,13 @@ ENDFUNCTION(PREPEND)
 set(CORE_SRC
     "genotype/es-hyperneat.cpp"
     "phenotype/cppn.cpp"
+    "phenotype/ann.cpp"
 )
 PREPEND(CORE_SRC "src" ${CORE_SRC})
 
 set(MISC_SRC
     "fixed_size_string.hpp"
+    "gvc_wrapper.cpp"
 )
 PREPEND(MISC_SRC "src/misc" ${MISC_SRC})
 
@@ -211,22 +220,15 @@ if (NOT CLUSTER_BUILD)
 ## Sources files (visualizer)
 ################################################################################
 
-#    set(VISU_SRC
-#        "critter.h"
-#        "critter.cpp"
-#        "foodlet.h"
-#        "foodlet.cpp"
-#        "environment.h"
-#        "environment.cpp"
-#        "graphicsimulation.h"
-#        "graphicsimulation.cpp"
-#        "config.h"
-#        "config.cpp"
-
-#        "b2debugdrawer.h"
-#        "b2debugdrawer.cpp"
-#    )
-#    PREPEND(VISU_SRC "src/visu" ${VISU_SRC})
+    set(GUI_SRC
+        "gvcqtinterface.cpp"
+        "cppn/node.cpp"
+        "cppn/edge.cpp"
+        "cppn/viewer.cpp"
+        "cppn/outputsummary.cpp"
+        "es_hyperneatpanel.cpp"
+    )
+    PREPEND(GUI_SRC "src/gui" ${GUI_SRC})
 
 #    set(GUI_SRC
 #        "mainview.h"
@@ -250,11 +252,11 @@ if (NOT CLUSTER_BUILD)
 #        "qt-collapsible-section/Section.cpp"
 #    )
 
-#    add_library(VISU_OBJS OBJECT ${VISU_SRC} ${GUI_SRC} ${GUI_MISC_SRC})
-#    target_include_directories(VISU_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
-#    target_compile_definitions(VISU_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
-#    set_property(TARGET VISU_OBJS PROPERTY POSITION_INDEPENDENT_CODE ON)
-#    set_property(TARGET VISU_OBJS PROPERTY AUTOMOC ON)
+    add_library(GUI_OBJS OBJECT ${GUI_SRC})
+    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
+    set_property(TARGET GUI_OBJS PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set_property(TARGET GUI_OBJS PROPERTY AUTOMOC ON)
 
 
 ##################################################################################
@@ -280,6 +282,7 @@ if (NOT CLUSTER_BUILD)
     add_executable(
       cppn_gui_test
       $<TARGET_OBJECTS:SIMU_OBJS>
+      $<TARGET_OBJECTS:GUI_OBJS>
       "src/tests/gui_cppn.cpp"
     )
     set_property(TARGET cppn_gui_test PROPERTY AUTOMOC ON)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd $(dirname $0)
-mkdir -p tmp/
+mkdir -pv tmp/
 cd tmp
 
 functions="
@@ -27,5 +27,5 @@ done
 
 cd ..
 rm -r tmp
-ls -lh *ps
+ls -lh *ps *.png
           
