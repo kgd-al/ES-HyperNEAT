@@ -78,9 +78,14 @@ public:
     friend void assertEqual(const CPPN &lhs, const CPPN &rhs, bool deepcopy);
   } cppn;
 
+  float recurrentDY;
+  uint substeps;
+
   ES_HyperNEAT(void) {}
 };
 DECLARE_GENOME_FIELD(ES_HyperNEAT, ES_HyperNEAT::CPPN, cppn)
+DECLARE_GENOME_FIELD(ES_HyperNEAT, float, recurrentDY)
+DECLARE_GENOME_FIELD(ES_HyperNEAT, uint, substeps)
 
 } // end of namespace genotype
 
@@ -91,7 +96,9 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
   using FuncID = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
   using FunctionSet = std::set<FuncID>;
   DECLARE_PARAMETER(FunctionSet, functions)
-  DECLARE_PARAMETER(Bounds<float>, weightBounds)
+
+  using FBounds = Bounds<float>;
+  DECLARE_PARAMETER(FBounds, weightBounds)
 
   DECLARE_PARAMETER(int, substrateDimension)
   DECLARE_PARAMETER(bool, withBias)
@@ -103,6 +110,11 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
 
   DECLARE_PARAMETER(MutationRates, cppn_mutationRates)
   DECLARE_PARAMETER(DistanceWeights, cppn_distanceWeights)
+
+  DECLARE_PARAMETER(FBounds, recurrentDYBounds)
+
+  using UBounds = Bounds<uint>;
+  DECLARE_PARAMETER(UBounds, substepsBounds)
 
   DECLARE_PARAMETER(MutationRates, mutationRates)
   DECLARE_PARAMETER(DistanceWeights, distanceWeights)

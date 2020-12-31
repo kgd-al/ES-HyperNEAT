@@ -29,6 +29,7 @@ private:
     float min;
   };
   struct PointCMP {
+    using is_transparent = void;
     bool operator() (const Point &lhs, const Point &rhs) const {
       if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
       return lhs.x() < rhs.x();
@@ -75,6 +76,7 @@ public:
   using Coordinates = std::vector<Point>;
   static ANN build (const Coordinates &inputs, const Coordinates &outputs,
                     const Coordinates &hidden,
+                    const genotype::ES_HyperNEAT &genome,
                     const phenotype::CPPN &cppn);
 private:
   using NeuronsMap = std::map<Point, Neuron::ptr, PointCMP>;

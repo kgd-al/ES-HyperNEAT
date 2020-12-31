@@ -461,8 +461,19 @@ struct genotype::Aggregator<CPPN, GENOME> {
   }
 };
 
-DEFINE_GENOME_MUTATION_RATES({ EDNA_PAIR(cppn, 1) })
-DEFINE_GENOME_DISTANCE_WEIGHTS({ EDNA_PAIR(cppn, 1) })
+DEFINE_GENOME_FIELD_WITH_BOUNDS(float, recurrentDY, "dy", 0.f, 0.f, .5f, 2.f)
+DEFINE_GENOME_FIELD_WITH_BOUNDS(uint, substeps, "n", 1u, 1u, 2u, 5u)
+
+DEFINE_GENOME_MUTATION_RATES({
+  EDNA_PAIR(       cppn, 95),
+  EDNA_PAIR(recurrentDY, 3),
+  EDNA_PAIR(   substeps, 2)
+})
+DEFINE_GENOME_DISTANCE_WEIGHTS({
+  EDNA_PAIR(       cppn, 95),
+  EDNA_PAIR(recurrentDY, 3),
+  EDNA_PAIR(   substeps, 2)
+})
 
 #undef GENOME
 

@@ -24,12 +24,14 @@ int main (int argc, char **argv) {
     8 -> 7 [+1]; # G1 to leo
   )");
 
+  genome.recurrentDY = 2;
+
   phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
   phenotype::ANN ann = phenotype::ANN::build(
     { { -1, -1 }, { 0, -1}, { 1, -1 } },
-    { { 0, 0 } },
     { { -.5, 1 }, { 0, 1}, { .5, 1 } },
-    cppn
+    { { 0, 0 } },
+    genome, cppn
   );
 
   gui::ES_HyperNEATPanel p;
@@ -38,7 +40,7 @@ int main (int argc, char **argv) {
 
   genome.cppn.graphviz_render_graph("cppn_genotype.png");
   p._cppnViewer->render("cppn_qt.pdf");
-  ann.graphviz_render_graph("ann_phenotype.png");
+  ann.graphviz_render_graph("ann_phenotype.pdf");
   p._annViewer->render("ann_qt.pdf");
 
   return app.exec();

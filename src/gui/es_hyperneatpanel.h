@@ -1,7 +1,7 @@
 #ifndef ES_HYPERNEATPANEL_H
 #define ES_HYPERNEATPANEL_H
 
-#include <QWidget>
+#include <QLabel>
 
 #include "cppn/viewer.h"
 #include "cppn/outputsummary.h"
@@ -14,6 +14,7 @@ struct ES_HyperNEATPanel : public QWidget {
   cppn::Viewer *_cppnViewer;
   cppn::OutputSummary *_cppnOViewer;
   ann::Viewer *_annViewer;
+  std::map<std::string, QLabel*> _otherFields;
 
   ES_HyperNEATPanel (QWidget *parent = nullptr);
   void setData (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,

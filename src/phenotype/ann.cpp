@@ -12,7 +12,8 @@ std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
 ANN::ANN(void){}
 
 ANN ANN::build (const Coordinates &inputs, const Coordinates &outputs,
-                const Coordinates &hidden, const CPPN &cppn) {
+                const Coordinates &hidden,
+                const genotype::ES_HyperNEAT &genome, const CPPN &cppn) {
   ANN ann;
 #ifndef CLUSTER_BUILD
   NeuronsMap &neurons = ann._neurons;
@@ -34,11 +35,18 @@ ANN ANN::build (const Coordinates &inputs, const Coordinates &outputs,
   ann._outputs.resize(outputs.size());
   for (auto &p: outputs) neurons[p] = ann._outputs[i++] = ADD(p, Neuron::O);
 
-  for (auto &p: hidden) neurons[p] = ADD(p, Neuron::O);
+  for (auto &p: hidden) neurons[p] = ADD(p, Neuron::H);
 
   for (const auto &p: neurons) {
+    float minY = std::max(-1.f, p.first.y() - genome.recurrentDY);
     std::cerr << "neuron at " << p.first << "\n";
-
+    auto lb = neurons.lower_bound(RangeFinder{minY});
+    std::cerr << "\t" << std::distance(lb, neurons.end())
+              << " link candidates in [" << minY << ", 1]\n";
+    while (lb != neurons.end()) {
+      std::cerr << "\t\t-> " << lb->first << "\n";
+      ++lb;
+    }
   }
 
   return ann;
@@ -76,6 +84,9 @@ gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
     set(n, "pos", scale*p.first.x(), ",", scale*p.first.y());
     set(n, "width", ".1");
     set(n, "height", ".1");
+    set(n, "style", "filled");
+    if (p.second->type != Neuron::H)
+      set(n, "fillcolor", "black");
   }
 
   return g;
