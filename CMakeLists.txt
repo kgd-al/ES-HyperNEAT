@@ -226,6 +226,7 @@ if (NOT CLUSTER_BUILD)
         "cppn/edge.cpp"
         "cppn/viewer.cpp"
         "cppn/outputsummary.cpp"
+        "ann/viewer.cpp"
         "es_hyperneatpanel.cpp"
     )
     PREPEND(GUI_SRC "src/gui" ${GUI_SRC})
@@ -322,7 +323,6 @@ if (NOT CLUSTER_BUILD)
 #    target_link_libraries(visu-tool ${SIMU_LIBS}
 #                                    ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
 #                                    ${QT_LIBS} ${MultiNEAT_LIBS})
-
 
 endif()
 

@@ -2,6 +2,7 @@ CMakeLists.txt.user
 
 *.dot
 *.eps
+*.nop
 *.pdf
 *.png
 *.ps

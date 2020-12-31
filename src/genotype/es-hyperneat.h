@@ -63,7 +63,7 @@ public:
     CPPN (void) : inputs(0), outputs(0) {}
 
 #ifdef WITH_GVC
-    gvc::GraphWrapper graphviz_build_graph (const char *ext) const;
+    gvc::GraphWrapper graphviz_build_graph (const char *ext = "png") const;
     void graphviz_render_graph (const std::string &path) const;
 #endif
 
