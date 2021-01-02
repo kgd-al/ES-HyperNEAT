@@ -12,7 +12,11 @@ struct OutputViewer;
 struct OutputSummary : public QWidget {
   OutputSummary (QWidget *parent = nullptr);
 
-  void phenotypes (phenotype::CPPN &cppn, const QPointF &p);
+  void phenotypes (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,
+                   const QPointF &p);
+
+public slots:
+  void phenotypeAt(const QPointF &p);
 
 private:
   std::array<OutputViewer*, 4> _viewers;

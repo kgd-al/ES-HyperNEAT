@@ -18,6 +18,9 @@ public:
   void resizeEvent(QResizeEvent *e);
 
   void render (const QString &filename);
+
+signals:
+  void neuronHovered (const QPointF &p);
 };
 
 } // end of namespace gui::ann

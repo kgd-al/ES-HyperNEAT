@@ -7,9 +7,12 @@ namespace phenotype {
 
 class CPPN {
 public:
+  using FuncID = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
   using Function = float (*) (float);
-  static const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
-                        CPPN::Function> functions;
+  static const std::map<FuncID, CPPN::Function> functions;
+
+  struct Range { float min, max; };
+  static const std::map<FuncID, Range> functionRanges;
 
 private:
   struct Node_base {
@@ -53,7 +56,7 @@ public:
 
   using Inputs = std::vector<float>;
   using Outputs = Inputs;
-  void operator() (const Inputs &inputs, Outputs &outputs);
+  void operator() (const Inputs &inputs, Outputs &outputs) const;
 };
 
 } // end of namespace phenotype

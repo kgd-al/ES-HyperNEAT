@@ -7,10 +7,23 @@ namespace phenotype {
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
                CPPN::Function> CPPN::functions {
   F( "abs", std::fabs(x)),
-  F("sigm", 1.f / (1.f + std::exp(-x))),
+  F("sigm", 2.f / (1.f + std::exp(-x)) - 1.f),
   F( "sin", std::sin(x)),
   F("step", x < 0 ? 0 : 1),
   F("gaus", std::exp(-(x*x)/2)),
+  F(  "id", x)
+};
+#undef F
+
+#define F(NAME, MIN, MAX) { NAME, { MIN, MAX }}
+const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
+               CPPN::Range> CPPN::functionRanges {
+  F( "abs",  0, 1),
+  F("sigm", -1, 1),
+  F( "sin", -1, 1),
+  F("step",  0, 1),
+  F("gaus",  0, 1),
+  F(  "id", -1, 1),
 };
 #undef F
 
@@ -85,7 +98,7 @@ std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
   return os << " ]";
 }
 
-void CPPN::operator() (const Inputs &inputs, Outputs &outputs) {
+void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
   bool bias = ((_inputs.size() % 2) == 1);
   assert(inputs.size() == _inputs.size()-bias);
   assert(outputs.size() == _outputs.size());

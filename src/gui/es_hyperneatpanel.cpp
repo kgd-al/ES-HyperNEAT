@@ -4,6 +4,11 @@
 #include "es_hyperneatpanel.h"
 
 #include <QDebug>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QToolButton>
+#include "soundgenerator.h"
+#include <QMetaEnum>
 
 namespace gui {
 
@@ -47,8 +52,11 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
 
   for (const auto &p: genotype::ES_HyperNEAT::iterator())
     if (!p.second.get().isRecursive())
-      otherFields->addRow(QString::fromStdString(p.first),
+      otherFields->addRow(QString::fromStdString(p.first) + ":",
                           _otherFields[p.first] = new QLabel);
+
+  connect(_annViewer, &ann::Viewer::neuronHovered,
+          this, &ES_HyperNEATPanel::showCPPNOutputsAt);
 
   setLayout(layout);
 }
@@ -56,12 +64,20 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
 void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
                                  phenotype::CPPN &cppn,
                                  phenotype::ANN &ann) {
+  _genome = &genome;
+  _cppn = &cppn;
+  _ann = &ann;
+
   _cppnViewer->setCPPN(genome.cppn);
-  _cppnOViewer->phenotypes(cppn, {0,0});
+  _cppnOViewer->phenotypes(genome, cppn, {0,0});
   _annViewer->setANN(ann);
 
   for (const auto &p: _otherFields)
     p.second->setText(QString::fromStdString(genome.getField(p.first)));
+}
+
+void ES_HyperNEATPanel::showCPPNOutputsAt(const QPointF &p) {
+  _cppnOViewer->phenotypes(*_genome, *_cppn, p);
 }
 
 } // end of namespace gui

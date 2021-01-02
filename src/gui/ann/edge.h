@@ -1,11 +1,11 @@
-#ifndef CPPN_GRAPHIC_EDGE_H
-#define CPPN_GRAPHIC_EDGE_H
+#ifndef ANN_GRAPHIC_EDGE_H
+#define ANN_GRAPHIC_EDGE_H
 
 #include <QGraphicsObject>
 
 #include "../gvcqtinterface.h"
 
-namespace gui::cppn {
+namespace gui::ann {
 
 class Edge : public QGraphicsObject {
   Q_OBJECT
@@ -18,6 +18,8 @@ public:
   void paint (QPainter *painter, const QStyleOptionGraphicsItem*,
               QWidget*) override;
 
+  void setHovered (bool h);
+
 private:
 #ifndef NDEBUG
   QString _name;
@@ -28,10 +30,12 @@ private:
   float _width;
   QColor _color;
 
+  bool _hovered;
+
   void drawShape (const splines *spl, float scale, const QPointF &offset,
                   QPainterPath &edge, QPainterPath &arrow);
 };
 
-} // end of namespace gui::cppn
+} // end of namespace gui::ann
 
-#endif // CPPN_GRAPHIC_EDGE_H
+#endif // ANN_GRAPHIC_EDGE_H

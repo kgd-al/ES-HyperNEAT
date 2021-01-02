@@ -7,8 +7,8 @@
 
 namespace gui::cppn {
 
-Viewer::Viewer (QWidget *parent)
-  : QGraphicsView(new QGraphicsScene, parent) {
+Viewer::Viewer (QWidget *parent) : QGraphicsView(parent) {
+  setScene(new QGraphicsScene(this));
   setRenderHint(QPainter::Antialiasing);
 }
 

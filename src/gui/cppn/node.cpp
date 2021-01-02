@@ -32,6 +32,10 @@ void basePainter (QPainter *p) {
   p->drawLine(QPointF(-X_MAX, 0), QPointF(X_MAX, 0));
   p->drawLine(QPointF(0, -Y_MAX_SCALED*1.25), QPointF(0, Y_MAX_SCALED*1.25));
   p->fillPath(arrowHead, p->pen().color());
+
+//  for (int i: {-1, 1})
+//    p->drawLine(QPointF(-.1*X_MAX, i*Y_MAX_SCALED),
+//                QPointF( .1*X_MAX, i*Y_MAX_SCALED));
 }
 
 static constexpr uint PLOT_STEPS = 50;
@@ -104,7 +108,7 @@ Node::Node (Agnode_t *node, qreal scale) {
     // -> Make some space below for the text
 
     QFontMetrics fm (NodeFont);
-    _bounds.adjust(0, 0, 0, fm.height()*1.25);
+    _bounds.adjust(0, -fm.height()*1.25, 0, 0);
   }
 }
 
@@ -150,7 +154,7 @@ void Node::drawRichText(QPainter *painter) {
 
   QRectF rect = _bounds;
   if (fabs(_bounds.height() - _shape.height()) > MARGIN*2) {
-    rect.adjust(0, _shape.height(), 0, 0);
+    rect.adjust(0, 0, 0, -_shape.height());
 //    painter->drawRect(rect);
   }
 

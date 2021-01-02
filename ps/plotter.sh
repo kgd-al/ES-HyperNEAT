@@ -8,7 +8,7 @@ functions="
 abs;abs(x)
 gaus;e^(-(x*x)/4)
 id;x
-sigm;1/(1+e^-x)
+sigm;2/(1+e^-x)-1
 sin;sin(deg(x))
 step;x<0?0:1"
 

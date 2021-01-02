@@ -56,12 +56,13 @@ public:
     float value;
 
     using ptr = std::shared_ptr<Neuron>;
+    using wptr = std::weak_ptr<Neuron>;
     struct Link {
       float weight;
-      ptr dst;
+      wptr dst;
     };
     using Links = std::vector<Link>;
-    Links dests;
+    Links links;
   };
 
 #ifndef CLUSTER_BUILD

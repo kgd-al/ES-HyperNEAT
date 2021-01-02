@@ -216,9 +216,18 @@ message("core libs: ${CORE_LIBS}")
 #endif()
 
 if (NOT CLUSTER_BUILD)
-################################################################################
-## Sources files (visualizer)
-################################################################################
+
+    if (NOT S{NO_MULTIMEDIA})
+        list(APPEND QT_COMPONENTS Multimedia)
+        list(APPEND QT_LIBS Qt5::Multimedia)
+    endif()
+
+    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+    message("Qt found at " ${Qt5_DIR} " with components ${QT_COMPONENTS}")
+
+    ############################################################################
+    ## Sources files (visualizer)
+    ############################################################################
 
     set(GUI_SRC
         "gvcqtinterface.cpp"
@@ -226,10 +235,17 @@ if (NOT CLUSTER_BUILD)
         "cppn/edge.cpp"
         "cppn/viewer.cpp"
         "cppn/outputsummary.cpp"
+        "ann/node.cpp"
+        "ann/edge.cpp"
         "ann/viewer.cpp"
         "es_hyperneatpanel.cpp"
+        "soundgenerator.cpp"
     )
     PREPEND(GUI_SRC "src/gui" ${GUI_SRC})
+
+    set(EXT_SRC
+    )
+    PREPEND(EXT_SRC "src/external" ${EXT_SRC})
 
 #    set(GUI_SRC
 #        "mainview.h"
@@ -253,27 +269,30 @@ if (NOT CLUSTER_BUILD)
 #        "qt-collapsible-section/Section.cpp"
 #    )
 
-    add_library(GUI_OBJS OBJECT ${GUI_SRC})
+    add_library(GUI_OBJS OBJECT ${GUI_SRC} ${EXT_SRC})
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
+    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_COMPILE_DEFINITIONS>)
     set_property(TARGET GUI_OBJS PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET GUI_OBJS PROPERTY AUTOMOC ON)
 
 
 ##################################################################################
-#### Target (visualizer)
+#### Target (watchmaker)
 ##################################################################################
 
-#    add_executable(
-#      visualizer
-#      $<TARGET_OBJECTS:SIMU_OBJS>
-#      $<TARGET_OBJECTS:VISU_OBJS>
-#      "src/visualizer.cpp"
-#    )
-#    set_property(TARGET visualizer PROPERTY AUTOMOC ON)
-#    target_link_libraries(visualizer ${SIMU_LIBS}
+    add_executable(
+      watchmaker
+      $<TARGET_OBJECTS:SIMU_OBJS>
+      $<TARGET_OBJECTS:GUI_OBJS>
+      "src/gui/bwwindow.cpp"
+      "src/watchmaker.cpp"
+    )
+    set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
+    target_link_libraries(watchmaker ${CORE_LIBS}
 #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-#                                     ${QT_LIBS} ${MultiNEAT_LIBS})
+                                     ${QT_LIBS})
 
 
 ################################################################################

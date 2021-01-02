@@ -1,13 +1,17 @@
 #include <QPainter>
+#include <QGraphicsScene>
+#include <QPalette>
 
 #include "edge.h"
 
-namespace gui::cppn {
+#include <QDebug>
+
+namespace gui::ann {
 
 Edge::Edge (Agedge_t *edge, qreal scale) {
-  setZValue(-1);
-
   _name = QString(agnameof(edge));
+
+  setHovered(false);
 
   const splines* spl = ED_spl(edge);
   _bounds = toQt(spl->bb, scale);
@@ -23,11 +27,11 @@ Edge::Edge (Agedge_t *edge, qreal scale) {
 void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
 
-  QPen p = painter->pen();
-  p.setColor(_color);
-  painter->setPen(p);
+  painter->setPen(_hovered ? scene()->palette().color(QPalette::Highlight)
+                           : _color);
 
   painter->save();
+    QPen p = painter->pen();
     p.setWidthF(_width * p.widthF());
     p.setCapStyle(Qt::FlatCap);
     painter->setPen(p);
@@ -35,12 +39,19 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
   painter->restore();
 
   painter->save();
-//    p = painter->pen();
-//    p.setJoinStyle(Qt::MiterJoin);
-//    painter->setPen(p);
-//    painter->drawPath(_arrow);
-    painter->fillPath(_arrow, p.brush());
+    if constexpr (false) {
+      p = painter->pen();
+      p.setJoinStyle(Qt::MiterJoin);
+      painter->setPen(p);
+      painter->drawPath(_arrow);
+    } else
+      painter->fillPath(_arrow, p.brush());
   painter->restore();
+}
+
+void Edge::setHovered(bool h) {
+  _hovered = h;
+  setZValue(-2 + _hovered);
 }
 
 void Edge::drawShape (const splines *spl, float scale,
@@ -84,14 +95,15 @@ void Edge::drawShape (const splines *spl, float scale,
     edge.setElementPositionAt(edge.elementCount()-1,
                               lastPoint.x(), lastPoint.y());
 
+    float a = 0, b = .25;
     QPointF cross (-axis.y()/2, axis.x()/2);
-    arrow.moveTo(end-axis-cross);
-    arrow.lineTo(end);
-    arrow.lineTo(end-axis+cross);
+    arrow.moveTo(end-a*axis-cross);
+    arrow.lineTo(end-b*axis);
+    arrow.lineTo(end-a*axis+cross);
 //    arrow.lineTo(end);
-    arrow.lineTo(end-(1-arrowFolding)*axis);
+    arrow.lineTo(end-axis);
     arrow.closeSubpath();
   }
 }
 
-} // end of namespace gui::cppn
+} // end of namespace gui::ann

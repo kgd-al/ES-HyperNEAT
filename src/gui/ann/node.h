@@ -1,15 +1,16 @@
-#ifndef CPPN_GRAPHIC_NODE_H
-#define CPPN_GRAPHIC_NODE_H
+#ifndef ANN_GRAPHIC_NODE_H
+#define ANN_GRAPHIC_NODE_H
 
 #include <QGraphicsObject>
 #include <QTextDocument>
 
 #include "../gvcqtinterface.h"
 
-namespace gui::cppn {
+namespace gui::ann {
 
+struct Edge;
 class Node : public QGraphicsObject {
-
+  Q_OBJECT
 public:
   Node (Agnode_t *node, qreal scale);
 
@@ -17,20 +18,30 @@ public:
 
   void paint (QPainter *painter,
               const QStyleOptionGraphicsItem*, QWidget*) override;
+
+  void hoverEnterEvent(QGraphicsSceneHoverEvent *e) override;
+  void hoverLeaveEvent(QGraphicsSceneHoverEvent *e) override;
+
+  std::vector<Edge*> in, out;
+
+signals:
+  void hovered (const QPointF &p);
+
 private:
 #ifndef NDEBUG
   QString _name;
 #endif
 
+  QPointF _spos;
   QRectF _bounds, _shape;
+  bool _hovered;
 
-  bool _border;
+  QColor _fill;
   QTextDocument _label;
-  const QPainterPath *_fPath;
 
   void drawRichText(QPainter *painter);
 };
 
-} // end of namespace gui::cppn
+} // end of namespace gui::ann
 
-#endif // CPPN_GRAPHIC_NODE_H
+#endif // ANN_GRAPHIC_NODE_H

@@ -38,7 +38,7 @@ gvc::GraphWrapper CPPN::graphviz_build_graph(const char *ext) const {
            *g_h = g.add_graph("h"),
            *g_o = g.add_graph("o");
 
-//  set(g.graph, "rankdir", "BT");
+  set(g.graph, "rankdir", "BT");
   set(g_i, "rank", "source");
   set(g_o, "rank", "same");
   std::map<NID, Agnode_t*> ag_nodes;
