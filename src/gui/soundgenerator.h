@@ -18,7 +18,7 @@ namespace gui {
 class SoundGenerator : public QObject {
   Q_OBJECT
 public:
-  static constexpr uint CHANNELS = 1;
+  static constexpr uint CHANNELS = 3;
   static constexpr float STEP = 1;
   static constexpr float DURATION = 5;
 

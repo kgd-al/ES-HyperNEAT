@@ -45,14 +45,14 @@ int main (int argc, char **argv) {
   p.show();
 
   gui::SoundGenerator sg;
-//  sg.setInstrument(gui::SoundGenerator::SAW);
-//  sg.vocalisation({ 0, 1, 0,
-//                    0, 1, 1,
-//                    0, 0, 1,
-//                    1, 0, 1,
-//                    1, 0, 0
-//                  });
-  sg.vocalisation({ 0, 1, 1, 0, 1 });
+  sg.setInstrument(gui::SoundGenerator::SAW);
+  sg.vocalisation({ 0, 1, 0,
+                    0, 1, 1,
+                    0, 0, 1,
+                    1, 0, 1,
+                    1, 0, 0
+                  });
+//  sg.vocalisation({ 0, 1, 1, 0, 1 });
 
   return app.exec();
   return 0;

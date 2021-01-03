@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sstream>
 #include <cassert>
+#include <QDateTime>
 
 namespace gui {
 
@@ -110,7 +111,8 @@ struct SoundGenerator::Data {
     audio = new QAudioOutput (format);
     QObject::connect(audio, &QAudioOutput::stateChanged,
                      [this] (QAudio::State s) {
-      qDebug() << audio << "changed state to" << s;
+      qDebug() << QDateTime::currentDateTime().toString("hh:mm:ss,zzz")
+               << audio << "changed state to" << s;
       if (s == QAudio::IdleState) {
         audio->stop();
         buffer.close();
@@ -182,10 +184,13 @@ void SoundGenerator::vocalisation(const std::vector<float> &input) {
       streams.back() << sample << "\n";
 
       char *ptr = (char*) (&sample);
-      for (uint j=0; j<4; j++)
-        d->bytes[4 * i + j] = *(ptr+j);
+      uint off = (i * Data::SAMPLES_PER_NOTE + j) * 4;
+      for (uint k=0; k<4; k++)
+        d->bytes[off + k] = *(ptr+k);
     }
   }
+
+  qDebug() << d->bytes.size() << "bytes in current buffer";
 
   d->buffer.open(QIODevice::ReadOnly);
   d->audio->start(&d->buffer);
