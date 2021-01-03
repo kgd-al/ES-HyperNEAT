@@ -1,10 +1,6 @@
 #include <QApplication>
 
-#include "../gui/es_hyperneatpanel.h"
-
-void make_sound (void) {
-
-}
+#include "gui/bwwindow.h"
 
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
@@ -27,13 +23,6 @@ int main (int argc, char **argv) {
     9 -> 6 [+1]; # G2 to w
     8 -> 7 [+1]; # G1 to leo
   )");
-//  genome.cppn = genotype::ES_HyperNEAT::CPPN::fromDot(R"(
-//  CPPN(5,2)
-//    6 [id]; # weight
-//    7 [id]; # leo
-//    1 -> 6 [+1];
-//    2 -> 7 [-1];
-//  )");
 
   genome.recurrentDY = 2;
 
@@ -55,10 +44,16 @@ int main (int argc, char **argv) {
   p.setData(genome, cppn, ann);
   p.show();
 
-  genome.cppn.graphviz_render_graph("tmp/cppn_genotype.png");
-  p._cppnViewer->render("tmp/cppn_qt.pdf");
-  ann.graphviz_render_graph("tmp/ann_phenotype.pdf");
-  p._annViewer->render("tmp/ann_qt.pdf");
+  gui::SoundGenerator sg;
+//  sg.setInstrument(gui::SoundGenerator::SAW);
+//  sg.vocalisation({ 0, 1, 0,
+//                    0, 1, 1,
+//                    0, 0, 1,
+//                    1, 0, 1,
+//                    1, 0, 0
+//                  });
+  sg.vocalisation({ 0, 1, 1, 0, 1 });
 
   return app.exec();
+  return 0;
 }

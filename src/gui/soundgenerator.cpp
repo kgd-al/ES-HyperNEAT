@@ -8,6 +8,8 @@
 #include <QDebug>
 
 #include <fstream>
+#include <sstream>
+#include <cassert>
 
 namespace gui {
 
@@ -15,9 +17,9 @@ const QVector<QString> SoundGenerator::baseNotes {
   "A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#",
 };
 
+using IFunc = float (*) (float);
 #define F(T, X) { SoundGenerator::T, [] (float x) -> float { X; } }
-const std::map<SoundGenerator::Instrument, float (*) (float)>
-SoundGenerator::instruments {
+const std::map<SoundGenerator::Instrument, IFunc> SoundGenerator::instruments {
   F(   SIN, return std::sin(x)),
   F(SQUARE, return (std::fmod(x, 2*M_PI) > M_PI) ? 1.0 : -1.0),
   F(   SAW, qreal ret = fmod(x, M_PI) / (M_PI/2);
@@ -45,30 +47,48 @@ const std::map<QString, float> SoundGenerator::notes = [] {
                   + QString::number(oct);
     m[name] = freq;
   }
+  #undef TWO_ROOT_12
+  #undef A0
 
   return m;
 }();
 
 struct SoundGenerator::Data {
+  static constexpr auto CHANNELS = SoundGenerator::CHANNELS;
+  static constexpr auto NOTE_DURATION = SoundGenerator::STEP;
+  static constexpr auto DURATION = SoundGenerator::DURATION;
+
   static constexpr float SAMPLE_RATE = 8000;
   static constexpr float FREQ_CONST  = ((2.0 * M_PI) / SAMPLE_RATE);
-  static constexpr float SAMPLE_SIZE = 32;
-  static constexpr auto  SAMPLE_TYPE = QAudioFormat::Float;
-  static constexpr auto  CODEC_TYPE  = "audio/pcm";
-  static constexpr auto  CHANNELS    = 1;
+
+  static constexpr uint SAMPLES_PER_NOTE = SAMPLE_RATE * NOTE_DURATION;
+  static constexpr uint NOTES_PER_VOCALISATION = DURATION / STEP;
+  static_assert(DURATION / NOTE_DURATION == NOTES_PER_VOCALISATION,
+                "Requested durations lead to rounding errors");
+
+  static constexpr auto TWO_ROOT_12 = 1.059463094359295;
+  static constexpr auto A0 = 27.50;
+  static const auto baseFrequency = BASE_OCTAVE * 12;
+  static const std::array<float, CHANNELS> frequencies;
 
   QByteArray bytes;
   QBuffer buffer;
   QAudioOutput *audio;
 
+  IFunc ifunc;
+  std::array<std::array<float, SAMPLES_PER_NOTE>,
+             SoundGenerator::CHANNELS> samples;
+
   Data (void) {
+    bytes.resize(SAMPLE_RATE * SoundGenerator::DURATION);
+
     QAudioFormat format;
     format.setSampleRate(SAMPLE_RATE);
-    format.setChannelCount(CHANNELS);
-    format.setSampleSize(SAMPLE_SIZE);
-    format.setCodec(CODEC_TYPE);
+    format.setChannelCount(1);
+    format.setSampleSize(32);
+    format.setCodec("audio/pcm");
     format.setByteOrder(QAudioFormat::LittleEndian);
-    format.setSampleType(SAMPLE_TYPE);
+    format.setSampleType(QAudioFormat::Float);
 
     QAudioDeviceInfo info(QAudioDeviceInfo::defaultOutputDevice());
     if (!info.isFormatSupported(format)) {
@@ -104,42 +124,105 @@ struct SoundGenerator::Data {
   }
 };
 
+const std::array<float, SoundGenerator::CHANNELS>
+SoundGenerator::Data::frequencies = [] {
+  std::array<float, CHANNELS> a;
+  for (uint i=0; i<CHANNELS; i++)
+    a[i] = A0 * std::pow(TWO_ROOT_12, baseFrequency + i);
+  return a;
+}();
+
+
 SoundGenerator::SoundGenerator(QObject *parent)
-  : QObject(parent), d(new Data) {}
+  : QObject(parent), d(new Data) {
+  setInstrument(SAW);
+}
 SoundGenerator::~SoundGenerator(void) { delete d; }
 
-void SoundGenerator::make_sound(Instrument ins, float frequency, float seconds) {
-//  qDebug() << "generating sound of frequency" << frequency << "for"
-//           << seconds << "seconds";
+void SoundGenerator::setInstrument(Instrument i) {
+  d->ifunc = instruments.at(i);
+  for (uint c=0; c<CHANNELS; c++) {
+    std::ostringstream oss;
+    oss << "tmp/sample" << baseNotes[c%12].toStdString();
+    std::ofstream ofs (oss.str());
+    auto &a = d->samples[c];
+    float f = Data::frequencies.at(c) * Data::FREQ_CONST;
+    for (uint s=0; s<Data::SAMPLES_PER_NOTE; s++) {
+      a[s] = d->ifunc(s * f);
+      ofs << s << " " << s*f << " " << a[s] << "\n";
+    }
+  }
+}
 
-  const auto samples = Data::SAMPLE_RATE * seconds;
+void SoundGenerator::vocalisation(const std::vector<float> &input) {
+  assert(input.size() == CHANNELS * DURATION / STEP);
 
-  d->bytes.resize(sizeof(float) * samples);
+  std::array<std::ofstream, CHANNELS+1> streams;
+  for (uint c=0; c<CHANNELS; c++) {
+    std::ostringstream oss;
+    oss << "tmp/soundwave_channel" << baseNotes[c%12].toStdString();
+    streams[c].open(oss.str());
+  }
+  streams.back().open("tmp/soundwave");
 
-  std::ofstream ofs ("tmp/soundwave");
-  for (int i=0; i<samples; i++) {
-    float sample = instruments.at(ins)(frequency * i * Data::FREQ_CONST);
-    ofs << sample << "\n";
-    char *ptr = (char*) (&sample);
-    for (uint j=0; j<4; j++)
-      d->bytes[4 * i + j] = *(ptr+j);
+  for (uint i=0; i<Data::NOTES_PER_VOCALISATION; i++) {
+    for (uint j=0; j<Data::SAMPLES_PER_NOTE; j++) {
+      float sample = 0;
+      for (uint c=0; c<CHANNELS; c++) {
+        float s = 0;
+        auto a = input.at(i*CHANNELS+c);
+        if (a != 0) s = a * d->samples[c][j];
+
+        streams[c] << a * d->samples[c][j] << "\n";
+
+        sample += s;
+      }
+      sample /= CHANNELS;
+
+      streams.back() << sample << "\n";
+
+      char *ptr = (char*) (&sample);
+      for (uint j=0; j<4; j++)
+        d->bytes[4 * i + j] = *(ptr+j);
+    }
   }
 
-//  // Make a QBuffer from our QByteArray
-//  QBuffer* input = new QBuffer(byteBuffer);
-//  input->open(QIODevice::ReadOnly);
-
-//  {
-//    auto q = qDebug();
-//    q << "buffer:" << input->buffer();
-//  }
-
-
-
-  qDebug() << d->audio << "processing" << d->buffer.size() << "bytes";
   d->buffer.open(QIODevice::ReadOnly);
   d->audio->start(&d->buffer);
 }
+
+//void SoundGenerator::make_sound(Instrument ins, float frequency, float seconds) {
+////  qDebug() << "generating sound of frequency" << frequency << "for"
+////           << seconds << "seconds";
+
+//  const auto samples = Data::SAMPLE_RATE * seconds;
+
+//  d->bytes.resize(sizeof(float) * samples);
+
+//  std::ofstream ofs ("tmp/soundwave");
+//  for (int i=0; i<samples; i++) {
+//    float sample = instruments.at(ins)(frequency * i * Data::FREQ_CONST);
+//    ofs << sample << "\n";
+//    char *ptr = (char*) (&sample);
+//    for (uint j=0; j<4; j++)
+//      d->bytes[4 * i + j] = *(ptr+j);
+//  }
+
+////  // Make a QBuffer from our QByteArray
+////  QBuffer* input = new QBuffer(byteBuffer);
+////  input->open(QIODevice::ReadOnly);
+
+////  {
+////    auto q = qDebug();
+////    q << "buffer:" << input->buffer();
+////  }
+
+
+
+//  qDebug() << d->audio << "processing" << d->buffer.size() << "bytes";
+//  d->buffer.open(QIODevice::ReadOnly);
+//  d->audio->start(&d->buffer);
+//}
 
 //void SoundGenerator::make_sound(float frequency, float seconds) {
 //  try {

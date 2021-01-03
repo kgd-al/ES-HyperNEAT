@@ -3,13 +3,6 @@
 
 #include "es_hyperneatpanel.h"
 
-#include <QDebug>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QToolButton>
-#include "soundgenerator.h"
-#include <QMetaEnum>
-
 namespace gui {
 
 struct VLabel : public QLabel {

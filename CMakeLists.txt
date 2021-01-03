@@ -125,15 +125,15 @@ PREPEND(MISC_SRC "src/misc" ${MISC_SRC})
 add_library(SIMU_OBJS OBJECT ${CORE_SRC} ${MISC_SRC})
 
 ################################################################################
-## Target (simulation)
+## Target (cppn test)
 ################################################################################
-add_executable(
-  cppn_test
-  $<TARGET_OBJECTS:SIMU_OBJS>
-  "src/tests/cppn.cpp")
-target_link_libraries(cppn_test ${CORE_LIBS})
-
-message("core libs: ${CORE_LIBS}")
+if (WITH_TESTS)
+    add_executable(
+      cppn_test
+      $<TARGET_OBJECTS:SIMU_OBJS>
+      "src/tests/cppn.cpp")
+    target_link_libraries(cppn_test ${CORE_LIBS})
+endif()
 
 ################################################################################
 ## Target (evaluation)
@@ -298,17 +298,18 @@ if (NOT CLUSTER_BUILD)
 ################################################################################
 ## Target (gui test)
 ################################################################################
-
-    add_executable(
-      cppn_gui_test
-      $<TARGET_OBJECTS:SIMU_OBJS>
-      $<TARGET_OBJECTS:GUI_OBJS>
-      "src/tests/gui_cppn.cpp"
-    )
-    set_property(TARGET cppn_gui_test PROPERTY AUTOMOC ON)
-    target_link_libraries(cppn_gui_test ${QT_LIBS} ${CORE_LIBS}
-                                        ${APOGeT_LIBRARIES}
-                                        ${APOGeT_GUI_LIBRARIES})
+    if (WITH_TESTS)
+        add_executable(
+          cppn_gui_test
+          $<TARGET_OBJECTS:SIMU_OBJS>
+          $<TARGET_OBJECTS:GUI_OBJS>
+          "src/tests/gui_cppn.cpp"
+        )
+        set_property(TARGET cppn_gui_test PROPERTY AUTOMOC ON)
+        target_link_libraries(cppn_gui_test ${QT_LIBS} ${CORE_LIBS}
+                                            ${APOGeT_LIBRARIES}
+                                            ${APOGeT_GUI_LIBRARIES})
+    endif()
 
 
 ##################################################################################
@@ -378,6 +379,9 @@ message("> Cluster building mode is " ${CLUSTER_BUILD})
 if(CLUSTER_BUILD)
     add_definitions(-DCLUSTER_BUILD)
 endif()
+
+option(WITH_TESTS "Whether or not to build all test targets" OFF)
+message("> Building tests: " ${WITH_TESTS})
 
 #option(UPDATE_DEPENDENCIES "Whether or not to keep dependency data up-to-date
 #                            (implies extra compilation time)" ON)

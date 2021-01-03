@@ -18,8 +18,12 @@ namespace gui {
 class SoundGenerator : public QObject {
   Q_OBJECT
 public:
-  static constexpr uint CHANNELS = 8;
-  static constexpr float LENGTH = .5;
+  static constexpr uint CHANNELS = 1;
+  static constexpr float STEP = 1;
+  static constexpr float DURATION = 5;
+
+  static constexpr uint BASE_OCTAVE = 2;
+
   static const QVector<QString> baseNotes;
   static const std::map<QString, float> notes;
 
@@ -32,7 +36,8 @@ public:
   SoundGenerator(QObject *parent = nullptr);
   ~SoundGenerator (void);
 
-  void make_sound (Instrument i, float frequency, float seconds);
+  void setInstrument (Instrument i);
+  void vocalisation (const std::vector<float> &input);
 
 private:
   struct Data;

@@ -1,11 +1,22 @@
-#ifndef BLINWATCHMAKERWINDOW_H
-#define BLINWATCHMAKERWINDOW_H
+#ifndef BWWINDOW_H_H
+#define BWWINDOW_H_H
 
+#include <QMainWindow>
 
-class BlinWatchmakerWindow
-{
+#include "es_hyperneatpanel.h"
+#include "soundgenerator.h"
+
+namespace gui {
+
+class BWWindow : public QMainWindow {
 public:
-  BlinWatchmakerWindow();
+  BWWindow(QWidget *parent = nullptr);
+
+private:
+  ES_HyperNEATPanel *_details;
+  SoundGenerator *_sounds;
 };
 
-#endif // BLINWATCHMAKERWINDOW_H
+} // end of namespace gui
+
+#endif // BWWINDOW_H_H
