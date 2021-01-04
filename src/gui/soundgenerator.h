@@ -19,8 +19,8 @@ class SoundGenerator : public QObject {
   Q_OBJECT
 public:
   static constexpr uint CHANNELS = 3;
-  static constexpr float STEP = 1;
-  static constexpr float DURATION = 5;
+  static constexpr float STEP = .5;
+  static constexpr float DURATION = 2;
 
   static constexpr uint BASE_OCTAVE = 2;
 
@@ -37,7 +37,8 @@ public:
   ~SoundGenerator (void);
 
   void setInstrument (Instrument i);
-  void vocalisation (const std::vector<float> &input);
+  void vocalisation (const std::vector<float> &input,
+                     const QString &filename = "");
 
 private:
   struct Data;

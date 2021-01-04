@@ -292,7 +292,8 @@ if (NOT CLUSTER_BUILD)
     set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
     target_link_libraries(watchmaker ${CORE_LIBS}
 #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-                                     ${QT_LIBS})
+                                     ${QT_LIBS}
+        ${CMAKE_HOME_DIRECTORY}/../QMidi/build_debug/libQMidi.a asound)
 
 
 ################################################################################

@@ -2,6 +2,9 @@
 
 #include "gui/bwwindow.h"
 
+#include "../../../QMidi/src/QMidiOut.h"
+#include <QDebug>
+
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
 
@@ -46,13 +49,27 @@ int main (int argc, char **argv) {
 
   gui::SoundGenerator sg;
   sg.setInstrument(gui::SoundGenerator::SAW);
-  sg.vocalisation({ 0, 1, 0,
-                    0, 1, 1,
-                    0, 0, 1,
-                    1, 0, 1,
-                    1, 0, 0
-                  });
+//  sg.vocalisation({ 0, 1, 0,
+//                    0, 1, 1,
+//                    0, 0, 1,
+//                    1, 0, 1,
+//                    1, 0, 0
+//                  }, "tmp/test.wav");
+  sg.vocalisation({ 0, .5, 0,
+                    0, .5, 1,
+                    0,  1, 1,
+                    0,  1, 1,
+                  }, "tmp/test.wav");
 //  sg.vocalisation({ 0, 1, 1, 0, 1 });
+
+//  QMap<QString, QString> vals = QMidiOut::devices();
+//  QMidiOut midi;
+//  qDebug() << vals;
+//  midi.connect(vals.lastKey());
+
+//  midi.setInstrument(/* voice */ 0, /* instrument */ 0);
+//  midi.noteOn(/* note */ 60, /* voice */ 0 /* , velocity */);
+//  midi.noteOff(/* note */ 60, /* voice */ 0);
 
   return app.exec();
   return 0;
