@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QDataStream>
 
-#include "soundgenerator.h"
+#include "generator.h"
 
 #include <QDebug>
 
@@ -15,29 +15,34 @@
 #include <cassert>
 #include <QDateTime>
 
-namespace gui {
+namespace sound {
 
-const QVector<QString> SoundGenerator::baseNotes {
+const QVector<QString> Generator::baseNotes {
   "A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#",
 };
 
+float chirp (float x) {
+  static constexpr float theta_0 = 0;
+  static constexpr float c = 1;
+  static constexpr float f_0 = 0;
+
+  return std::sin(theta_0 + (.5*c*x*x+f_0*x));
+}
+
 using IFunc = float (*) (float);
-#define F(T, X) { SoundGenerator::T, [] (float x) -> float { X; } }
-const std::map<SoundGenerator::Instrument, IFunc> SoundGenerator::instruments {
-  F(   SIN, return std::sin(x)),
-  F(SQUARE, return (std::fmod(x, 2*M_PI) > M_PI) ? 1.0 : -1.0),
-  F(   SAW, qreal ret = fmod(x, M_PI) / (M_PI/2);
-            if (fmod(x, 2*M_PI) > M_PI) {
-                ret = -ret + 1;
-            } else {
-                ret = ret - 1;
-            }
-            return ret),
-  F(   TRI, return (std::fmod(x, 2*M_PI) / M_PI) - 1),
+#define F(T, X) { Generator::T, [] (float t) -> float { X; } }
+const std::map<Generator::Instrument, IFunc> instruments {
+  F(   SIN, return std::sin(t)),
+  F(SQUARE, return (std::fmod(t, 2*M_PI) > M_PI) ? 1.0 : -1.0),
+  F(   SAW, qreal ret = fmod(t, M_PI) / (M_PI/2);
+            return (fmod(t, 2*M_PI) > M_PI) ? -ret + 1 : ret = ret - 1;),
+  F(   TRI, return (std::fmod(t, 2*M_PI) / M_PI) - 1),
+  F( ORGAN, return .5 * (std::sin(t) + std::sin(t * 3 / 2))),
+  F( CHIRP, return chirp(t)),
 };
 #undef F
 
-const std::map<QString, float> SoundGenerator::notes = [] {
+const std::map<QString, float> Generator::notes = [] {
   #define TWO_ROOT_12         1.059463094359295
   #define A0                  27.50
   int steps = 64;
@@ -47,7 +52,7 @@ const std::map<QString, float> SoundGenerator::notes = [] {
   for (int i=0; i<steps; ++i) {
     float freq = A0 * std::pow(TWO_ROOT_12, start + i);
     int oct = ((start + i) / 12);
-    QString name = SoundGenerator::baseNotes[(start + i)%12]
+    QString name = Generator::baseNotes[(start + i)%12]
                   + QString::number(oct);
     m[name] = freq;
   }
@@ -57,12 +62,28 @@ const std::map<QString, float> SoundGenerator::notes = [] {
   return m;
 }();
 
+#if 0
 struct FormatData {
   static constexpr auto SS = 32;
   static constexpr auto ST = QAudioFormat::Float;
   static constexpr auto BO = QAudioFormat::LittleEndian;
-  static constexpr auto B = QAudioFormat::LittleEndian;
+  static constexpr auto B = 4;
 };
+#elif 0
+struct FormatData {
+  static constexpr auto SS = 16;
+  static constexpr auto ST = QAudioFormat::SignedInt;
+  static constexpr auto BO = QAudioFormat::LittleEndian;
+  static constexpr auto B = 2;
+};
+#else
+struct FormatData {
+  static constexpr auto SS = 8;
+  static constexpr auto ST = QAudioFormat::UnSignedInt;
+  static constexpr auto BO = QAudioFormat::LittleEndian;
+  static constexpr auto B = 1;
+};
+#endif
 
 class WavPcmFile : public QFile {
 public:
@@ -128,7 +149,7 @@ private:
     out << quint16(format.channelCount());
     out << quint32(format.sampleRate());
     out << quint32(format.sampleRate() * format.channelCount()
-    * format.sampleSize() / 8 ); // bytes per second
+                   * format.sampleSize() / 8 ); // bytes per second
     out << quint16(format.channelCount() * format.sampleSize() / 8); // Block align
     out << quint16(format.sampleSize()); // Significant Bits Per Sample
 
@@ -140,25 +161,25 @@ private:
   }
 
   static bool hasSupportedFormat(const QAudioFormat &format) {
-//    return (format.sampleSize() == 8
-//            && format.sampleType() == QAudioFormat::UnSignedInt)
-//        || (format.sampleSize() > 8
-//            && format.sampleType() == QAudioFormat::SignedInt
-//            && format.byteOrder() == QAudioFormat::LittleEndian);
+    return (format.sampleSize() == 8
+            && format.sampleType() == QAudioFormat::UnSignedInt)
+        || (format.sampleSize() > 8
+            && format.sampleType() == QAudioFormat::SignedInt
+            && format.byteOrder() == QAudioFormat::LittleEndian);
     return true;
   }
 };
 
-struct SoundGenerator::Data {
-  static constexpr auto CHANNELS = SoundGenerator::CHANNELS;
-  static constexpr auto NOTE_DURATION = SoundGenerator::STEP;
-  static constexpr auto DURATION = SoundGenerator::DURATION;
+struct Generator::Data {
+  static constexpr auto CHANNELS = Generator::CHANNELS;
+  static constexpr auto NOTE_DURATION = Generator::STEP;
+  static constexpr auto DURATION = Generator::DURATION;
 
   static constexpr float SAMPLE_RATE = 8000;
   static constexpr float FREQ_CONST  = ((2.0 * M_PI) / SAMPLE_RATE);
 
   static constexpr uint SAMPLES_PER_NOTE = SAMPLE_RATE * NOTE_DURATION;
-  static constexpr uint NOTES_PER_VOCALISATION = DURATION / STEP;
+  static constexpr uint NOTES_PER_VOCALISATION = Generator::NOTES;
   static_assert(DURATION / NOTE_DURATION == NOTES_PER_VOCALISATION,
                 "Requested durations lead to rounding errors");
 
@@ -173,11 +194,10 @@ struct SoundGenerator::Data {
   static const QAudioFormat format;
 
   IFunc ifunc;
-  std::array<std::array<float, SAMPLES_PER_NOTE>,
-             SoundGenerator::CHANNELS> samples;
 
   Data (void) {
-    bytes.resize(/*FormatData::B * */SAMPLE_RATE * SoundGenerator::DURATION);
+    bytes.resize(FormatData::B * SAMPLE_RATE * Generator::DURATION);
+//    qDebug() << bytes.size() << "bytes in current buffer";
 
     QAudioDeviceInfo info(QAudioDeviceInfo::defaultOutputDevice());
     QAudioFormat currFormat = format;
@@ -198,16 +218,6 @@ struct SoundGenerator::Data {
 
     // Create an output with our premade QAudioFormat (See example in QAudioOutput)
     audio = new QAudioOutput (currFormat);
-    QObject::connect(audio, &QAudioOutput::stateChanged,
-                     [this] (QAudio::State s) {
-      qDebug() << QDateTime::currentDateTime().toString("hh:mm:ss,zzz")
-               << audio << "changed state to" << s;
-      if (s == QAudio::IdleState) {
-        audio->stop();
-        buffer.close();
-  //      audio->deleteLater();
-      }
-    });
   }
 
   ~Data (void) {
@@ -215,7 +225,7 @@ struct SoundGenerator::Data {
   }
 };
 
-const QAudioFormat SoundGenerator::Data::format = [] {
+const QAudioFormat Generator::Data::format = [] {
   QAudioFormat format;
   format.setSampleRate(SAMPLE_RATE);
   format.setChannelCount(1);
@@ -226,8 +236,8 @@ const QAudioFormat SoundGenerator::Data::format = [] {
   return format;
 }();
 
-const std::array<float, SoundGenerator::CHANNELS>
-SoundGenerator::Data::frequencies = [] {
+const std::array<float, Generator::CHANNELS>
+Generator::Data::frequencies = [] {
   std::array<float, CHANNELS> a;
   for (uint i=0; i<CHANNELS; i++)
     a[i] = A0 * std::pow(TWO_ROOT_12, baseFrequency + i);
@@ -235,31 +245,35 @@ SoundGenerator::Data::frequencies = [] {
 }();
 
 
-SoundGenerator::SoundGenerator(QObject *parent)
+Generator::Generator(QObject *parent)
   : QObject(parent), d(new Data) {
-  setInstrument(SAW);
-}
-SoundGenerator::~SoundGenerator(void) { delete d; }
+  setInstrument(ORGAN);
 
-void SoundGenerator::setInstrument(Instrument i) {
+  QObject::connect(d->audio, &QAudioOutput::stateChanged,
+                   [this] (QAudio::State s) {
+    qDebug() << QDateTime::currentDateTime().toString("hh:mm:ss,zzz")
+             << d->audio << "changed state to" << s;
+    if (s == QAudio::IdleState)
+      stopVocalisationToAudioOut();
+  });
+}
+Generator::~Generator(void) { delete d; }
+
+void Generator::setInstrument(Instrument i) {
   d->ifunc = instruments.at(i);
+
   for (uint c=0; c<CHANNELS; c++) {
     std::ostringstream oss;
     oss << "tmp/sample" << baseNotes[c%12].toStdString();
     std::ofstream ofs (oss.str());
-    auto &a = d->samples[c];
     float f = Data::frequencies.at(c) * Data::FREQ_CONST;
-    for (uint s=0; s<Data::SAMPLES_PER_NOTE; s++) {
-//      a[s] = d->ifunc(s * f);
-      a[s] = .5 * (d->ifunc(s * f) + d->ifunc(s * f * 3 / 2));
-      ofs << s << " " << s*f << " " << a[s] << "\n";
-    }
+    for (uint s=0; s<Data::SAMPLES_PER_NOTE; s++)
+      ofs << s << " " << d->ifunc(s * f) << "\n";
   }
 }
 
-void SoundGenerator::vocalisation(const std::vector<float> &input,
-                                  const QString &filename) {
-  assert(input.size() == CHANNELS * DURATION / STEP);
+void Generator::setNoteSheet(const NoteSheet &notes) {
+  assert(notes.size() == CHANNELS * NOTES);
 
   std::array<std::ofstream, CHANNELS+1> streams;
   for (uint c=0; c<CHANNELS; c++) {
@@ -269,106 +283,75 @@ void SoundGenerator::vocalisation(const std::vector<float> &input,
   }
   streams.back().open("tmp/soundwave");
 
-  const auto transition = [&input] (uint i, uint c, uint s) -> float {
+  const auto transition = [&notes] (uint i, uint c, uint s) -> float {
     static constexpr uint S = Data::SAMPLES_PER_NOTE;
-    static constexpr uint ds = S * 0.25;
+    static constexpr uint ds = S * 0;//.1;
 
+    if (s < ds
+        && ((0 == i) || int(notes[(i-1)*CHANNELS+c]) != int(notes[i*CHANNELS+c])))
+      return float(s) / ds;
+    if (S - s < ds
+        && ((i == Data::NOTES_PER_VOCALISATION-1)
+          || int(notes[i*CHANNELS+c]) != int(notes[(i+1)*CHANNELS+c])))
+      return float(S - s) / ds;
     return 1.f;
-
-  //    if (0 < i
-  //        && i < Data::NOTES_PER_VOCALISATION-1
-  //        && int(input[i*CHANNELS+c]) == int(input[(i+1)*CHANNELS+c]))
-  //      return 1.f;
-  //    if (s < ds) return float(s) / ds;
-  //    else if (S - s < ds)  return float(S - s) / ds;
-  //    else  return 1.f;
-      if (s < ds
-          && ((0 == i) || int(input[(i-1)*CHANNELS+c]) != int(input[i*CHANNELS+c])))
-        return float(s) / ds;
-      if (S - s < ds
-          && ((i == Data::NOTES_PER_VOCALISATION-1)
-            || ((0 == i) || int(input[i*CHANNELS+c]) != int(input[(i+1)*CHANNELS+c]))))
-        return float(S - s) / ds;
-      return 1.f;
   };
 
   for (uint i=0; i<Data::NOTES_PER_VOCALISATION; i++) {
     for (uint j=0; j<Data::SAMPLES_PER_NOTE; j++) {
+      float t = float(i * Data::SAMPLES_PER_NOTE + j) / Data::SAMPLE_RATE;
       float sample = 0;
       for (uint c=0; c<CHANNELS; c++) {
         float s = 0;
-        auto a = input.at(i*CHANNELS+c);
+        auto a = notes.at(i*CHANNELS+c);
         float b = transition(i, c, j);
 
-        if (a != 0) s = a * b * d->samples[c][j];
+        if (a != 0) s = a * b *
+                        d->ifunc((i * Data::SAMPLES_PER_NOTE + j)
+                                 * Data::frequencies.at(c) * Data::FREQ_CONST);
 
-        streams[c] << s << "\n";
+        streams[c] << t << " " << s << "\n";
 
         sample += s;
       }
       sample /= CHANNELS;
       sample *= .5;
 
-      streams.back() << sample << "\n";
+      streams.back() << t << " " << sample << "\n";
 
-      char *ptr = (char*) (&sample);
-      uint off = (i * Data::SAMPLES_PER_NOTE + j) * FormatData::B;
-      for (uint k=0; k<FormatData::B; k++) {
-        d->bytes[off + k] = *(ptr+k);
-        qDebug() << "d->bytes[" << off << "+" << k << "] = " << (int)*(ptr+k);
+      if constexpr (FormatData::B == 1)
+        d->bytes[i * Data::SAMPLES_PER_NOTE + j] = 255.f * (sample+1) / 2;
+
+      else if (FormatData::B == 2) {
+        qint16 ssample = sample * (2<<15);
+        char *ptr = (char*) (&ssample);
+        uint off = (i * Data::SAMPLES_PER_NOTE + j) * FormatData::B;
+        for (uint k=0; k<FormatData::B; k++)
+          d->bytes[off + k] = *(ptr+k);
+
+      } else {
+        char *ptr = (char*) (&sample);
+        uint off = (i * Data::SAMPLES_PER_NOTE + j) * FormatData::B;
+        for (uint k=0; k<FormatData::B; k++)
+          d->bytes[off + k] = *(ptr+k);
       }
     }
   }
+}
 
-  qDebug() << d->bytes.size() << "bytes in current buffer";
-
+void Generator::vocaliseToAudioOut(void) {
   d->buffer.open(QIODevice::ReadOnly);
   d->audio->start(&d->buffer);
+}
 
+void Generator::stopVocalisationToAudioOut(void) {
+  d->audio->stop();
+  d->buffer.close();
+}
+
+void Generator::vocaliseToFile(const QString &filename) {
   if (!filename.isEmpty())
     WavPcmFile::fromRawData(filename, d->bytes, d->format);
 }
 
-//void SoundGenerator::make_sound(Instrument ins, float frequency, float seconds) {
-////  qDebug() << "generating sound of frequency" << frequency << "for"
-////           << seconds << "seconds";
-
-//  const auto samples = Data::SAMPLE_RATE * seconds;
-
-//  d->bytes.resize(sizeof(float) * samples);
-
-//  std::ofstream ofs ("tmp/soundwave");
-//  for (int i=0; i<samples; i++) {
-//    float sample = instruments.at(ins)(frequency * i * Data::FREQ_CONST);
-//    ofs << sample << "\n";
-//    char *ptr = (char*) (&sample);
-//    for (uint j=0; j<4; j++)
-//      d->bytes[4 * i + j] = *(ptr+j);
-//  }
-
-////  // Make a QBuffer from our QByteArray
-////  QBuffer* input = new QBuffer(byteBuffer);
-////  input->open(QIODevice::ReadOnly);
-
-////  {
-////    auto q = qDebug();
-////    q << "buffer:" << input->buffer();
-////  }
-
-
-
-//  qDebug() << d->audio << "processing" << d->buffer.size() << "bytes";
-//  d->buffer.open(QIODevice::ReadOnly);
-//  d->audio->start(&d->buffer);
-//}
-
-//void SoundGenerator::make_sound(float frequency, float seconds) {
-//  try {
-//    RtMidiOut midi;
-//  } catch (RtMidiError &error) {
-//    // Handle the exception here
-//    error.printMessage();
-//  }
-//}
-
-} // end of namespace gui
+} // end of namespace sound

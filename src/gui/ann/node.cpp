@@ -43,6 +43,8 @@ Node::Node (Agnode_t *node, qreal scale) {
     _spos = QPointF(x, y);
   }
 
+  _srecurrent = gvc::get(node, "srecurrent", false);
+
 //  QString label (ND_label(node)->text);
 //  if (!label.isEmpty()) {
 //    if (label.indexOf('_') != -1) {
@@ -67,6 +69,11 @@ void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
       painter->setPen(scene()->palette().color(QPalette::Highlight));
     painter->setBrush(_fill);
     painter->drawEllipse(_shape);
+
+    if (_srecurrent) {
+      painter->scale(.5, .5);
+      painter->drawEllipse(_shape);
+    }
   painter->restore();
 
   if (!_label.isEmpty())  drawRichText(painter);

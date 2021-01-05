@@ -10,6 +10,7 @@ namespace gui::cppn {
 Viewer::Viewer (QWidget *parent) : QGraphicsView(parent) {
   setScene(new QGraphicsScene(this));
   setRenderHint(QPainter::Antialiasing);
+  noCPPN();
 }
 
 void Viewer::setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn) {
@@ -35,8 +36,14 @@ void Viewer::setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn) {
   ensureFit();
 }
 
+void Viewer::noCPPN(void) {
+  scene()->clear();
+  scene()->addText("No CPPN\nto display");
+  scale(1, 1);
+}
+
 void Viewer::ensureFit (void) {
-  fitInView(sceneRect(), Qt::KeepAspectRatio);
+  if (scene()->items().size() > 1)  fitInView(sceneRect(), Qt::KeepAspectRatio);
 }
 
 void Viewer::resizeEvent(QResizeEvent *e) {

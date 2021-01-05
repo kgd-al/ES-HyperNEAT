@@ -11,6 +11,7 @@ Viewer::Viewer(QWidget *parent) : QGraphicsView(parent) {
   setScene(new QGraphicsScene(this));
   setRenderHint(QPainter::Antialiasing);
   setCursor(Qt::CrossCursor);
+  noANN();
 }
 
 void Viewer::setANN(const phenotype::ANN &ann) {
@@ -59,8 +60,14 @@ void Viewer::setANN(const phenotype::ANN &ann) {
   ensureFit();
 }
 
+void Viewer::noANN (void) {
+  scene()->clear();
+  scene()->addText("No ANN\nto display");
+  scale(1, 1);
+}
+
 void Viewer::ensureFit (void) {
-  fitInView(sceneRect(), Qt::KeepAspectRatio);
+  if (scene()->items().size() > 1)  fitInView(sceneRect(), Qt::KeepAspectRatio);
 }
 
 void Viewer::resizeEvent(QResizeEvent *e) {

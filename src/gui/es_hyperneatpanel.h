@@ -19,6 +19,7 @@ struct ES_HyperNEATPanel : public QWidget {
   ES_HyperNEATPanel (QWidget *parent = nullptr);
   void setData (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,
                 phenotype::ANN &ann);
+  void noData (void);
 
 public slots:
   void showCPPNOutputsAt (const QPointF &p);

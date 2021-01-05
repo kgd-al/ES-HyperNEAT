@@ -49,42 +49,51 @@ public:
 #ifndef CLUSTER_BUILD
     Point pos;
 #endif
-#if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
-    enum Type { I, O, H };
+    enum Type { B, I, O, H };
     Type type;
-#endif
+
     float value;
 
     using ptr = std::shared_ptr<Neuron>;
     using wptr = std::weak_ptr<Neuron>;
     struct Link {
       float weight;
-      wptr dst;
+      wptr in;
     };
     using Links = std::vector<Link>;
     Links links;
+
+    bool isInput (void) const {
+      return type == B || type == I;
+    }
   };
 
-#ifndef CLUSTER_BUILD
   const auto& neurons (void) const {  return _neurons;  }
-#endif
 
 #ifdef WITH_GVC
   gvc::GraphWrapper graphviz_build_graph (const char *ext = "png") const;
   void graphviz_render_graph(const std::string &path) const;
 #endif
 
+  using Inputs = std::vector<float>;
+  auto inputs (void) {  return Inputs(_inputs.size());  }
+
+  using Outputs = Inputs;
+  auto outputs (void) { return Outputs(_outputs.size());  }
+
+  void operator() (const Inputs &inputs, Outputs &outputs);
+
   using Coordinates = std::vector<Point>;
-  static ANN build (const Coordinates &inputs, const Coordinates &outputs,
-                    const Coordinates &hidden,
+  static ANN build (const Point &bias, const Coordinates &inputs,
+                    const Coordinates &outputs, const Coordinates &hidden,
                     const genotype::ES_HyperNEAT &genome,
                     const phenotype::CPPN &cppn);
 private:
   using NeuronsMap = std::map<Point, Neuron::ptr, PointCMP>;
-#ifndef CLUSTER_BUILD
   NeuronsMap _neurons;
-#endif
+
   std::vector<Neuron::ptr> _inputs, _outputs;
+  bool _hasBias;
 
   ANN(void);
 

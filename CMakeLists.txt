@@ -83,7 +83,7 @@ endif()
 
 FUNCTION(PREPEND output prefix)
    SET(listVar "")
-   FOREACH(f ${ARGN})
+   FOREACH(f ${${output}})
       LIST(APPEND listVar "${prefix}/${f}")
    ENDFOREACH(f)
    SET(${output} "${listVar}" PARENT_SCOPE)
@@ -94,33 +94,13 @@ set(CORE_SRC
     "phenotype/cppn.cpp"
     "phenotype/ann.cpp"
 )
-PREPEND(CORE_SRC "src" ${CORE_SRC})
+PREPEND(CORE_SRC "src")
 
 set(MISC_SRC
     "fixed_size_string.hpp"
     "gvc_wrapper.cpp"
 )
-PREPEND(MISC_SRC "src/misc" ${MISC_SRC})
-
-# set(SIMU_SRC
-#     "critter.h"
-#     "critter.cpp"
-#     "foodlet.h"
-#     "foodlet.cpp"
-#     "environment.h"
-#     "environment.cpp"
-#     "simulation.h"
-#     "simulation.cpp"
-#     "box2dutils.h"
-#     "box2dutils.cpp"
-#     "config.h"
-#     "config.cpp"
-#     "time.h"
-#     "time.cpp"
-# 
-#     "../enumarray.hpp"
-# )
-# PREPEND(SIMU_SRC "src/simu" ${SIMU_SRC})
+PREPEND(MISC_SRC "src/misc")
 
 add_library(SIMU_OBJS OBJECT ${CORE_SRC} ${MISC_SRC})
 
@@ -239,37 +219,20 @@ if (NOT CLUSTER_BUILD)
         "ann/edge.cpp"
         "ann/viewer.cpp"
         "es_hyperneatpanel.cpp"
-        "soundgenerator.cpp"
     )
-    PREPEND(GUI_SRC "src/gui" ${GUI_SRC})
+    PREPEND(GUI_SRC "src/gui")
 
-    set(EXT_SRC
-    )
-    PREPEND(EXT_SRC "src/external" ${EXT_SRC})
+    set(SOUND_SRC
+        "generator.cpp"
+        "visualizer.cpp"
+        )
+    PREPEND(SOUND_SRC "src/sound")
 
-#    set(GUI_SRC
-#        "mainview.h"
-#        "mainview.cpp"
-#        "actionsbuilder.hpp"
-#        "geneticmanipulator.h"
-#        "geneticmanipulator.cpp"
-#        "statsview.h"
-#        "statsview.cpp"
-#        "joystick.h"
-#        "joystick.cpp"
+#    set(EXT_SRC
 #    )
+#    PREPEND(EXT_SRC "src/external")
 
-#    PREPEND(GUI_SRC "src/gui" ${GUI_SRC})
-
-#    set(GUI_MISC_SRC
-#        "joystick/joystick.hh"
-#        "joystick/joystick.cc"
-
-#        "qt-collapsible-section/Section.h"
-#        "qt-collapsible-section/Section.cpp"
-#    )
-
-    add_library(GUI_OBJS OBJECT ${GUI_SRC} ${EXT_SRC})
+    add_library(GUI_OBJS OBJECT ${GUI_SRC} ${SOUND_SRC})
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -292,8 +255,7 @@ if (NOT CLUSTER_BUILD)
     set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
     target_link_libraries(watchmaker ${CORE_LIBS}
 #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-                                     ${QT_LIBS}
-        ${CMAKE_HOME_DIRECTORY}/../QMidi/build_debug/libQMidi.a asound)
+                                     ${QT_LIBS})
 
 
 ################################################################################

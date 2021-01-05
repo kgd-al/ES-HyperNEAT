@@ -80,10 +80,15 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
   for (uint i=0; i<outputs.size(); i++)
     ranges[i] = functionRanges.at(genome.cppn.outputFunctions.at(i));
 
-  const auto scale_o = [&outputs, &ranges] (uint i, uint j) {
-    auto r = scale(ranges[i], qImageRange, outputs[i][j]);
-    assert(0 <= r && r <= 255);
-    return r;
+  const auto w_color = [&outputs, &ranges] (uint i, uint j) {
+    auto o = outputs[i][j];
+    return (o < 0) ? QColor::fromHsv(0, -o*255, -o*255).rgb()
+                   : QColor::fromHsv(0, 0, o*255).rgb();
+  };
+
+  const auto l_color = [&outputs, &ranges] (uint i, uint j) {
+    return QColor::fromHsv(0, 0, scale(ranges[j], qImageRange, outputs[i][j]))
+        .rgb();
   };
 
   inputs[0][0] = p.x(); inputs[0][1] = p.y();
@@ -93,20 +98,25 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
     for (uint i=0; i<_viewers.size(); i++)
       bytes[i] = (QRgb*) _viewers[i]->image.scanLine(r);
 
-    inputs[0][3] = inputs[1][1] = 2.*r/(S-1) - 1;
+    // Invert y to account for downward y axis windows
+    inputs[0][3] = inputs[1][1] = -2.*r/(S-1) + 1;
 
     for (int c=0; c<S; c++) {
       inputs[0][2] = inputs[1][0] = 2.*c/(S-1) - 1;
       for (uint i=0; i<2; i++)  cppn(inputs[i], outputs[i]);
 
-      bytes[0][c] = QColor::fromHsv(0, 0, scale_o(0, 0)).rgb();
-      bytes[1][c] = QColor::fromHsv(0, 0, scale_o(0, 1)).rgb();
-      bytes[2][c] = QColor::fromHsv(0, 0, scale_o(1, 0)).rgb();
-      bytes[3][c] = QColor::fromHsv(0, 0, scale_o(1, 1)).rgb();
+      bytes[0][c] = w_color(0, 0);
+      bytes[1][c] = l_color(0, 1);
+      bytes[2][c] = w_color(1, 0);
+      bytes[3][c] = l_color(1, 1);
     }
   }
 
   for (auto v: _viewers)  v->update();
 }
 
+void OutputSummary::noPhenotypes(void) {
+  for (auto v: _viewers)  v->image.fill(Qt::gray);
 }
+
+} // end of namespace gui::cppn

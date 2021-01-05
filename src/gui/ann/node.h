@@ -39,6 +39,8 @@ private:
   QColor _fill;
   QTextDocument _label;
 
+  bool _srecurrent;
+
   void drawRichText(QPainter *painter);
 };
 

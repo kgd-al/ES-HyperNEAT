@@ -11,6 +11,7 @@ struct Viewer : public QGraphicsView {
   Viewer (QWidget *parent = nullptr);
 
   void setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn);
+  void noCPPN (void);
 
   void ensureFit (void);
   void resizeEvent(QResizeEvent *e);

@@ -2,6 +2,10 @@
 
 namespace phenotype {
 
+#ifndef NDEBUG
+//#define DEBUG
+#endif
+
 #define F(NAME, BODY) \
  { NAME, [] (float x) -> float { return BODY; } }
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
@@ -46,21 +50,27 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
 
   cppn._inputs.resize(cppn_g.inputs);
   for (uint i=0; i<cppn_g.inputs; i++) {
-//    std::cerr << "(I) " << NID(i) << " " << i << std::endl;
+#ifdef DEBUG
+    std::cerr << "(I) " << NID(i) << " " << i << std::endl;
+#endif
     nodes[NID(i)] = cppn._inputs[i] = std::make_shared<INode>();
   }
 
   cppn._outputs.resize(cppn_g.outputs);
   for (uint i=0; i<cppn_g.outputs; i++) {
-//    std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
-//              << ofuncs[i] << std::endl;
+#ifdef DEBUG
+    std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
+              << ofuncs[i] << std::endl;
+#endif
     nodes[NID(i+cppn_g.inputs)] = cppn._outputs[i] = fnode(ofuncs[i]);
   }
 
   uint i=0;
   cppn._hidden.resize(cppn_g.nodes.size());
   for (const CPPN_g::Node &n_g: cppn_g.nodes) {
-//    std::cerr << "(H) " << n_g.id << " " << i << " " << n_g.func << std::endl;
+#ifdef DEBUG
+    std::cerr << "(H) " << n_g.id << " " << i << " " << n_g.func << std::endl;
+#endif
     nodes[n_g.id] = cppn._hidden[i++] = fnode(n_g.func);
   }
 
@@ -73,22 +83,30 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
 }
 
 float CPPN::INode::value (void) {
-//  utils::IndentingOStreambuf indent (std::cout);
-//  std::cout << "I: " << data << std::endl;
+  utils::IndentingOStreambuf indent (std::cout);
+#ifdef DEBUG
+  std::cout << "I: " << data << std::endl;
+#endif
   return data;
 }
 
 float CPPN::FNode::value (void) {
-//  utils::IndentingOStreambuf indent (std::cout);
-//  std::cout << "F:\n";
+#ifdef DEBUG
+  utils::IndentingOStreambuf indent (std::cout);
+  std::cout << "F:\n";
+#endif
   if (std::isnan(data)) {
     data = 0;
     for (Link &l: links)
       data += l.weight * l.node->value();
-//    std::cout << func(data) << " = func(" << data << ")\n";
+#ifdef DEBUG
+    std::cout << func(data) << " = func(" << data << ")\n";
+#endif
     data = func(data);
   }
-//  std::cout << data << "\n";
+#ifdef DEBUG
+  std::cout << data << "\n";
+#endif
   return data;
 }
 

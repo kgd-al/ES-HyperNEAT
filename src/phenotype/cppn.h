@@ -48,11 +48,11 @@ private:
 public:
   static CPPN fromGenotype (const genotype::ES_HyperNEAT &es_hyperneat);
 
-  auto inputs (void) const {  return Inputs((_inputs.size()>>2)<<2); }
-  auto outputs (void) const {  return Outputs(_outputs.size()); }
-
   auto inputSize (void) const { return _inputs.size();  }
   auto outputSize (void) const {  return _outputs.size();  }
+
+  auto inputs (void) const {  return Inputs((inputSize()>>2)<<2); }
+  auto outputs (void) const {  return Outputs(outputSize()); }
 
   using Inputs = std::vector<float>;
   using Outputs = Inputs;

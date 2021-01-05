@@ -13,6 +13,7 @@ public:
   Viewer (QWidget *parent = nullptr);
 
   void setANN (const phenotype::ANN &ann);
+  void noANN (void);
 
   void ensureFit (void);
   void resizeEvent(QResizeEvent *e);

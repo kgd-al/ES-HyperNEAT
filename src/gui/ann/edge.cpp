@@ -58,7 +58,7 @@ void Edge::drawShape (const splines *spl, float scale,
                           const QPointF &offset, QPainterPath &edge,
                           QPainterPath &arrow) {
 
-  static constexpr float arrowLength = 7.5;
+  static constexpr float arrowLength = 5;
   static constexpr float arrowFolding = .25;
 
   auto convert = [scale, offset] (pointf p) {

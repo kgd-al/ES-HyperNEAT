@@ -14,6 +14,7 @@ struct OutputSummary : public QWidget {
 
   void phenotypes (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,
                    const QPointF &p);
+  void noPhenotypes (void);
 
 public slots:
   void phenotypeAt(const QPointF &p);

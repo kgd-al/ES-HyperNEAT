@@ -2,6 +2,20 @@
 
 namespace phenotype {
 
+#ifndef NDEBUG
+//#define DEBUG
+//#define DEBUG_COMPUTE
+#endif
+
+struct QuadTreeNode {
+  ANN::Point center;
+  float radius;
+  uint level;
+
+  using ptr = std::shared_ptr<QuadTreeNode>;
+  std::array<ptr, 4> children;
+};
+
 template <uint D>
 std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
   os << "{";
@@ -11,22 +25,21 @@ std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
 
 ANN::ANN(void){}
 
-ANN ANN::build (const Coordinates &inputs, const Coordinates &outputs,
+ANN ANN::build (const Point &bias, const Coordinates &inputs, const Coordinates &outputs,
                 const Coordinates &hidden,
                 const genotype::ES_HyperNEAT &genome, const CPPN &cppn) {
   ANN ann;
-#ifndef CLUSTER_BUILD
+  ann._hasBias = (!std::isnan(bias.x()) && !std::isnan(bias.y()));
+
   NeuronsMap &neurons = ann._neurons;
-#else
-  NeuronsMap neurons;
-#endif
 
 #if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
   const auto add = [&ann] (auto p, auto t) { return ann.addNeuron(p, t); };
-  const auto type = [] (auto n) -> Neuron::Type { return n->type; };
 #else
   const auto add = [&ann] (auto, auto) { return ann.addNeuron(); };
 #endif
+
+  if (ann._hasBias) neurons[bias] = add(bias, Neuron::B);
 
   uint i = 0;
   ann._inputs.resize(inputs.size());
@@ -42,29 +55,41 @@ ANN ANN::build (const Coordinates &inputs, const Coordinates &outputs,
   auto cppn_outputs = cppn.outputs();
   for (const auto &p: neurons) {
     float minY = std::max(-1.f, p.first.y() - genome.recurrentDY);
-//    std::cerr << "neuron at " << p.first << "\n";
-    if (type(p.second) == Neuron::O) {
-//      std::cerr << "\tno outgoing connections for output node\n";
+#ifdef DEBUG
+    std::cerr << "neuron at " << p.first << "\n";
+#endif
+    if (p.second->type == Neuron::O) {
+#ifdef DEBUG
+      std::cerr << "\tno outgoing connections for output node\n";
+#endif
       continue;
     }
 
     auto lb = neurons.lower_bound(RangeFinder{minY});
-//    std::cerr << "\t" << std::distance(lb, neurons.end())
-//              << " link candidates in [" << minY << ", 1]\n";
+#ifdef DEBUG
+    std::cerr << "\t" << std::distance(lb, neurons.end())
+              << " link candidates in [" << minY << ", 1]\n";
+#endif
     while (lb != neurons.end()) {
-      if (type(lb->second) == Neuron::I) {
-//        std::cerr << "\t\tNo incoming connection for input node at "
-//                  << lb->first << "\n";
+      if (lb->second->isInput()) {
+#ifdef DEBUG
+        std::cerr << "\t\tNo incoming connection for input node at "
+                  << lb->first << "\n";
+#endif
       } else {
-//        std::cerr << "\t\t-> " << lb->first << ": ";
+#ifdef DEBUG
+        std::cerr << "\t\t-> " << lb->first << ": ";
+#endif
 
         cppn_inputs = {
           p.first.x(), p.first.y(), lb->first.x(), lb->first.y() };
         cppn(cppn_inputs, cppn_outputs);
 
-//        std::cerr << " {" << cppn_outputs[0] << " " << cppn_outputs[1] << "}\n";
-        if (cppn_outputs[1] > 0)
-          p.second->links.push_back({cppn_outputs[0], lb->second});
+#ifdef DEBUG
+        std::cerr << " {" << cppn_outputs[0] << " " << cppn_outputs[1] << "}\n";
+#endif
+        if (cppn_outputs[1] > 0 && cppn_outputs[0] != 0)
+          lb->second->links.push_back({cppn_outputs[0], p.second});
       }
       ++lb;
     }
@@ -79,7 +104,8 @@ ANN::Neuron::ptr ANN::addNeuron(const Point &p, Neuron::Type t) {
 ANN::Neuron::ptr ANN::addNeuron(void) {
 #endif
   auto n = std::make_shared<Neuron>();
-  n->value = NAN;
+
+  n->value = (t == Neuron::B) ? 1 : 0;
 
 #ifndef CLUSTER_BUILD
   n->pos = p;
@@ -116,16 +142,27 @@ gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
     set(n, "fillcolor", (neuron->type != Neuron::H) ? "black" : "gray");
     set(n, "spos", p.first.x(), ",", p.first.y());
 
-    for (const auto &l: neuron->links)  links.push_back({ neuron.get(), l });
+    bool selfRecurrent = false;
+    for (const auto &l: neuron->links) {
+      links.push_back({ neuron.get(), l });
+      selfRecurrent |= (l.in.lock() == neuron);
+    }
+
+    set(n, "srecurrent", selfRecurrent);
   }
 
   for (const auto &p: links) {
-    auto e = add_edge(g.graph, gvnodes.at(p.first),
-                      gvnodes.at(p.second.dst.lock().get()), "E", i++);
+    Neuron *out = p.first;
+    Neuron *in = p.second.in.lock().get();
+
+    // Self-recurrent edges are hidden
+    if (out == in) continue;
+
+    auto e = add_edge(g.graph, gvnodes.at(in), gvnodes.at(out), "E", i++);
     auto w = p.second.weight;
     set(e, "color", w < 0 ? "red" : "black");
     auto sw = std::fabs(w);// / config_t::weightBounds().max;
-    set(e, "penwidth", 3.75*sw+.25);
+    set(e, "penwidth", .875*sw+.125);
     set(e, "weight", w);
   }
 
@@ -147,5 +184,46 @@ void ANN::graphviz_render_graph(const std::string &path) const {
   gvRenderFilename(gvc::context(), g.graph, "dot", dpath.c_str());
 }
 #endif
+
+void ANN::operator() (const Inputs &inputs, Outputs &outputs) {
+  static const auto activation = phenotype::CPPN::functions.at("sigm");
+  assert(inputs.size() == _inputs.size());
+  assert(outputs.size() == outputs.size());
+
+  for (uint i=0; i<inputs.size(); i++)  _inputs[i]->value = inputs[i];
+
+#ifdef DEBUG_COMPUTE
+  using utils::operator<<;
+  std::cerr << "## Compute step --\n inputs:\t" << inputs << "\n";
+#endif
+
+  for (const auto &p: _neurons) {
+    if (p.second->isInput()) continue;
+
+    float v = 0;
+    for (const auto &l: p.second->links) {
+#ifdef DEBUG_COMPUTE
+      std::cerr << "\t\tv = " << v + l.weight * l.in.lock()->value
+                << " = " << v << " + " << l.weight * l.in.lock()->value
+                << "\n";
+#endif
+
+      v += l.weight * l.in.lock()->value;
+    }
+
+#ifdef DEBUG_COMPUTE
+    std::cerr << "\t" << p.first << ": " << activation(v) << " = sigm(" << v
+              << ")\n";
+#endif
+
+    p.second->value = activation(v);
+  }
+
+  for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->value;
+
+#ifdef DEBUG_COMPUTE
+  std::cerr << "outputs:\t" << outputs << "\n## --\n";
+#endif
+}
 
 } // end of namespace phenotype

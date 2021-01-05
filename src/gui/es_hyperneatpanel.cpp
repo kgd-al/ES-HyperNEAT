@@ -52,6 +52,8 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
           this, &ES_HyperNEATPanel::showCPPNOutputsAt);
 
   setLayout(layout);
+
+  noData();
 }
 
 void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
@@ -67,6 +69,14 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
 
   for (const auto &p: _otherFields)
     p.second->setText(QString::fromStdString(genome.getField(p.first)));
+}
+
+void ES_HyperNEATPanel::noData(void) {
+  _cppnViewer->noCPPN();
+  _cppnOViewer->noPhenotypes();
+  _annViewer->noANN();
+  for (const auto &p: _otherFields)
+    p.second->setText("N/A");
 }
 
 void ES_HyperNEATPanel::showCPPNOutputsAt(const QPointF &p) {
