@@ -12,11 +12,17 @@ struct Point_t {
   static_assert(D < 3, "3D ANNs are far from fonctional");
 
   std::array<float, D> data;
+
   float x (void) const {  return data[0]; }
 
   float y (void) const {
     static_assert(D >= 1, "Current point type is mono-dimensional");
     return data[1];
+  }
+
+  friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
+    if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
+    return lhs.x() < rhs.x();
   }
 };
 
@@ -31,8 +37,7 @@ private:
   struct PointCMP {
     using is_transparent = void;
     bool operator() (const Point &lhs, const Point &rhs) const {
-      if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
-      return lhs.x() < rhs.x();
+      return lhs < rhs;
     }
 
     bool operator() (const Point &lhs, const RangeFinder &rhs) const {
@@ -63,9 +68,9 @@ public:
     using Links = std::vector<Link>;
     Links links;
 
-    bool isInput (void) const {
-      return type == B || type == I;
-    }
+    bool isInput (void) const {   return type == B || type == I;  }
+    bool isOutput (void) const {  return type == O; }
+    bool isHidden (void) const {  return type == H; }
   };
 
   const auto& neurons (void) const {  return _neurons;  }
@@ -85,7 +90,7 @@ public:
 
   using Coordinates = std::vector<Point>;
   static ANN build (const Point &bias, const Coordinates &inputs,
-                    const Coordinates &outputs, const Coordinates &hidden,
+                    const Coordinates &outputs,
                     const genotype::ES_HyperNEAT &genome,
                     const phenotype::CPPN &cppn);
 private:

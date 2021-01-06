@@ -42,6 +42,8 @@ private:
   static constexpr uint N = 3;
   using IPtr = simu::Individual::ptr;
   std::array<IPtr, N*N> _individuals;
+  uint _generation;
+
   std::array<sound::Visualizer*, N*N> _visualizers;
   sound::Visualizer *_selection;
 

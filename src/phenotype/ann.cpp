@@ -1,20 +1,11 @@
+#include <queue>
+
 #include "ann.h"
 
+/// TODO Does not use LEO (no official implementation either)
+/// TODO No direct input -> output connections
+
 namespace phenotype {
-
-#ifndef NDEBUG
-//#define DEBUG
-//#define DEBUG_COMPUTE
-#endif
-
-struct QuadTreeNode {
-  ANN::Point center;
-  float radius;
-  uint level;
-
-  using ptr = std::shared_ptr<QuadTreeNode>;
-  std::array<ptr, 4> children;
-};
 
 template <uint D>
 std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
@@ -23,10 +14,344 @@ std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
   return os << " }";
 }
 
+#ifndef NDEBUG
+//#define DEBUG
+//#define DEBUG_COMPUTE 0
+//#define DEBUG_ES 1
+#endif
+
+#if DEBUG_ES
+//#define DEBUG_ES_QUADTREE 1
+#endif
+
+namespace evolvable_substrate {
+static constexpr uint initialDepth = 3;
+static constexpr uint maxDepth = 5;
+static constexpr uint iterations = 1;
+static constexpr float varThr = .03;  // variance
+static constexpr float bndThr = .03;  // band
+static constexpr float bprThr = .3; // band-pruning
+static constexpr float divThr = .5; // division
+static constexpr bool useLEO = true;
+static constexpr bool discoverLEONodes = useLEO && true;
+
+using Point = ANN::Point;
+using Coordinates = ANN::Coordinates;
+
+struct QuadTreeNode {
+  Point center;
+  float radius;
+  uint level;
+  float weight;
+
+  using ptr = std::shared_ptr<QuadTreeNode>;
+  std::vector<ptr> cs;
+
+  QuadTreeNode (const Point &p, float r, uint l)
+    : center(p), radius(r), level(l), weight(NAN) {}
+
+  QuadTreeNode (float x, float y, float r, uint l)
+    : QuadTreeNode({x,y}, r, l) {}
+
+  /// TODO Is this computed often enough?
+  float variance (void) const {
+    float mean = 0;
+    for (auto &c: cs) mean += c->weight;
+    mean /= cs.size();
+    float var = 0;
+    for (auto &c: cs) var += std::pow(c->weight - mean, 2);
+    return var / cs.size();
+  }
+
+#if DEBUG_ES_QUADTREE
+  friend std::ostream& operator<< (std::ostream &os, const QuadTreeNode &n) {
+    utils::IndentingOStreambuf indent (os);
+    os << "QTN " << n.center << " " << n.radius << " " << n.level << " "
+              << n.weight << "\n";
+    for (const auto &c: n.cs) os << *c;
+    return os;
+  }
+#endif
+};
+using QuadTree = QuadTreeNode::ptr;
+
+template <typename... ARGS>
+QuadTreeNode::ptr node (ARGS... args) {
+  return std::make_shared<QuadTreeNode>(args...);
+}
+
+
+QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
+
+  QuadTree root = node(0.f, 0.f, 1.f, 1);
+  std::queue<QuadTreeNode*> q;
+  q.push(root.get());
+
+  static auto cppn_inputs = cppn.inputs();
+  static auto cppn_outputs = cppn.outputs();
+  const auto weight = [&cppn] (const Point &p0, const Point &p1) {
+    cppn_inputs[0] = p0.x();
+    cppn_inputs[1] = p0.y();
+    cppn_inputs[2] = p1.x();
+    cppn_inputs[3] = p1.y();
+    cppn(cppn_inputs, cppn_outputs);
+    auto r = cppn_outputs[0];
+    if (discoverLEONodes && cppn_outputs.size() >= 2)
+      r *= cppn_outputs[1];
+    return r;
+  };
+
+  while (!q.empty()) {
+    QuadTreeNode &n = *q.front();
+    q.pop();
+
+    float cx = n.center.x(), cy = n.center.y();
+    float hr = .5 * n.radius;
+    float nl = n.level + 1;
+    n.cs.resize(4);
+    n.cs[0] = node(cx - hr, cy - hr, hr, nl);
+    n.cs[1] = node(cx - hr, cy + hr, hr, nl);
+    n.cs[2] = node(cx + hr, cy - hr, hr, nl);
+    n.cs[3] = node(cx + hr, cy + hr, hr, nl);
+
+    for (auto &c: n.cs)
+      c->weight = out ? weight(p, c->center) : weight(c->center, p);
+
+    if (n.level < initialDepth || (n.level < maxDepth && n.variance() > divThr))
+      for (auto &c: n.cs) q.push(c.get());
+  }
+
+#if DEBUG_ES_QUADTREE
+  std::cerr << *root;
+#endif
+
+  return root;
+}
+
+struct Connection {
+  Point from, to;
+  float weight;
+#if DEBUG_ES
+  friend std::ostream& operator<< (std::ostream &os, const Connection &c) {
+    return os << "{ " << c.from << " -> " << c.to << " [" << c.weight << "]}";
+  }
+#endif
+};
+using Connections = std::vector<Connection>;
+void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
+                      const QuadTree &t, bool out) {
+
+  static const auto leo = [] (const auto &cppn, auto i, auto o) {
+    static auto inputs = cppn.inputs();
+    static auto outputs = cppn.outputs();
+    inputs[0] = i.x();
+    inputs[1] = i.y();
+    inputs[2] = o.x();
+    inputs[3] = o.y();
+    cppn(inputs, outputs);
+    return (bool)outputs[1];
+  };
+  static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
+    return !useLEO || discoverLEONodes || leo(cppn, i, o);
+  };
+
+  for (auto &c: t->cs) {
+    if (c->variance() >= varThr)
+      pruneAndExtract(cppn, p, con, c, out);
+    else {
+      static auto cppn_inputs = cppn.inputs();
+      static auto cppn_outputs = cppn.outputs();
+      const auto weight = [&cppn, &p, &c, out] (float x, float y) {
+        cppn_inputs[0] = out ? p.x() : x;
+        cppn_inputs[1] = out ? p.y() : y;
+        cppn_inputs[2] = out ? x : p.x();
+        cppn_inputs[3] = out ? y : p.y();
+        cppn(cppn_inputs, cppn_outputs);
+        return std::fabs(c->weight - cppn_outputs[0]);
+      };
+      float cx = c->center.x(), cy = c->center.y();
+      float r = c->radius;
+      float dl = weight(cx-r, cy), dr = weight(cx+r, cy),
+            dt = weight(cx, cy-r), db = weight(cx, cy+r);
+
+      if (std::max(std::min(dl, dr), std::min(dt, db)) > bndThr
+          && leoConnection(cppn, out ? p : c->center, out ? c->center : p)) {
+        con.push_back({
+          out ? p : c->center, out ? c->center : p, c->weight
+        });
+      }
+    }
+  }
+}
+
+void removeUnconnectedNeurons (const Coordinates &inputs,
+                               const Coordinates &outputs,
+                               std::set<Point> &shidden,
+                               Connections &connections) {
+  using Type = ANN::Neuron::Type;
+  struct L;
+  struct N {
+    Point p;
+    Type t;
+    std::vector<L> i, o;
+    N (const Point &p, Type t = Type::H) : p(p), t(t) {}
+  };
+  struct L {
+    N *n;
+    float w;
+  };
+  struct CMP {
+    using is_transparent = void;
+    bool operator() (const N *lhs, const Point &rhs) const {
+      return lhs->p < rhs;
+    }
+    bool operator() (const Point &lhs, const N *rhs) const {
+      return lhs < rhs->p;
+    }
+    bool operator() (const N *lhs, const N *rhs) const {
+      return lhs->p < rhs->p;
+    }
+  };
+
+  std::set<N*, CMP> nodes, inodes, onodes;
+  for (const Point &p: inputs)
+    nodes.insert(*inodes.insert(new N(p, Type::I)).first);
+  for (const Point &p: outputs)
+    nodes.insert(*onodes.insert(new N(p, Type::O)).first);
+
+  const auto getOrCreate = [&nodes] (const Point &p) {
+    auto it = nodes.find(p);
+    if (it != nodes.end())  return *it;
+    else                    return *nodes.insert(new N(p)).first;
+  };
+  for (Connection &c: connections) {
+    N *i = getOrCreate(c.from), *o = getOrCreate(c.to);
+    i->o.push_back({o,c.weight});
+    o->i.push_back({i,c.weight});
+  }
+
+  std::set<N*> iseen, oseen;
+  std::queue<N*> q;
+  const auto breathFirstSearch =
+      [&q] (const auto &src, std::set<N*> &set, auto field) {
+    for (const auto &n: src)  q.push(n);
+    while (!q.empty()) {
+      N *n = q.front();
+      q.pop();
+
+      if (n->t == Type::H) set.insert(n);
+      for (auto &l: n->*field) if (set.find(l.n) == set.end()) q.push(l.n);
+    }
+  };
+  breathFirstSearch(inodes, iseen, &N::o);
+  breathFirstSearch(onodes, oseen, &N::i);
+
+  std::vector<N*> hiddenNodes;
+  std::set_intersection(iseen.begin(), iseen.end(), oseen.begin(), oseen.end(),
+                        std::back_inserter(hiddenNodes));
+
+  connections.clear();
+  for (const N *n: hiddenNodes) {
+    shidden.insert(n->p);
+    for (const L &l: n->i)  connections.push_back({l.n->p, n->p, l.w});
+    for (const L &l: n->o)
+      if (l.n->t == Type::O)
+        connections.push_back({n->p, l.n->p, l.w});
+  }
+
+  for (auto it=nodes.begin(); it!=nodes.end();) {
+    delete *it;
+    it = nodes.erase(it);
+  }
+}
+
+void connect (const CPPN &cppn,
+              const Coordinates &inputs, const Coordinates &outputs,
+              Coordinates &hidden, Connections &connections) {
+
+#if DEBUG_ES
+  using utils::operator<<;
+  std::cerr << "\n## --\nStarting evolvable substrate instantiation\n";
+#endif
+
+  std::set<Point> shidden;
+  Connections tmpConnections;
+  for (const Point &p: inputs) {
+    auto t = divisionAndInitialisation(cppn, p, true);
+    pruneAndExtract(cppn, p, tmpConnections, t, true);
+    for (auto c: tmpConnections)  shidden.insert(c.to);
+  }
+
+#if DEBUG_ES
+  std::cerr << "[I -> H] found " << shidden.size() << " hidden neurons\n\t"
+            << shidden << "\n"
+            << " and " << tmpConnections.size() << " connections\n\t"
+            << tmpConnections << "\n";
+#endif
+
+  connections.insert(connections.end(),
+                     tmpConnections.begin(), tmpConnections.end());
+  tmpConnections.clear();
+
+  std::set<Point> unexploredHidden = shidden;
+  for (uint i=0; i<iterations; i++) {
+    for (const Point &p: unexploredHidden) {
+      auto t = divisionAndInitialisation(cppn, p, true);
+      pruneAndExtract(cppn, p, tmpConnections, t, true);
+      for (auto c: tmpConnections)  shidden.insert(c.to);
+    }
+
+    std::set<Point> tmpHidden;
+    std::set_difference(shidden.begin(), shidden.end(),
+                        unexploredHidden.begin(), unexploredHidden.end(),
+                        std::inserter(tmpHidden, tmpHidden.end()));
+    unexploredHidden = tmpHidden;
+
+#if DEBUG_ES
+  std::cerr << "[H -> H] found " << unexploredHidden.size()
+            << " hidden neurons\n\t" << unexploredHidden << "\n"
+            << " and " << tmpConnections.size() << " connections\n\t"
+            << tmpConnections << "\n";
+#endif
+
+    connections.insert(connections.end(),
+                       tmpConnections.begin(), tmpConnections.end());
+    tmpConnections.clear();
+  }
+
+  for (const Point &p: outputs) {
+    auto t = divisionAndInitialisation(cppn, p, false);
+    pruneAndExtract(cppn, p, tmpConnections, t, false);
+  }
+
+#if DEBUG_ES
+  std::cerr << "[H -> O] found " << tmpConnections.size() << " connections\n\t"
+            << tmpConnections << "\n";
+#endif
+
+  connections.insert(connections.end(),
+                     tmpConnections.begin(), tmpConnections.end());
+
+  std::set<Point> shidden2;
+  removeUnconnectedNeurons(inputs, outputs, shidden2, connections);
+
+#if DEBUG_ES
+  std::cerr << "[Filtrd] total " << shidden2.size()
+            << " hidden neurons\n\t" << shidden2 << "\n"
+            << " and " << connections.size() << " connections\n\t"
+            << connections << "\n";
+#endif
+
+  std::copy(shidden2.begin(), shidden2.end(), std::back_inserter(hidden));
+}
+
+} // end of namespace evolvable substrate
+
+
 ANN::ANN(void){}
 
-ANN ANN::build (const Point &bias, const Coordinates &inputs, const Coordinates &outputs,
-                const Coordinates &hidden,
+ANN ANN::build (const Point &bias, const Coordinates &inputs,
+                const Coordinates &outputs,
                 const genotype::ES_HyperNEAT &genome, const CPPN &cppn) {
   ANN ann;
   ann._hasBias = (!std::isnan(bias.x()) && !std::isnan(bias.y()));
@@ -49,51 +374,62 @@ ANN ANN::build (const Point &bias, const Coordinates &inputs, const Coordinates 
   ann._outputs.resize(outputs.size());
   for (auto &p: outputs) neurons[p] = ann._outputs[i++] = add(p, Neuron::O);
 
+  Coordinates hidden;
+  evolvable_substrate::Connections connections;
+  auto inputsWithBias = inputs;
+  if (ann._hasBias) inputsWithBias.push_back(bias);
+  evolvable_substrate::connect(cppn, inputsWithBias, outputs, hidden,
+                               connections);
+
   for (auto &p: hidden) neurons[p] = add(p, Neuron::H);
-
-  auto cppn_inputs = cppn.inputs();
-  auto cppn_outputs = cppn.outputs();
-  for (const auto &p: neurons) {
-    float minY = std::max(-1.f, p.first.y() - genome.recurrentDY);
-#ifdef DEBUG
-    std::cerr << "neuron at " << p.first << "\n";
-#endif
-    if (p.second->type == Neuron::O) {
-#ifdef DEBUG
-      std::cerr << "\tno outgoing connections for output node\n";
-#endif
-      continue;
-    }
-
-    auto lb = neurons.lower_bound(RangeFinder{minY});
-#ifdef DEBUG
-    std::cerr << "\t" << std::distance(lb, neurons.end())
-              << " link candidates in [" << minY << ", 1]\n";
-#endif
-    while (lb != neurons.end()) {
-      if (lb->second->isInput()) {
-#ifdef DEBUG
-        std::cerr << "\t\tNo incoming connection for input node at "
-                  << lb->first << "\n";
-#endif
-      } else {
-#ifdef DEBUG
-        std::cerr << "\t\t-> " << lb->first << ": ";
-#endif
-
-        cppn_inputs = {
-          p.first.x(), p.first.y(), lb->first.x(), lb->first.y() };
-        cppn(cppn_inputs, cppn_outputs);
-
-#ifdef DEBUG
-        std::cerr << " {" << cppn_outputs[0] << " " << cppn_outputs[1] << "}\n";
-#endif
-        if (cppn_outputs[1] > 0 && cppn_outputs[0] != 0)
-          lb->second->links.push_back({cppn_outputs[0], p.second});
-      }
-      ++lb;
-    }
+  for (auto &c: connections) {
+    auto &src = neurons.at(c.from), &dst = neurons.at(c.to);
+    dst->links.push_back({c.weight,src});
   }
+
+//  auto cppn_inputs = cppn.inputs();
+//  auto cppn_outputs = cppn.outputs();
+//  for (const auto &p: neurons) {
+//    float minY = std::max(-1.f, p.first.y() - genome.recurrentDY);
+//#ifdef DEBUG
+//    std::cerr << "neuron at " << p.first << "\n";
+//#endif
+//    if (p.second->type == Neuron::O) {
+//#ifdef DEBUG
+//      std::cerr << "\tno outgoing connections for output node\n";
+//#endif
+//      continue;
+//    }
+
+//    auto lb = neurons.lower_bound(RangeFinder{minY});
+//#ifdef DEBUG
+//    std::cerr << "\t" << std::distance(lb, neurons.end())
+//              << " link candidates in [" << minY << ", 1]\n";
+//#endif
+//    while (lb != neurons.end()) {
+//      if (lb->second->isInput()) {
+//#ifdef DEBUG
+//        std::cerr << "\t\tNo incoming connection for input node at "
+//                  << lb->first << "\n";
+//#endif
+//      } else {
+//#ifdef DEBUG
+//        std::cerr << "\t\t-> " << lb->first << ": ";
+//#endif
+
+//        cppn_inputs = {
+//          p.first.x(), p.first.y(), lb->first.x(), lb->first.y() };
+//        cppn(cppn_inputs, cppn_outputs);
+
+//#ifdef DEBUG
+//        std::cerr << " {" << cppn_outputs[0] << " " << cppn_outputs[1] << "}\n";
+//#endif
+//        if (cppn_outputs[1] > 0 && cppn_outputs[0] != 0)
+//          lb->second->links.push_back({cppn_outputs[0], p.second});
+//      }
+//      ++lb;
+//    }
+//  }
 
   return ann;
 }
@@ -204,8 +540,8 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs) {
     for (const auto &l: p.second->links) {
 #ifdef DEBUG_COMPUTE
       std::cerr << "\t\tv = " << v + l.weight * l.in.lock()->value
-                << " = " << v << " + " << l.weight * l.in.lock()->value
-                << "\n";
+                << " = " << v << " + " << l.weight << " * "
+                << l.in.lock()->value << "\n";
 #endif
 
       v += l.weight * l.in.lock()->value;

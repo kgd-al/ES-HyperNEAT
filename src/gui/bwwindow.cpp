@@ -24,25 +24,21 @@ Individual::ptr Individual::random(rng::AbstractDice &d) {
   auto cppn = phenotype::CPPN::fromGenotype(genome);
 
   phenotype::ANN::Point bias {0,-.9};
-  phenotype::ANN::Coordinates inputs, outputs, rnd_hidden;
+  phenotype::ANN::Coordinates inputs, outputs;
   static constexpr auto C = sound::Generator::CHANNELS;
   for (uint i=0; i<C; i++) {
     inputs.push_back( { float(i) / (C-1) - .5f, -1 });
     outputs.push_back({ float(i) / (C-1) - .5f, +1 });
   }
 
-  for (uint i=0; i<10; i++)
-    rnd_hidden.push_back({d(-1.f, 1.f), d(-.8f, .8f)});
-
-  auto ann = phenotype::ANN::build(bias, inputs, outputs, rnd_hidden,
-                                   genome, cppn);
+  auto ann = phenotype::ANN::build(bias, inputs, outputs, genome, cppn);
 
   return ptr(new Individual(genome, cppn, ann));
 }
 
 } // end of namespace simu
 
-BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice() {
+BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice(1) {
 //  _sounds = new SoundGenerator(this);
 
   auto splitter = new QSplitter;
@@ -72,9 +68,11 @@ BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice() {
 }
 
 void BWWindow::firstGeneration(void) {
+  _generation = 0;
   for (uint i=0; i<N; i++)
     for (uint j=0; j<N; j++)
       setIndividual(simu::Individual::random(_dice), i, j);
+  showIndividualDetails(N*N/2);
 }
 
 void BWWindow::nextGeneration(void) {}
@@ -104,7 +102,7 @@ void BWWindow::setIndividual(IPtr &&i, uint j, uint k) {
 bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
   static const QList<QEvent::Type> types {
     QEvent::HoverEnter, QEvent::HoverLeave,
-    QEvent::MouseButtonRelease
+    QEvent::MouseButtonRelease, QEvent::MouseButtonDblClick
   };
 
   auto *v = dynamic_cast<sound::Visualizer*>(watched);
@@ -127,7 +125,12 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
       if (_autoplay->isChecked()) v->stopVocalisationToAudioOut();
       break;
     case QEvent::MouseButtonRelease:
-      setSelectedIndividual(index);
+      if (auto *me = static_cast<QMouseEvent*>(event))
+        if (me->modifiers() == Qt::ControlModifier)
+          setSelectedIndividual(index);
+      break;
+    case QEvent::MouseButtonDblClick:
+      qDebug() << "Double click";
       break;
     default:  break;
     }
@@ -179,8 +182,10 @@ void BWWindow::closeEvent(QCloseEvent *e) {
                                QMessageBox::Yes, QMessageBox::No)
         == QMessageBox::Yes) {
     saveSettings();
-    QMainWindow::closeEvent(e);
-  }
+    e->accept();
+
+  } else
+    e->ignore();
 }
 
 } // end of namespace gui
