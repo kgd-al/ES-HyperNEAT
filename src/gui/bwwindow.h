@@ -36,7 +36,7 @@ private:
 class BWWindow : public QMainWindow {
   Q_OBJECT
 public:
-  BWWindow(QWidget *parent = nullptr);
+  BWWindow(QWidget *parent = nullptr, const stdfs::path &baseSavePath = "");
 
 private:
   ES_HyperNEATPanel *_details;
@@ -49,11 +49,13 @@ private:
   uint _generation;
 
   std::array<sound::Visualizer*, N*N> _visualizers;
-  sound::Visualizer *_selection;
+  sound::Visualizer *_shown, *_selection;
 
   QCheckBox *_autoplay, *_fastclose;
 
   rng::FastDice _dice;
+
+  stdfs::path _baseSavePath;
 
   void firstGeneration (void);
   void nextGeneration (uint index);

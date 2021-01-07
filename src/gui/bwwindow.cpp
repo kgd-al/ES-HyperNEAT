@@ -5,6 +5,7 @@
 #include <QSettings>
 
 #include "bwwindow.h"
+#include "kgd/settings/configfile.h"
 
 #include <QDebug>
 #include <QComboBox>
@@ -50,7 +51,8 @@ Individual::ptr Individual::mutated (const Individual &i, rng::AbstractDice &d){
 
 } // end of namespace simu
 
-BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice(1) {
+BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
+  : QMainWindow(parent), _dice(1), _baseSavePath(baseSavePath) {
 //  _sounds = new SoundGenerator(this);
 
   auto splitter = new QSplitter;
@@ -62,6 +64,7 @@ BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice(1) {
       layout->addWidget(_visualizers[i*N+j] = new sound::Visualizer, i, j);
   for (auto v: _visualizers)
     v->QWidget::installEventFilter(this);
+  _shown = nullptr;
   _selection = nullptr;
 
   auto *clayout = new QVBoxLayout;
@@ -80,10 +83,21 @@ BWWindow::BWWindow(QWidget *parent) : QMainWindow(parent), _dice(1) {
 }
 
 void BWWindow::firstGeneration(void) {
+  if (_baseSavePath.empty())  _baseSavePath = "./tmp/";
+
+  std::ostringstream oss;
+  oss << utils::CurrentTime("%Y-%m-%d_%H-%M-%S");
+  _baseSavePath /= oss.str();
+  stdfs::create_directories(_baseSavePath);
+  _baseSavePath = stdfs::canonical(_baseSavePath);
+  std::cerr << "baseSavePath: " << _baseSavePath << std::endl;
+
   _generation = 0;
   for (uint i=0; i<N; i++)
     for (uint j=0; j<N; j++)
       setIndividual(simu::Individual::random(_dice), i, j);
+  showIndividualDetails(1);
+  showIndividualDetails(0);
   showIndividualDetails(N*N/2);
 }
 
@@ -166,12 +180,18 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
 
 void BWWindow::showIndividualDetails(int index) {
   if (_selection)  return;
+  std::cerr << "Showing details of individual at index " << index << "\n";
+
+  if (_shown) _shown->setHighlighted(false);
+
   if (index < 0)
     _details->noData();
 
   else {
     auto &i = _individuals.at(index);
     _details->setData(i->genome, i->cppn, i->ann);
+    _shown = _visualizers[index];
+    _shown->setHighlighted(true);
   }
 }
 
@@ -179,15 +199,10 @@ void BWWindow::setSelectedIndividual(int index) {
   sound::Visualizer *v = (index >= 0) ? _visualizers[index] : nullptr;
   bool deselect = (v == nullptr || _selection == v);
 
-  if (_selection) {
-    _selection->setSelected(false);
-    _selection = nullptr;
-  }
-
+  if (_selection) _selection = nullptr;
   if (!deselect) {
     showIndividualDetails(index);
     _selection = v;
-    _selection->setSelected(true);
   }
 }
 

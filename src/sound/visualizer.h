@@ -9,7 +9,7 @@ namespace sound {
 
 class Visualizer : public QWidget, public Generator {
   QImage _data;
-  bool _selected;
+  bool _highlight;
 
 public:
   Visualizer(QWidget *parent = nullptr);
@@ -29,7 +29,7 @@ public:
 
   void setNoteSheet(const NoteSheet &notes) override;
 
-  void setSelected (bool s);
+  void setHighlighted (bool s);
 
   void paintEvent(QPaintEvent *e) override;
 };

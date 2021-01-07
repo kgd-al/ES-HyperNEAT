@@ -283,20 +283,6 @@ void Generator::setNoteSheet(const NoteSheet &notes) {
   }
   streams.back().open("tmp/soundwave");
 
-  const auto transition = [&notes] (uint i, uint c, uint s) -> float {
-    static constexpr uint S = Data::SAMPLES_PER_NOTE;
-    static constexpr uint ds = S * 0;//.1;
-
-    if (s < ds
-        && ((0 == i) || int(notes[(i-1)*CHANNELS+c]) != int(notes[i*CHANNELS+c])))
-      return float(s) / ds;
-    if (S - s < ds
-        && ((i == Data::NOTES_PER_VOCALISATION-1)
-          || int(notes[i*CHANNELS+c]) != int(notes[(i+1)*CHANNELS+c])))
-      return float(S - s) / ds;
-    return 1.f;
-  };
-
   for (uint i=0; i<Data::NOTES_PER_VOCALISATION; i++) {
     for (uint j=0; j<Data::SAMPLES_PER_NOTE; j++) {
       float t = float(i * Data::SAMPLES_PER_NOTE + j) / Data::SAMPLE_RATE;
@@ -304,11 +290,10 @@ void Generator::setNoteSheet(const NoteSheet &notes) {
       for (uint c=0; c<CHANNELS; c++) {
         float s = 0;
         auto a = notes.at(i*CHANNELS+c);
-        float b = transition(i, c, j);
 
-        if (a != 0) s = a * b *
-                        d->ifunc((i * Data::SAMPLES_PER_NOTE + j)
-                                 * Data::frequencies.at(c) * Data::FREQ_CONST);
+        if (a != 0)
+          s = a * d->ifunc((i * Data::SAMPLES_PER_NOTE + j)
+                           * Data::frequencies.at(c) * Data::FREQ_CONST);
 
         streams[c] << t << " " << s << "\n";
 

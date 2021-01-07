@@ -14,7 +14,7 @@ Visualizer::Visualizer(QWidget *parent) : QWidget(parent) {
   setSizePolicy(sizePolicy);
   setAttribute(Qt::WA_Hover, true);
 
-  _selected = false;
+  _highlight = false;
 
   _data = QImage(NOTES, CHANNELS, QImage::Format_RGB32);
 }
@@ -37,8 +37,8 @@ void Visualizer::setNoteSheet(const NoteSheet &notes) {
   update();
 }
 
-void Visualizer::setSelected(bool s) {
-  _selected = s;
+void Visualizer::setHighlighted(bool h) {
+  _highlight = h;
   update();
 }
 
@@ -46,7 +46,7 @@ void Visualizer::paintEvent(QPaintEvent *e) {
   QWidget::paintEvent(e);
 
   QPainter p (this);
-  if (_selected)  p.setPen(palette().color(QPalette::Highlight));
+  if (_highlight)  p.setPen(palette().color(QPalette::Highlight));
   p.drawRect(rect().adjusted(0, 0, -1, -1));
   p.drawImage(rect().adjusted(1, 1, -1, -1), _data);
 }
