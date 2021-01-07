@@ -464,7 +464,15 @@ gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
   std::map<Neuron*, Agnode_t*> gvnodes;
   std::vector<std::pair<Neuron*, Neuron::Link>> links;
 
-  set(g.graph, "splines", "true");
+  /*
+   *      default -> ok
+   *   false/line -> ok
+   * true/splines -> segfault
+   *     polyline -> segfault
+   *       curved -> ok
+   *        ortho
+   */
+  set(g.graph, "splines", "ortho");
 
   for (const auto &p: _neurons) {
     Point pos = p.first;
