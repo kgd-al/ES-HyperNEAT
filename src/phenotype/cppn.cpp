@@ -38,7 +38,7 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   const CPPN_g &cppn_g = es_hyperneat.cppn;
   using NID = CPPN_g::Node::ID;
 
-  static const auto &ofuncs = cppn_g.outputFunctions;
+  const auto &ofuncs = cppn_g.outputFunctions;
 
   CPPN cppn;
 

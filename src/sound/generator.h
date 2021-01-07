@@ -17,9 +17,9 @@ namespace sound {
 class Generator : public QObject {
   Q_OBJECT
 public:
-  static constexpr uint CHANNELS = 4;
+  static constexpr uint CHANNELS = 2;
   static constexpr float STEP = 1./4.;
-  static constexpr float DURATION = 2;
+  static constexpr float DURATION = 1;
 
   static constexpr uint NOTES = DURATION / STEP;
 

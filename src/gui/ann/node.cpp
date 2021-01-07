@@ -7,8 +7,6 @@
 #include "edge.h"
 #include "../../phenotype/cppn.h"
 
-#include <QDebug>
-
 namespace gui::ann {
 
 const QTextOption TextAspect = QTextOption(Qt::AlignCenter);
@@ -23,7 +21,9 @@ Node::Node (Agnode_t *node, qreal scale) {
   setAcceptHoverEvents(true);
   _hovered = false;
 
+#ifndef NDEBUG
   _name = QString(agnameof(node));
+#endif
 
   auto b = ND_bb(node);
   _bounds = toQt(b, scale);

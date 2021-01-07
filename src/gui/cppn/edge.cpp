@@ -7,7 +7,9 @@ namespace gui::cppn {
 Edge::Edge (Agedge_t *edge, qreal scale) {
   setZValue(-1);
 
+#ifndef NDEBUG
   _name = QString(agnameof(edge));
+#endif
 
   const splines* spl = ED_spl(edge);
   _bounds = toQt(spl->bb, scale);

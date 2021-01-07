@@ -6,8 +6,6 @@
 #include "node.h"
 #include "../../phenotype/cppn.h"
 
-#include <QDebug>
-
 namespace gui::cppn {
 
 using NodeFunc = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
@@ -75,7 +73,9 @@ const QFont EdgeFont { BaseFont.family(), int(BaseFont.pointSize() * .8)};
 static constexpr int MARGIN = 1;
 
 Node::Node (Agnode_t *node, qreal scale) {
+#ifndef NDEBUG
   _name = QString(agnameof(node));
+#endif
 
   auto b = ND_bb(node);
   _bounds = toQt(b, scale);

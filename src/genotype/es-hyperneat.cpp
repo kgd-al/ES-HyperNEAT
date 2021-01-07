@@ -184,7 +184,9 @@ void to_json (nlohmann::json &j, const CPPN &d) {
     jnodes.push_back({n.id, n.func});
   for (const CPPN::Link &l: d.links)
     jlinks.push_back({ l.id, l.nid_src, l.nid_dst, l.weight });
-  j = { d.inputs, d.outputs, d.nextNID, d.nextLID, jnodes, jlinks };
+  j = {
+    d.inputs, d.outputs, d.nextNID, d.nextLID, jnodes, jlinks, d.outputFunctions
+  };
 }
 
 void from_json (const nlohmann::json &j, CPPN &d) {
@@ -196,6 +198,7 @@ void from_json (const nlohmann::json &j, CPPN &d) {
   for (const nlohmann::json &jn: j[i++])  d.nodes.emplace(jn[0], jn[1]);
   for (const nlohmann::json &jl: j[i++])
     d.links.emplace(jl[0], jl[1], jl[2], jl[3]);
+  d.outputFunctions = j[i++];
 }
 
 bool operator== (const CPPN &lhs, const CPPN &rhs) {
@@ -219,6 +222,7 @@ bool operator== (const CPPN &lhs, const CPPN &rhs) {
     if (lL.nid_dst != lR.nid_dst) return false;
     if (lL.weight != lR.weight) return false;
   }
+  if (lhs.outputFunctions != rhs.outputFunctions) return false;
   return true;
 }
 
@@ -245,6 +249,7 @@ void assertEqual (const CPPN &lhs, const CPPN &rhs,
     assertEqual(lL.nid_dst, lR.nid_dst, deepcopy);
     assertEqual(lL.weight, lR.weight, deepcopy);
   }
+  assertEqual(lhs.outputFunctions, rhs.outputFunctions, deepcopy);
 }
 
 } // end of namespace genotype

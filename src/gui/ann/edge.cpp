@@ -4,12 +4,12 @@
 
 #include "edge.h"
 
-#include <QDebug>
-
 namespace gui::ann {
 
 Edge::Edge (Agedge_t *edge, qreal scale) {
+#ifndef NDEBUG
   _name = QString(agnameof(edge));
+#endif
 
   setHovered(false);
 

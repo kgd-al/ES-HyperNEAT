@@ -27,6 +27,8 @@ struct Individual {
 
 private:
   Individual (const Genome &g, const CPPN &c, const ANN &a);
+
+  static ptr fromGenome (const Genome &g);
 };
 
 } // end of namespace simu
@@ -40,6 +42,8 @@ private:
   ES_HyperNEATPanel *_details;
 
   static constexpr uint N = 3;
+  static_assert(N%2 == 1, "Grid size must be odd");
+
   using IPtr = simu::Individual::ptr;
   std::array<IPtr, N*N> _individuals;
   uint _generation;
@@ -52,14 +56,14 @@ private:
   rng::FastDice _dice;
 
   void firstGeneration (void);
-  void nextGeneration (void);
+  void nextGeneration (uint index);
 
   void setIndividual(IPtr &&i, uint j, uint k);
 
   bool eventFilter(QObject *watched, QEvent *event) override;
 
-  void showIndividualDetails (uint index);
-  void setSelectedIndividual (uint index);
+  void showIndividualDetails (int index);
+  void setSelectedIndividual (int index);
 
   void saveSettings (void) const;
   void restoreSettings (void);

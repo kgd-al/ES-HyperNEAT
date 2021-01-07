@@ -19,8 +19,7 @@ namespace simu {
 Individual::Individual(const Genome &g, const CPPN &c, const ANN &a)
   : genome(g), cppn(c), ann(a) {}
 
-Individual::ptr Individual::random(rng::AbstractDice &d) {
-  auto genome = genotype::ES_HyperNEAT::random(d);
+Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
   auto cppn = phenotype::CPPN::fromGenotype(genome);
 
   phenotype::ANN::Point bias {0,-.9};
@@ -34,6 +33,19 @@ Individual::ptr Individual::random(rng::AbstractDice &d) {
   auto ann = phenotype::ANN::build(bias, inputs, outputs, genome, cppn);
 
   return ptr(new Individual(genome, cppn, ann));
+}
+
+Individual::ptr Individual::random(rng::AbstractDice &d) {
+  return fromGenome(genotype::ES_HyperNEAT::random(d));
+}
+
+Individual::ptr Individual::mutated (const Individual &i, rng::AbstractDice &d){
+  auto genome = i.genome;
+#ifndef NDEBUG
+  assertEqual(i.genome, genome, true);
+#endif
+  genome.mutate(d);
+  return fromGenome(genome);
 }
 
 } // end of namespace simu
@@ -75,7 +87,20 @@ void BWWindow::firstGeneration(void) {
   showIndividualDetails(N*N/2);
 }
 
-void BWWindow::nextGeneration(void) {}
+void BWWindow::nextGeneration(uint index) {
+  setSelectedIndividual(-1);
+  showIndividualDetails(-1);
+  IPtr parent = std::move(_individuals[index]);
+  uint mid = N/2;
+  for (uint i=0; i<N; i++) {
+    for (uint j=0; j<N; j++) {
+      if (i == mid && j == mid)  continue;
+      setIndividual(simu::Individual::mutated(*parent, _dice), i, j);
+    }
+  }
+  setIndividual(std::move(parent), mid, mid);
+  showIndividualDetails(N*N/2);
+}
 
 void BWWindow::setIndividual(IPtr &&i, uint j, uint k) {
   static constexpr auto C = sound::Generator::CHANNELS;
@@ -130,7 +155,7 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
           setSelectedIndividual(index);
       break;
     case QEvent::MouseButtonDblClick:
-      qDebug() << "Double click";
+      nextGeneration(index);
       break;
     default:  break;
     }
@@ -139,16 +164,20 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
   return false;
 }
 
-void BWWindow::showIndividualDetails(uint index) {
+void BWWindow::showIndividualDetails(int index) {
   if (_selection)  return;
+  if (index < 0)
+    _details->noData();
 
-  auto &i = _individuals.at(index);
-  _details->setData(i->genome, i->cppn, i->ann);
+  else {
+    auto &i = _individuals.at(index);
+    _details->setData(i->genome, i->cppn, i->ann);
+  }
 }
 
-void BWWindow::setSelectedIndividual(uint index) {
-  auto v = _visualizers[index];
-  bool deselect = (_selection == v);
+void BWWindow::setSelectedIndividual(int index) {
+  sound::Visualizer *v = (index >= 0) ? _visualizers[index] : nullptr;
+  bool deselect = (v == nullptr || _selection == v);
 
   if (_selection) {
     _selection->setSelected(false);
