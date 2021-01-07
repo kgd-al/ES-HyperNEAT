@@ -44,17 +44,17 @@ message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 ## Managing uneven support of std 17 filesystem
 ################################################################################
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    set(FS_LIB stdc++fs)
-    add_definitions(-DEXPERIMENTAL_STD_FILESYSTEM)
-    message("> Using experimental g++ std 17 filesystem support")
-  endif()
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  link_directories(/usr/local/opt/llvm/lib/)
-  set(FS_LIB c++fs)
-  message("> Using experimental clang std 17 filesystem support")
-endif()
+#if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+#    set(FS_LIB stdc++fs)
+#    add_definitions(-DEXPERIMENTAL_STD_FILESYSTEM)
+#    message("> Using experimental g++ std 17 filesystem support")
+#  endif()
+#elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+#  link_directories(/usr/local/opt/llvm/lib/)
+#  set(FS_LIB c++fs)
+#  message("> Using experimental clang std 17 filesystem support")
+#endif()
 
 
 ################################################################################
@@ -204,6 +204,12 @@ if (NOT CLUSTER_BUILD)
 
     find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
     message("Qt found at " ${Qt5_DIR} " with components ${QT_COMPONENTS}")
+
+    ############################################################################
+    ## Shut gcc9/Qt deprecated-copy QVariant-related warnings
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "9")
+        add_compile_options(-Wno-deprecated-copy)
+    endif()
 
     ############################################################################
     ## Sources files (visualizer)
