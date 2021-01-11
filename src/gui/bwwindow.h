@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QCheckBox>
+#include <QMap>
 
 #include "es_hyperneatpanel.h"
 #include "../sound/visualizer.h"
@@ -38,6 +39,13 @@ class BWWindow : public QMainWindow {
 public:
   BWWindow(QWidget *parent = nullptr, const stdfs::path &baseSavePath = "");
 
+  enum Setting {
+    AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
+    LOCK_SELECTION, SELECT_NEXT, PLAY,
+    FAST_CLOSE
+  };
+  Q_ENUM(Setting)
+
 private:
   ES_HyperNEATPanel *_details;
 
@@ -51,22 +59,28 @@ private:
   std::array<sound::Visualizer*, N*N> _visualizers;
   sound::Visualizer *_shown, *_selection;
 
-  QCheckBox *_autoplay, *_fastclose;
+  QMap<Setting, QCheckBox*> _settings;
 
   rng::FastDice _dice;
 
-  stdfs::path _baseSavePath;
+  stdfs::path _baseSavePath, _currentSavePath;
 
   void firstGeneration (void);
   void nextGeneration (uint index);
+  void updateSavePath (void);
 
-  void setIndividual(IPtr &&i, uint j, uint k);
+  void setIndividual(IPtr &&in, uint j, uint k);
 
   bool eventFilter(QObject *watched, QEvent *event) override;
+  void individualHoverEnter (uint index);
+  void individualHoverLeave (uint index);
+  void individualMouseClick (uint index);
+  void individualMouseDoubleClick (uint index);
 
   void showIndividualDetails (int index);
   void setSelectedIndividual (int index);
 
+  bool setting (Setting s) const;
   void saveSettings (void) const;
   void restoreSettings (void);
 

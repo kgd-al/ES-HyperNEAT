@@ -13,7 +13,7 @@ class ES_HyperNEAT : public genotype::EDNA<ES_HyperNEAT> {
 
 public:
 
-  struct CPPN {
+  struct CPPN : gvc::Graph {
 
     template <typename T>
     struct ID_CMP {
@@ -63,8 +63,8 @@ public:
     CPPN (void) : inputs(0), outputs(0) {}
 
 #ifdef WITH_GVC
-    gvc::GraphWrapper graphviz_build_graph (const char *ext = "png") const;
-    void graphviz_render_graph (const std::string &path) const;
+    gvc::GraphWrapper build_gvc_graph (const char *ext = "png") const;
+    void render_gvc_graph (const std::string &path) const;
 #endif
 
     static CPPN fromDot (const std::string &data);
@@ -82,6 +82,10 @@ public:
   uint substeps;
 
   ES_HyperNEAT(void) {}
+
+  std::string extension(void) const {
+    return ".eshn.json";
+  }
 };
 DECLARE_GENOME_FIELD(ES_HyperNEAT, ES_HyperNEAT::CPPN, cppn)
 DECLARE_GENOME_FIELD(ES_HyperNEAT, float, recurrentDY)

@@ -26,7 +26,7 @@ struct Point_t {
   }
 };
 
-class ANN {
+class ANN : public gvc::Graph {
 public:
   using Point = Point_t<2>;
 
@@ -76,8 +76,8 @@ public:
   const auto& neurons (void) const {  return _neurons;  }
 
 #ifdef WITH_GVC
-  gvc::GraphWrapper graphviz_build_graph (const char *ext = "png") const;
-  void graphviz_render_graph(const std::string &path) const;
+  gvc::GraphWrapper build_gvc_graph (const char *ext = "png") const;
+  void render_gvc_graph(const std::string &path) const;
 #endif
 
   using Inputs = std::vector<float>;

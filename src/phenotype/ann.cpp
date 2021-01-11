@@ -2,8 +2,8 @@
 
 #include "ann.h"
 
-/// TODO Does not use LEO (no official implementation either)
-/// TODO No direct input -> output connections
+/// TODO Find out which LEO implementation is best
+/// TODO No direct input -> output connections (feature?)
 
 namespace phenotype {
 
@@ -454,9 +454,8 @@ ANN::Neuron::ptr ANN::addNeuron(void) {
 }
 
 #ifdef WITH_GVC
-gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
+gvc::GraphWrapper ANN::build_gvc_graph (const char *ext) const {
   using namespace gvc;
-  static constexpr float scale = 100;
 
   GraphWrapper g ("ann");
 
@@ -465,14 +464,21 @@ gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
   std::vector<std::pair<Neuron*, Neuron::Link>> links;
 
   /*
+   * In non-debug builds (otherwise everything is fine)
    *      default -> ok
    *   false/line -> ok
    * true/splines -> segfault
    *     polyline -> segfault
    *       curved -> ok
-   *        ortho
+   *        ortho -> ok
    */
-  set(g.graph, "splines", "ortho");
+  set(g.graph, "splines", "line");
+
+  // Dot only -> useless here
+//  set(g.graph, "concentrate", "true");
+
+  // Moves nodes...
+//  set(g.graph, "overlap", "false");
 
   for (const auto &p: _neurons) {
     Point pos = p.first;
@@ -513,11 +519,11 @@ gvc::GraphWrapper ANN::graphviz_build_graph (const char *ext) const {
   return g;
 }
 
-void ANN::graphviz_render_graph(const std::string &path) const {
+void ANN::render_gvc_graph(const std::string &path) const {
   auto ext_i = path.find_last_of('.')+1;
   const char *ext = path.data()+ext_i;
 
-  gvc::GraphWrapper g = graphviz_build_graph(ext);
+  gvc::GraphWrapper g = build_gvc_graph(ext);
 
   g.layout("nop");
   gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());

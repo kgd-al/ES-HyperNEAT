@@ -5,7 +5,7 @@ using CPPN = genotype::ES_HyperNEAT::CPPN;
 namespace genotype {
 
 #ifdef WITH_GVC
-gvc::GraphWrapper CPPN::graphviz_build_graph(const char *ext) const {
+gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
   using namespace gvc;
 
   static constexpr auto ilabel = [] (uint index, uint total) {
@@ -103,11 +103,11 @@ gvc::GraphWrapper CPPN::graphviz_build_graph(const char *ext) const {
   return g;
 }
 
-void CPPN::graphviz_render_graph(const std::string &path) const {
+void CPPN::render_gvc_graph(const std::string &path) const {
   auto ext_i = path.find_last_of('.')+1;
   const char *ext = path.data()+ext_i;
 
-  gvc::GraphWrapper g = graphviz_build_graph(ext);
+  gvc::GraphWrapper g = build_gvc_graph(ext);
 
   g.layout("dot");
   gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());
@@ -422,17 +422,21 @@ DEFINE_GENOME_FIELD_WITH_FUNCTOR(CPPN, cppn, "", [] {
 
   functor.random = &initialCPPN;
   functor.mutate = &mutateCPPN;
+
   functor.cross = [] (auto &lhs, auto &rhs, auto &dice) {
+    /// TODO Implement cppn crossing
     std::cerr << "CPPN not (yet) crossable" << std::endl;
     return dice.toss(lhs, rhs);
   };
 
   functor.distance = [] (auto &/*lhs*/, auto &/*rhs*/) {
+    /// TODO Implement cppn genetic distance
     std::cerr << "CPPN not (yet) distance-aware" << std::endl;
     return 0;
   };
 
   functor.check = [] (auto &/*cppn*/) {
+    /// TODO Confirm whether cppn requires a check
     std::cerr << "CPPN not (yet) checkable" << std::endl;
     return true;
   };

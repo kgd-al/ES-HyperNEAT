@@ -1,22 +1,19 @@
 #ifndef CPPN_VIEWER_H
 #define CPPN_VIEWER_H
 
-#include <QGraphicsView>
-
 #include "../../genotype/es-hyperneat.h"
+#include "../graphviewer.h"
 
 namespace gui::cppn {
 
-struct Viewer : public QGraphicsView {
+struct Viewer : public GraphViewer {
+  using Graph_t = genotype::ES_HyperNEAT::CPPN;
+
   Viewer (QWidget *parent = nullptr);
 
-  void setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn);
-  void noCPPN (void);
-
-  void ensureFit (void);
-  void resizeEvent(QResizeEvent *e);
-
-  void render (const QString &filename);
+private:
+  const char* gvc_layout (void) const { return "dot"; }
+  void processGraph (const gvc::GraphWrapper &graph);
 };
 
 } // end of namespace gui::cppn

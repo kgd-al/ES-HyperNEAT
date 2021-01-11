@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cassert>
 #include <QDateTime>
+#include <QTimer>
 
 namespace sound {
 
@@ -170,32 +171,159 @@ private:
   }
 };
 
+static constexpr auto CHANNELS = Generator::CHANNELS;
+static constexpr auto NOTE_DURATION = Generator::STEP;
+static constexpr auto DURATION = Generator::DURATION;
+
+static constexpr float SAMPLE_RATE = 8000;
+static constexpr float FREQ_CONST  = ((2.0 * M_PI) / SAMPLE_RATE);
+
+static constexpr uint SAMPLES_PER_NOTE = SAMPLE_RATE * NOTE_DURATION;
+static constexpr uint NOTES_PER_VOCALISATION = Generator::NOTES;
+static constexpr qint64 TOTAL_SAMPLES = DURATION * SAMPLE_RATE;
+static constexpr qint64 TOTAL_BYTES_COUNT = TOTAL_SAMPLES * FormatData::B;
+
+static_assert(DURATION / NOTE_DURATION == NOTES_PER_VOCALISATION,
+              "Requested durations lead to rounding errors");
+
+static constexpr auto TWO_ROOT_12 = 1.059463094359295;
+static constexpr auto A0 = 27.50;
+static const auto baseFrequency = Generator::BASE_OCTAVE * 12;
+static const std::array<float, CHANNELS> frequencies = [] {
+  std::array<float, CHANNELS> a;
+  for (uint i=0; i<CHANNELS; i++)
+    a[i] = A0 * std::pow(TWO_ROOT_12, baseFrequency + i);
+  return a;
+}();
+
+class CustomBuffer : public QIODevice {
+  QByteArray &_data;
+  qint64 _index;
+  bool _noteStop;
+
+  using Type = Generator::PlaybackType;
+  Type _type;
+
+public:
+  CustomBuffer (QByteArray &array, QObject *parent = nullptr)
+    : QIODevice(parent), _data(array), _noteStop(false) {}
+
+  bool isSequential(void) const override {
+    return true;
+  }
+
+  void open (OpenMode openMode, Type t) {
+    QIODevice::open(openMode | QIODevice::Unbuffered);
+    _type = t;
+    _index = 0;
+    _noteStop = false;
+  }
+
+  Type bufferingType (void) const {
+    return _type;
+  }
+
+  void nextNote (void) {
+    assert(_type == Type::ONE_NOTE);
+    _noteStop = false;
+    auto b = bytesAvailable();
+    qDebug() << "Moving on to next note: " << b << "bytes available";
+    if (b > 0) {
+      emit readyRead();
+      emit bytesWritten(b);
+      emit channelBytesWritten(currentReadChannel(), b);
+      emit channelBytesWritten(currentWriteChannel(), b);
+    }
+  }
+
+  bool atEnd(void) const override {
+    if (_type == Type::LOOP)  return false;
+    return _data.size() <= _index;
+  }
+
+  qint64 bytesAvailable(void) const override {
+    qint64 b = 0;
+    switch (_type) {
+    case Type::ONE_NOTE:
+      b = _noteStop ?
+        0 : FormatData::B * (SAMPLES_PER_NOTE - (_index % SAMPLES_PER_NOTE));
+      break;
+    case Type::ONE_PASS:  b = TOTAL_BYTES_COUNT - _index; break;
+    case Type::LOOP:      b = std::numeric_limits<quint64>::max();  break;
+    }
+    b += QIODevice::bytesAvailable();
+    qDebug() << "bytesAvailable() = " << b;
+    return b;
+  }
+
+  qint64 size (void) const override {
+//    qDebug() << "size() = " << QIODevice::size();
+////    return _data.size();
+//    return QIODevice::size();
+    switch (_type) {
+    case Type::ONE_NOTE:  return _data.size();
+    case Type::ONE_PASS:  return _data.size();
+    case Type::LOOP:      return bytesAvailable();
+    }
+  }
+
+  qint64 readData(char *data, qint64 len) {
+    qDebug() << "readData(" << len << ")";
+
+    // Loop mode -> always more data to read
+    if (_type == Type::LOOP) {
+      // But maybe in two chunks
+      qint64 rlen = std::min(len, qint64(_data.size() - _index));
+      memcpy(data, _data.constData() + _index, rlen);
+//      qDebug() << "\tread" << _index << "+" << rlen << "bytes";
+      if (rlen < len) {
+//        qDebug() << "\tand then" << len-rlen << "from the start";
+        memcpy(data+rlen, _data.constData(), len-rlen);
+      }
+
+      _index = (_index+len)%_data.size();
+
+    } else if (_type == Type::ONE_PASS) {
+      if ((len = std::min(len, qint64(_data.size()) - _index)) <= 0)
+            len = 0;
+      else  memcpy(data, _data.constData() + _index, len);
+      _index += len;
+
+    } else {
+      if ((len = std::min(len, bytesAvailable())) <= 0)
+            len = 0;
+      else  memcpy(data, _data.constData() + _index, len);
+      _index += len;
+
+       // Read full note -> refuse to play any further
+      if ((_index % SAMPLES_PER_NOTE) == 0) _noteStop = true;
+      qDebug() << "\tindex at" << _index << ", stopped:" << _noteStop;
+    }
+
+    qDebug() << len << "bytes read. " << bytesAvailable() << "remaining";
+    return len;
+  }
+
+  qint64 writeData(const char* /*data*/, qint64 /*len*/) override {
+    return -1;
+  }
+
+private:
+  bool open (OpenMode /*openMode*/) override {
+    return false;
+  }
+};
+
 struct Generator::Data {
-  static constexpr auto CHANNELS = Generator::CHANNELS;
-  static constexpr auto NOTE_DURATION = Generator::STEP;
-  static constexpr auto DURATION = Generator::DURATION;
-
-  static constexpr float SAMPLE_RATE = 8000;
-  static constexpr float FREQ_CONST  = ((2.0 * M_PI) / SAMPLE_RATE);
-
-  static constexpr uint SAMPLES_PER_NOTE = SAMPLE_RATE * NOTE_DURATION;
-  static constexpr uint NOTES_PER_VOCALISATION = Generator::NOTES;
-  static_assert(DURATION / NOTE_DURATION == NOTES_PER_VOCALISATION,
-                "Requested durations lead to rounding errors");
-
-  static constexpr auto TWO_ROOT_12 = 1.059463094359295;
-  static constexpr auto A0 = 27.50;
-  static const auto baseFrequency = BASE_OCTAVE * 12;
-  static const std::array<float, CHANNELS> frequencies;
-
   QByteArray bytes;
-  QBuffer buffer;
+  CustomBuffer buffer;
   QAudioOutput *audio;
   static const QAudioFormat format;
+  bool loop;
 
   IFunc ifunc;
 
-  Data (void) {
+  Data (void) : buffer(bytes) {
     bytes.resize(FormatData::B * SAMPLE_RATE * Generator::DURATION);
 //    qDebug() << bytes.size() << "bytes in current buffer";
 
@@ -214,10 +342,10 @@ struct Generator::Data {
                  << "\t  SampleTypes: " << info.supportedSampleTypes() << "\n";
     }
 
-    buffer.setBuffer(&bytes);
-
     // Create an output with our premade QAudioFormat (See example in QAudioOutput)
     audio = new QAudioOutput (currFormat);
+
+    loop = false;
   }
 
   ~Data (void) {
@@ -236,87 +364,87 @@ const QAudioFormat Generator::Data::format = [] {
   return format;
 }();
 
-const std::array<float, Generator::CHANNELS>
-Generator::Data::frequencies = [] {
-  std::array<float, CHANNELS> a;
-  for (uint i=0; i<CHANNELS; i++)
-    a[i] = A0 * std::pow(TWO_ROOT_12, baseFrequency + i);
-  return a;
-}();
-
-
 Generator::Generator(QObject *parent)
   : QObject(parent), d(new Data) {
   setInstrument(ORGAN);
 
-  QObject::connect(d->audio, &QAudioOutput::stateChanged,
-                   [this] (QAudio::State s) {
+  connect(d->audio, &QAudioOutput::stateChanged, [this] (QAudio::State s) {
     qDebug() << QDateTime::currentDateTime().toString("hh:mm:ss,zzz")
              << d->audio << "changed state to" << s;
-    if (s == QAudio::IdleState)
-      stopVocalisationToAudioOut();
+    if (s == QAudio::IdleState) playbackCompleted();
   });
+
+  connect(d->audio, &QAudioOutput::notify, this, &Generator::notify);
+  connect(d->audio, &QAudioOutput::stateChanged,
+                   this, &Generator::stateChanged);
+
+//  connect(&d->buffer, &CustomBuffer::channelBytesWritten, [this] {
+//    if (d->audio->state() == QAudio::SuspendedState
+//        && d->buffer.bytesAvailable() > 0)
+//      d->audio->resume();
+//  });
 }
 Generator::~Generator(void) { delete d; }
 
 void Generator::setInstrument(Instrument i) {
   d->ifunc = instruments.at(i);
 
-  for (uint c=0; c<CHANNELS; c++) {
-    std::ostringstream oss;
-    oss << "tmp/sample" << baseNotes[c%12].toStdString();
-    std::ofstream ofs (oss.str());
-    float f = Data::frequencies.at(c) * Data::FREQ_CONST;
-    for (uint s=0; s<Data::SAMPLES_PER_NOTE; s++)
-      ofs << s << " " << d->ifunc(s * f) << "\n";
-  }
+//  for (uint c=0; c<CHANNELS; c++) {
+//    std::ostringstream oss;
+//    oss << "tmp/sample" << baseNotes[c%12].toStdString() << BASE_OCTAVE + c/12;
+//    std::ofstream ofs (oss.str());
+//    float f = frequencies.at(c) * FREQ_CONST;
+//    for (uint s=0; s<SAMPLES_PER_NOTE; s++)
+//      ofs << s << " " << d->ifunc(s * f) << "\n";
+//  }
 }
 
 void Generator::setNoteSheet(const NoteSheet &notes) {
   assert(notes.size() == CHANNELS * NOTES);
 
-  std::array<std::ofstream, CHANNELS+1> streams;
-  for (uint c=0; c<CHANNELS; c++) {
-    std::ostringstream oss;
-    oss << "tmp/soundwave_channel" << baseNotes[c%12].toStdString();
-    streams[c].open(oss.str());
-  }
-  streams.back().open("tmp/soundwave");
+//  std::array<std::ofstream, CHANNELS+1> streams;
+//  for (uint c=0; c<CHANNELS; c++) {
+//    std::ostringstream oss;
+//    oss << "tmp/soundwave_channel"
+//        << baseNotes[c%12].toStdString()
+//        << BASE_OCTAVE + c/12;
+//    streams[c].open(oss.str());
+//  }
+//  streams.back().open("tmp/soundwave");
 
-  for (uint i=0; i<Data::NOTES_PER_VOCALISATION; i++) {
-    for (uint j=0; j<Data::SAMPLES_PER_NOTE; j++) {
-      float t = float(i * Data::SAMPLES_PER_NOTE + j) / Data::SAMPLE_RATE;
+  for (uint i=0; i<NOTES_PER_VOCALISATION; i++) {
+    for (uint j=0; j<SAMPLES_PER_NOTE; j++) {
+      float t = float(i * SAMPLES_PER_NOTE + j) * FREQ_CONST;
       float sample = 0;
       for (uint c=0; c<CHANNELS; c++) {
         float s = 0;
         auto a = notes.at(i*CHANNELS+c);
 
         if (a != 0)
-          s = a * d->ifunc((i * Data::SAMPLES_PER_NOTE + j)
-                           * Data::frequencies.at(c) * Data::FREQ_CONST);
+          s = a * d->ifunc(t * frequencies.at(c));
 
-        streams[c] << t << " " << s << "\n";
+//        streams[c] << t << " " << s << "\n";
 
         sample += s;
       }
       sample /= CHANNELS;
-      sample *= .5;
+//      sample *= .5;
 
-      streams.back() << t << " " << sample << "\n";
+//      streams.back() << t << " " << sample << "\n";
 
       if constexpr (FormatData::B == 1)
-        d->bytes[i * Data::SAMPLES_PER_NOTE + j] = 255.f * (sample+1) / 2;
+        d->bytes[i * SAMPLES_PER_NOTE + j] = 255.f * (sample+1) / 2;
 
       else if (FormatData::B == 2) {
         qint16 ssample = sample * (2<<15);
         char *ptr = (char*) (&ssample);
-        uint off = (i * Data::SAMPLES_PER_NOTE + j) * FormatData::B;
+        uint off = (i * SAMPLES_PER_NOTE + j) * FormatData::B;
         for (uint k=0; k<FormatData::B; k++)
           d->bytes[off + k] = *(ptr+k);
 
       } else {
         char *ptr = (char*) (&sample);
-        uint off = (i * Data::SAMPLES_PER_NOTE + j) * FormatData::B;
+        uint off = (i * SAMPLES_PER_NOTE + j) * FormatData::B;
         for (uint k=0; k<FormatData::B; k++)
           d->bytes[off + k] = *(ptr+k);
       }
@@ -324,19 +452,58 @@ void Generator::setNoteSheet(const NoteSheet &notes) {
   }
 }
 
-void Generator::vocaliseToAudioOut(void) {
-  d->buffer.open(QIODevice::ReadOnly);
-  d->audio->start(&d->buffer);
+void Generator::start(PlaybackType t) {
+  qDebug() << "\n\nStarting vocalisation of type" << t << "on audio device"
+           << d->audio << " (" << d->audio->state() << ")";
+  if (d->audio->state() == QAudio::SuspendedState)
+    resume();
+  else {
+    d->buffer.open(QIODevice::ReadOnly, t);
+    d->audio->start(&d->buffer);
+  }
 }
 
-void Generator::stopVocalisationToAudioOut(void) {
+void Generator::stop(void) {
   d->audio->stop();
   d->buffer.close();
+  qDebug() << "Stopped vocalisation";
 }
 
-void Generator::vocaliseToFile(const QString &filename) {
+void Generator::pause(void) {
+  d->audio->suspend();
+  qDebug() << "Suspended vocalisation";
+}
+
+void Generator::resume (void) {
+  qDebug() << "Requesting vocalisation resume";
+  if (d->buffer.bufferingType() == ONE_NOTE)  d->buffer.nextNote();
+  d->audio->resume();
+  d->audio->suspend();
+  QTimer::singleShot(100, [this] {
+    d->audio->resume();
+    qDebug() << "Resumed vocalisation";
+  });
+}
+
+void Generator::generateWav(const QString &filename) const {
   if (!filename.isEmpty())
     WavPcmFile::fromRawData(filename, d->bytes, d->format);
+}
+
+void Generator::setNotifyPeriod(int ms) {
+  d->audio->setNotifyInterval(ms);
+}
+
+float Generator::progress(void) const {
+  static constexpr float US_DURATION = DURATION * 1000000.;
+  return d->audio->processedUSecs() / US_DURATION;
+}
+
+void Generator::playbackCompleted(void) {
+  qDebug() << d->buffer.atEnd() << d->buffer.bufferingType();
+  if (d->buffer.bufferingType() == LOOP || d->buffer.atEnd())
+        stop();
+  else  pause();
 }
 
 } // end of namespace sound

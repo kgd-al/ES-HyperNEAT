@@ -1,5 +1,3 @@
-#include <QtPrintSupport/QPrinter>
-
 #include "viewer.h"
 
 #include "node.h"
@@ -7,21 +5,11 @@
 
 namespace gui::cppn {
 
-Viewer::Viewer (QWidget *parent) : QGraphicsView(parent) {
-  setScene(new QGraphicsScene(this));
-  setRenderHint(QPainter::Antialiasing);
-  noCPPN();
-}
+Viewer::Viewer (QWidget *parent) : GraphViewer(parent, "CPPN") {}
 
-void Viewer::setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn) {
-  auto gw = cppn.graphviz_build_graph();
-  gw.layout("dot");
-  gvRender(gvc::context(), gw.graph, "dot", NULL);
-
+void Viewer::processGraph (const gvc::GraphWrapper &cppn) {
   auto scene = this->scene();
-  scene->clear();
-
-  auto g = gw.graph;
+  auto g = cppn.graph;
   qreal s = gvc::get(g, "dpi", 96.0) / 72.;
   for (auto *n = agfstnode(g); n != NULL; n = agnxtnode(g, n)) {
     scene->addItem(new Node(n, s));
@@ -31,34 +19,6 @@ void Viewer::setCPPN (const genotype::ES_HyperNEAT::CPPN &cppn) {
         scene->addItem(new Edge(e, s));
     }
   }
-
-  scene->setSceneRect(scene->itemsBoundingRect());
-  ensureFit();
-}
-
-void Viewer::noCPPN(void) {
-  scene()->clear();
-  scene()->addText("No CPPN\nto display");
-  scale(1, 1);
-}
-
-void Viewer::ensureFit (void) {
-  if (scene()->items().size() > 1)  fitInView(sceneRect(), Qt::KeepAspectRatio);
-}
-
-void Viewer::resizeEvent(QResizeEvent *e) {
-  QWidget::resizeEvent(e);
-  ensureFit();
-}
-
-void Viewer::render (const QString &filename) {
-  QPrinter printer(QPrinter::HighResolution);
-  printer.setPageSizeMM(sceneRect().size());
-  printer.setOutputFormat(QPrinter::PdfFormat);
-  printer.setOutputFileName(filename);
-
-  QPainter p(&printer);
-  scene()->render(&p);
 }
 
 } // end of namespace gui::cppn

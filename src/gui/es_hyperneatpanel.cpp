@@ -63,20 +63,19 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
   _cppn = &cppn;
   _ann = &ann;
 
-  _cppnViewer->setCPPN(genome.cppn);
+  _cppnViewer->setGraph(genome.cppn);
   _cppnOViewer->phenotypes(genome, cppn, {0,0});
-  _annViewer->setANN(ann);
+  _annViewer->setGraph(ann);
 
   for (const auto &p: _otherFields)
     p.second->setText(QString::fromStdString(genome.getField(p.first)));
 }
 
 void ES_HyperNEATPanel::noData(void) {
-  _cppnViewer->noCPPN();
+  _cppnViewer->clearGraph();
   _cppnOViewer->noPhenotypes();
-  _annViewer->noANN();
-  for (const auto &p: _otherFields)
-    p.second->setText("N/A");
+  _annViewer->clearGraph();
+  for (const auto &p: _otherFields) p.second->setText("N/A");
 }
 
 void ES_HyperNEATPanel::showCPPNOutputsAt(const QPointF &p) {

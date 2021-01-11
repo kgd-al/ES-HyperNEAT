@@ -11,6 +11,7 @@
 
 #include <QString>
 #include <QVector>
+#include <QAudio>
 
 namespace sound {
 
@@ -18,8 +19,8 @@ class Generator : public QObject {
   Q_OBJECT
 public:
   static constexpr uint CHANNELS = 2;
-  static constexpr float STEP = 1./4.;
-  static constexpr float DURATION = 1;
+  static constexpr float STEP = 1./2.;
+  static constexpr float DURATION = 2;
 
   static constexpr uint NOTES = DURATION / STEP;
 
@@ -39,16 +40,35 @@ public:
   void setInstrument (Instrument i);
 
   using NoteSheet = std::array<float, NOTES*CHANNELS>;
-  virtual void setNoteSheet (const NoteSheet &notes);
+  void setNoteSheet (const NoteSheet &notes);
 
-  virtual void vocaliseToAudioOut (void);
-  void stopVocalisationToAudioOut (void);
+  enum PlaybackType {
+    LOOP, ONE_PASS, ONE_NOTE
+  };
+  void start (PlaybackType t);
+  void stop (void);
+  void pause (void);
+  void resume (void);
 
-  void vocaliseToFile (const QString &filename = "");
+  void generateWav(const std::string &filename) const {
+    generateWav(QString::fromStdString(filename));
+  }
+  void generateWav (const QString &filename = "") const;
+
+  void setNotifyPeriod (int ms);
+
+  // In [0,1]
+  float progress (void) const;
+
+signals:
+  void notify (void);
+  void stateChanged (QAudio::State s);
 
 private:
   struct Data;
   Data *d;
+
+  void playbackCompleted (void);
 };
 
 } // end of namespace sound

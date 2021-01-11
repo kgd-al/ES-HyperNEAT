@@ -25,13 +25,11 @@ GraphWrapper::~GraphWrapper (void) {
 }
 
 void GraphWrapper::layout (const char *engine) {
-  std::cerr << "Allocating gw layout for " << this << "\n";
   gvLayout(context(), graph, engine);
   layedOut = true;
 }
 
 void GraphWrapper::freeLayout(void) {
-  std::cerr << ">>>> Freed gw layout for " << this << "\n";
   gvFreeLayout(context(), graph);
   layedOut = false;
 }

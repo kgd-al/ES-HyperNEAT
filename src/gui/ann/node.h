@@ -16,6 +16,12 @@ public:
 
   QRectF boundingRect(void) const override {    return _bounds; }
 
+#ifndef NDEBUG
+  const QString& name (void) const {  return _name; }
+#endif
+
+  const QPointF& substratePosition (void) const { return _spos; }
+
   void paint (QPainter *painter,
               const QStyleOptionGraphicsItem*, QWidget*) override;
 

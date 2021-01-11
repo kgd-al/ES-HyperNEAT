@@ -3,6 +3,7 @@
 #include <QSplitter>
 #include <QMessageBox>
 #include <QSettings>
+#include <QButtonGroup>
 
 #include "bwwindow.h"
 #include "kgd/settings/configfile.h"
@@ -67,9 +68,33 @@ BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
   _shown = nullptr;
   _selection = nullptr;
 
-  auto *clayout = new QVBoxLayout;
-  clayout->addWidget(_autoplay = new QCheckBox ("Autoplay"));
-  clayout->addWidget(_fastclose = new QCheckBox ("Fast close"));
+  auto *clayout = new QGridLayout;
+  {
+    uint r = 0, c = 0;
+    auto add = [&r, &c, clayout] (QWidget *w) {
+      clayout->addWidget(w, r++, c);
+      if (r == 4) r = 0, c++;
+    };
+    QMetaEnum e = QMetaEnum::fromType<Setting>();
+    for (int i=0; i<e.keyCount(); i++) {
+      Setting s = Setting(e.value(i));
+      if (s == AUTOPLAY)  add(new QLabel("Sound"));
+      else if (s == LOCK_SELECTION) add(new QLabel ("LMouse"));
+      else if (s == FAST_CLOSE) add(new QLabel ("Other"));
+
+      QString name = QString(e.key(i)).replace("_", " ").toLower();
+      name[0] = name[0].toUpper();
+      add(_settings[s] = new QCheckBox (name));
+    }
+
+    QButtonGroup *gp = new QButtonGroup(this);
+    for (Setting s: {AUTOPLAY,MANUAL_PLAY,STEP_PLAY})
+      gp->addButton(_settings.value(s));
+
+    QButtonGroup *gm = new QButtonGroup(this);
+    for (Setting s: {LOCK_SELECTION,SELECT_NEXT,PLAY})
+      gm->addButton(_settings.value(s));
+  }
   layout->addLayout(clayout, N, 0, 1, N, Qt::AlignCenter);
 
   holder->setLayout(layout);
@@ -87,23 +112,35 @@ void BWWindow::firstGeneration(void) {
 
   std::ostringstream oss;
   oss << utils::CurrentTime("%Y-%m-%d_%H-%M-%S");
+  auto link = _baseSavePath / "last";
   _baseSavePath /= oss.str();
   stdfs::create_directories(_baseSavePath);
   _baseSavePath = stdfs::canonical(_baseSavePath);
+
+  if (stdfs::exists(link))  stdfs::remove(link);
+  stdfs::create_directory_symlink(_baseSavePath, link);
+
   std::cerr << "baseSavePath: " << _baseSavePath << std::endl;
 
   _generation = 0;
+  updateSavePath();
+
   for (uint i=0; i<N; i++)
     for (uint j=0; j<N; j++)
       setIndividual(simu::Individual::random(_dice), i, j);
   showIndividualDetails(1);
   showIndividualDetails(0);
   showIndividualDetails(N*N/2);
+  showIndividualDetails(7);
 }
 
 void BWWindow::nextGeneration(uint index) {
   setSelectedIndividual(-1);
   showIndividualDetails(-1);
+
+  _generation++;
+  updateSavePath();
+
   IPtr parent = std::move(_individuals[index]);
   uint mid = N/2;
   for (uint i=0; i<N; i++) {
@@ -116,14 +153,22 @@ void BWWindow::nextGeneration(uint index) {
   showIndividualDetails(N*N/2);
 }
 
-void BWWindow::setIndividual(IPtr &&i, uint j, uint k) {
+void BWWindow::updateSavePath(void) {
+  std::ostringstream oss;
+  oss << "gen" << _generation;
+  _currentSavePath = _baseSavePath / oss.str();
+  stdfs::create_directories(_currentSavePath);
+}
+
+void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   static constexpr auto C = sound::Generator::CHANNELS;
 
-  auto &ann = i->ann;
-  _individuals[j*N+k] = std::move(i);
+
+  simu::Individual &i = *(_individuals[j*N+k] = std::move(in)).get();
+  auto &ann = i.ann;
 
   auto v = _visualizers[j*N+k];
-  sound::Visualizer::NoteSheet notes;
+  sound::Generator::NoteSheet notes;
 
   auto inputs = ann.inputs();
   auto outputs = ann.outputs();
@@ -136,6 +181,22 @@ void BWWindow::setIndividual(IPtr &&i, uint j, uint k) {
     inputs = outputs;
   }
   v->setNoteSheet(notes);
+
+  if (j*N+k != N*N/2 || _generation == 0) {
+    // Don't save last gen champion again
+    std::ostringstream oss;
+    oss << "i" << j << "_j" << k;
+    stdfs::path saveFolder = _currentSavePath / oss.str();
+    stdfs::create_directories(saveFolder);
+    i.genome.toFile(saveFolder / "genome");
+    i.genome.cppn.render_gvc_graph(saveFolder / "cppn_gvc.png");
+    using GV = GraphViewer;
+    GV::render<cppn::Viewer>(i.genome.cppn, saveFolder / "cppn_qt.pdf");
+    i.ann.render_gvc_graph(saveFolder / "ann_gvc.png");
+    GV::render<ann::Viewer>(i.ann, saveFolder / "ann_qt.pdf");
+    v->render(saveFolder / "song.png");
+    v->sound().generateWav(saveFolder / "song.wav");
+  }
 }
 
 bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
@@ -157,19 +218,16 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
   if (index >= 0) {
     switch (event->type()) {
     case QEvent::HoverEnter:
-      showIndividualDetails(index);
-      if (_autoplay->isChecked()) v->vocaliseToAudioOut();
+      individualHoverEnter(index);
       break;
     case QEvent::HoverLeave:
-      if (_autoplay->isChecked()) v->stopVocalisationToAudioOut();
+      individualHoverLeave(index);
       break;
     case QEvent::MouseButtonRelease:
-      if (auto *me = static_cast<QMouseEvent*>(event))
-        if (me->modifiers() == Qt::ControlModifier)
-          setSelectedIndividual(index);
+      individualMouseClick(index);
       break;
     case QEvent::MouseButtonDblClick:
-      nextGeneration(index);
+      individualMouseDoubleClick(index);
       break;
     default:  break;
     }
@@ -178,9 +236,36 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
   return false;
 }
 
+void BWWindow::individualHoverEnter(uint index) {
+  showIndividualDetails(index);
+  if (setting(AUTOPLAY))
+    _visualizers[index]->vocaliseToAudioOut(sound::Generator::LOOP);
+}
+
+void BWWindow::individualHoverLeave(uint index) {
+  if (setting(AUTOPLAY))
+    _visualizers[index]->stopVocalisationToAudioOut();
+}
+
+void BWWindow::individualMouseClick(uint index) {
+  if (setting(LOCK_SELECTION))  setSelectedIndividual(index);
+  else if (setting(SELECT_NEXT))  nextGeneration(index);
+  else if (setting(PLAY)) {
+    auto v = _visualizers[index];
+    if (setting(MANUAL_PLAY))
+      v->vocaliseToAudioOut(sound::Generator::ONE_PASS);
+    else
+      v->vocaliseToAudioOut(sound::Generator::ONE_NOTE);
+  }
+}
+
+void BWWindow::individualMouseDoubleClick(uint index) {
+//  nextGeneration(index);
+}
+
 void BWWindow::showIndividualDetails(int index) {
   if (_selection)  return;
-  std::cerr << "Showing details of individual at index " << index << "\n";
+  std::cerr << "\nShowing details of individual at index " << index << "\n";
 
   if (_shown) _shown->setHighlighted(false);
 
@@ -206,22 +291,34 @@ void BWWindow::setSelectedIndividual(int index) {
   }
 }
 
+bool BWWindow::setting(Setting s) const {
+  return _settings.value(s)->isChecked();
+}
+
 void BWWindow::saveSettings(void) const {
   QSettings settings;
   settings.setValue("geom", saveGeometry());
-  settings.setValue("autoplay", _autoplay->isChecked());
-  settings.setValue("fastclose", _fastclose->isChecked());
+
+  settings.beginGroup("settings");
+  QMetaEnum e = QMetaEnum::fromType<Setting>();
+  for (int i=0; i<e.keyCount(); i++)
+    settings.setValue(e.key(i), setting(Setting(e.value(i))));
+  settings.endGroup();
 }
 
 void BWWindow::restoreSettings(void) {
   QSettings settings;
   restoreGeometry(settings.value("geom").toByteArray());
-  _autoplay->setChecked(settings.value("autoplay").toBool());
-  _fastclose->setChecked(settings.value("fastclose").toBool());
+
+  settings.beginGroup("settings");
+  QMetaEnum e = QMetaEnum::fromType<Setting>();
+  for (int i=0; i<e.keyCount(); i++)
+    _settings[Setting(e.value(i))]->setChecked(settings.value(e.key(i)).toBool());
+  settings.endGroup();
 }
 
 void BWWindow::closeEvent(QCloseEvent *e) {
-  if (_fastclose->isChecked()
+  if (setting(FAST_CLOSE)
       || QMessageBox::question(this, "Closing", "Confirm closing?",
                                QMessageBox::Yes, QMessageBox::No)
         == QMessageBox::Yes) {

@@ -105,6 +105,13 @@ struct GraphWrapper {
   auto add_graph (const T &name) {  return gvc::add_graph(graph, name);  }
 };
 
+struct Graph {
+  static constexpr float scale = 100;
+
+  virtual gvc::GraphWrapper build_gvc_graph (const char *ext = "png") const = 0;
+  virtual void render_gvc_graph(const std::string &path) const = 0;
+};
+
 } // end of namespace gvc
 #endif
 

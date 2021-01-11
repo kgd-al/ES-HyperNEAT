@@ -7,9 +7,13 @@
 
 namespace sound {
 
-class Visualizer : public QWidget, public Generator {
+class Visualizer : public QWidget {
+  Generator _sound;
   QImage _data;
   bool _highlight;
+
+  bool _playing;
+  float _sliderPos;
 
 public:
   Visualizer(QWidget *parent = nullptr);
@@ -27,11 +31,25 @@ public:
     return w;
   }
 
-  void setNoteSheet(const NoteSheet &notes) override;
+  void setNoteSheet(const Generator::NoteSheet &notes);
+  void vocaliseToAudioOut (Generator::PlaybackType t);
+  void stopVocalisationToAudioOut (void);
+  const auto& sound (void) const {
+    return _sound;
+  }
 
   void setHighlighted (bool s);
 
   void paintEvent(QPaintEvent *e) override;
+
+  void render (const std::string &filename) const {
+    render(QString::fromStdString(filename));
+  }
+  void render (const QString &filename) const;
+
+private:
+  void updateSlider (void);
+  void stateChanged (QAudio::State s);
 };
 
 } // end of namespace sound

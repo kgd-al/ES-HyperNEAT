@@ -39,24 +39,6 @@ if (${CMAKE_INSTALL_PREFIX} MATCHES "^$ENV{HOME}")
 endif()
 message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 
-
-################################################################################
-## Managing uneven support of std 17 filesystem
-################################################################################
-
-#if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-#  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-#    set(FS_LIB stdc++fs)
-#    add_definitions(-DEXPERIMENTAL_STD_FILESYSTEM)
-#    message("> Using experimental g++ std 17 filesystem support")
-#  endif()
-#elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-#  link_directories(/usr/local/opt/llvm/lib/)
-#  set(FS_LIB c++fs)
-#  message("> Using experimental clang std 17 filesystem support")
-#endif()
-
-
 ################################################################################
 ## Dependencies
 ################################################################################
@@ -69,6 +51,8 @@ list(APPEND CORE_LIBS ${APOGeT_LIBRARIES})
 message("  > Gui libraries " "${APOGeT_GUI_LIBRARIES}")
 list(APPEND GUI_LIBS ${APOGeT_GUI_LIBRARIES})
 
+list(APPEND KGD_DEFINITIONS ${APOGeT_KGD_DEFINITIONS})
+
 find_package(PkgConfig)
 pkg_search_module(gvc libgvc libcgraph libcdt)
 if (${gvc_FOUND})
@@ -76,6 +60,12 @@ if (${gvc_FOUND})
     include_directories(${gvc_INCLUDE_DIRS})
     list(APPEND CORE_LIBS ${gvc_LIBRARIES})
 endif()
+
+################################################################################
+## Process additional pre-processor definitions
+################################################################################
+add_definitions(${KGD_DEFINITIONS})
+message("Using additionnal pre-processor definitions: ${KGD_DEFINITIONS}")
 
 ################################################################################
 ## Source files (simulation)
@@ -217,6 +207,7 @@ if (NOT CLUSTER_BUILD)
 
     set(GUI_SRC
         "gvcqtinterface.cpp"
+        "graphviewer.cpp"
         "cppn/node.cpp"
         "cppn/edge.cpp"
         "cppn/viewer.cpp"
