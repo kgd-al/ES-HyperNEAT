@@ -7,13 +7,6 @@
 
 namespace phenotype {
 
-template <uint D>
-std::ostream& operator<< (std::ostream &os, const Point_t<D> &p) {
-  os << "{";
-  for (auto c: p.data)  os << " " << c;
-  return os << " }";
-}
-
 #ifndef NDEBUG
 //#define DEBUG
 //#define DEBUG_COMPUTE 0
@@ -387,50 +380,6 @@ ANN ANN::build (const Point &bias, const Coordinates &inputs,
     dst->links.push_back({c.weight,src});
   }
 
-//  auto cppn_inputs = cppn.inputs();
-//  auto cppn_outputs = cppn.outputs();
-//  for (const auto &p: neurons) {
-//    float minY = std::max(-1.f, p.first.y() - genome.recurrentDY);
-//#ifdef DEBUG
-//    std::cerr << "neuron at " << p.first << "\n";
-//#endif
-//    if (p.second->type == Neuron::O) {
-//#ifdef DEBUG
-//      std::cerr << "\tno outgoing connections for output node\n";
-//#endif
-//      continue;
-//    }
-
-//    auto lb = neurons.lower_bound(RangeFinder{minY});
-//#ifdef DEBUG
-//    std::cerr << "\t" << std::distance(lb, neurons.end())
-//              << " link candidates in [" << minY << ", 1]\n";
-//#endif
-//    while (lb != neurons.end()) {
-//      if (lb->second->isInput()) {
-//#ifdef DEBUG
-//        std::cerr << "\t\tNo incoming connection for input node at "
-//                  << lb->first << "\n";
-//#endif
-//      } else {
-//#ifdef DEBUG
-//        std::cerr << "\t\t-> " << lb->first << ": ";
-//#endif
-
-//        cppn_inputs = {
-//          p.first.x(), p.first.y(), lb->first.x(), lb->first.y() };
-//        cppn(cppn_inputs, cppn_outputs);
-
-//#ifdef DEBUG
-//        std::cerr << " {" << cppn_outputs[0] << " " << cppn_outputs[1] << "}\n";
-//#endif
-//        if (cppn_outputs[1] > 0 && cppn_outputs[0] != 0)
-//          lb->second->links.push_back({cppn_outputs[0], p.second});
-//      }
-//      ++lb;
-//    }
-//  }
-
   return ann;
 }
 
@@ -535,7 +484,11 @@ void ANN::render_gvc_graph(const std::string &path) const {
 }
 #endif
 
-void ANN::operator() (const Inputs &inputs, Outputs &outputs) {
+void ANN::reset(void) {
+  for (auto &p: _neurons) if (p.second->type != Neuron::B)  p.second->value = 0;
+}
+
+void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
   static const auto activation = phenotype::CPPN::functions.at("sigm");
   assert(inputs.size() == _inputs.size());
   assert(outputs.size() == outputs.size());
@@ -547,26 +500,28 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs) {
   std::cerr << "## Compute step --\n inputs:\t" << inputs << "\n";
 #endif
 
-  for (const auto &p: _neurons) {
-    if (p.second->isInput()) continue;
+  for (uint s = 0; s < substeps; s++) {
+    for (const auto &p: _neurons) {
+      if (p.second->isInput()) continue;
 
-    float v = 0;
-    for (const auto &l: p.second->links) {
+      float v = 0;
+      for (const auto &l: p.second->links) {
 #ifdef DEBUG_COMPUTE
-      std::cerr << "\t\tv = " << v + l.weight * l.in.lock()->value
-                << " = " << v << " + " << l.weight << " * "
-                << l.in.lock()->value << "\n";
+        std::cerr << "\t\tv = " << v + l.weight * l.in.lock()->value
+                  << " = " << v << " + " << l.weight << " * "
+                  << l.in.lock()->value << "\n";
 #endif
 
-      v += l.weight * l.in.lock()->value;
+        v += l.weight * l.in.lock()->value;
+      }
+
+#ifdef DEBUG_COMPUTE
+      std::cerr << "\t" << p.first << ": " << activation(v) << " = sigm(" << v
+                << ")\n";
+#endif
+
+      p.second->value = activation(v);
     }
-
-#ifdef DEBUG_COMPUTE
-    std::cerr << "\t" << p.first << ": " << activation(v) << " = sigm(" << v
-              << ")\n";
-#endif
-
-    p.second->value = activation(v);
   }
 
   for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->value;

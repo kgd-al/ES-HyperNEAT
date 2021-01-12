@@ -220,6 +220,7 @@ if (NOT CLUSTER_BUILD)
     PREPEND(GUI_SRC "src/gui")
 
     set(SOUND_SRC
+        "endlessbuffer.cpp"
         "generator.cpp"
         "visualizer.cpp"
         )

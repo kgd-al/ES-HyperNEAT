@@ -7,6 +7,8 @@
 #include "edge.h"
 #include "../../phenotype/cppn.h"
 
+#include <QDebug>
+
 namespace gui::ann {
 
 const QTextOption TextAspect = QTextOption(Qt::AlignCenter);
@@ -17,7 +19,17 @@ const QFont EdgeFont { BaseFont.family(), int(BaseFont.pointSize() * .8)};
 
 static constexpr int MARGIN = 1;
 
-Node::Node (Agnode_t *node, qreal scale) {
+#ifndef NDEBUG
+std::ostream& operator<< (std::ostream &os, const Node &n) {
+  return os << n._neuron.pos
+            << "{" << n.pos() << "}"
+            << "@" << &n._neuron
+            << ": " << n._neuron.value;
+}
+#endif
+
+Node::Node (Agnode_t *node, const Neuron &neuron, qreal scale)
+  : _neuron(neuron) {
   setAcceptHoverEvents(true);
   _hovered = false;
 
@@ -34,14 +46,15 @@ Node::Node (Agnode_t *node, qreal scale) {
 
   _fill = QColor(QString::fromStdString(gvc::get(node, "fillcolor",
                                                  std::string())));
+  _currentColor = _fill;
 
-  {
-    auto spos_str = gvc::get(node, "spos", std::string());
-    float x, y;
-    char c;
-    std::istringstream (spos_str) >> x >> c >> y;
-    _spos = QPointF(x, y);
-  }
+//  {
+//    auto spos_str = gvc::get(node, "spos", std::string());
+//    float x, y;
+//    char c;
+//    std::istringstream (spos_str) >> x >> c >> y;
+//    _spos = QPointF(x, y);
+//  }
 
   _srecurrent = gvc::get(node, "srecurrent", false);
 
@@ -60,6 +73,21 @@ Node::Node (Agnode_t *node, qreal scale) {
 //  }
 }
 
+void Node::updateAnimation (bool running) {
+  if (running) {
+    float v = _neuron.value;
+    _currentColor = redBlackGradient(v);
+    for (Edge *e: out)  e->updateAnimation(v);
+//    qDebug() << "NODE@" << &_neuron << ": " << v << _currentColor;
+//    setOpacity(); /// TODO
+
+  } else {
+    for (Edge *e: out)  e->updateAnimation(NAN);
+    _currentColor = _fill;
+  }
+
+  update();
+}
 
 void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
@@ -67,7 +95,9 @@ void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
   painter->save();
     if (_hovered)
       painter->setPen(scene()->palette().color(QPalette::Highlight));
-    painter->setBrush(_fill);
+    else if (_fill != _currentColor)
+      painter->setPen(_currentColor);
+    painter->setBrush(_currentColor);
     painter->drawEllipse(_shape);
 
     if (_srecurrent) {
@@ -120,10 +150,15 @@ void Node::drawRichText(QPainter *painter) {
 }
 
 void Node::hoverEnterEvent(QGraphicsSceneHoverEvent *e) {
-  emit hovered(_spos);
+  emit hovered(QPointF(_neuron.pos.x(), _neuron.pos.y()));
   _hovered = true;
   for (auto e: in)  e->setHovered(true);
   for (auto e: out)  e->setHovered(true);
+
+  std::cerr << "Hover enter in " << *this << "\n";
+  for (const Edge *e: in)   std::cerr << "\t-> " << *e << "\n";
+  for (const Edge *e: out)  std::cerr << "\t<- " << *e << "\n";
+
   QGraphicsObject::hoverEnterEvent(e);
 }
 

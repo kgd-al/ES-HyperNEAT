@@ -1,9 +1,8 @@
+#include <cmath>
+
 #include <QPainter>
 
 #include "visualizer.h"
-
-#include <iostream>
-#include "kgd/utils/utils.h"
 
 #include <QDebug>
 
@@ -25,15 +24,13 @@ Visualizer::Visualizer(QWidget *parent) : QWidget(parent) {
   _sound.setNotifyPeriod(25);
   connect(&_sound, &Generator::notify, this, &Visualizer::updateSlider);
   connect(&_sound, &Generator::stateChanged, this, &Visualizer::stateChanged);
+  connect(&_sound, &Generator::notifyNote, this, &Visualizer::notifyNote);
 }
 
 Visualizer::~Visualizer(void) {}
 
 void Visualizer::setNoteSheet(const Generator::NoteSheet &notes) {
   _sound.setNoteSheet(notes);
-
-  using utils::operator<<;
-  std::cerr << "Provided note sheet: " << notes << "\n";
 
   for (uint c=0; c<Generator::CHANNELS; c++) {
     auto b = (QRgb*) _data.scanLine(c);
@@ -47,12 +44,14 @@ void Visualizer::setNoteSheet(const Generator::NoteSheet &notes) {
 
 void Visualizer::vocaliseToAudioOut (Generator::PlaybackType t) {
   _sound.start(t);
+  _playing = true;
   _sliderPos = 0;
 }
 
 void Visualizer::stopVocalisationToAudioOut (void) {
   _sound.stop();
-  _sliderPos = 0;
+  _playing = false;
+//  _sliderPos = 0;
 }
 
 void Visualizer::setHighlighted(bool h) {
@@ -62,13 +61,13 @@ void Visualizer::setHighlighted(bool h) {
 
 void Visualizer::updateSlider(void) {
   _sliderPos = std::fmod(_sound.progress(), 1);
-  qDebug() << "Underlying sound object has progressed to" << _sliderPos;
+//  qDebug() << "Underlying sound object has progressed to" << _sliderPos;
   update();
 }
 
 void Visualizer::stateChanged(QAudio::State s) {
   _playing = (s == QAudio::ActiveState);
-  qDebug() << "Underlying sound object changed stated to" << s;
+//  qDebug() << "Underlying sound object changed stated to" << s;
 }
 
 void Visualizer::paintEvent(QPaintEvent *e) {

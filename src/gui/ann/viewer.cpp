@@ -45,32 +45,49 @@ struct Axis : public QGraphicsRectItem {
 
 Viewer::Viewer(QWidget *parent) : GraphViewer(parent, "ANN") {
   setCursor(Qt::CrossCursor);
+  _animating = false;
 }
 
-void Viewer::processGraph(const gvc::GraphWrapper &ann) {
+void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   std::map<std::string, Edge*> edges;
 
   auto scene = this->scene();
-  auto g = ann.graph;
-  qreal s = gvc::get(g, "dpi", 96.0) / 72.;
+  auto gvc = gw.graph;
+  qreal s = gvc::get(gvc, "dpi", 96.0) / 72.;
 
   const auto getOrNew = [&edges, &scene, s] (Agedge_t *e) {
     auto ename = std::string(agnameof(e));
     auto it = edges.find(ename);
-    if (it != edges.end())
+    if (it != edges.end()) {
+      std::cerr << ename << " found\n";
       return it->second;
-    else {
+    } else {
       auto qe = new Edge(e, s);
+      std::cerr << ename << " created\n";
       scene->addItem(qe);
       return qe;
     }
   };
 
+  const auto &ann = dynamic_cast<const phenotype::ANN&>(g);
+  const auto &neurons = ann.neurons();
+
   QRectF qt_bounds (.5*INT_MAX, -.5*INT_MAX, -INT_MAX, INT_MAX), sb_bounds;
 
-  for (auto *n = agfstnode(g); n != NULL; n = agnxtnode(g, n)) {
-    auto qn = new Node(n, s);
+  std::cerr << "Creating graph...\n";
+
+  _neurons.clear();
+  for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
+    phenotype::ANN::Point p;
+    {
+      auto spos_str = gvc::get(n, "spos", std::string());
+      char c;
+      std::istringstream (spos_str) >> p.data[0] >> c >> p.data[1];
+    }
+
+    auto qn = new Node(n, *neurons.at(p), s);
     scene->addItem(qn);
+    _neurons.append(qn);
     connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
 
     auto qn_b = qn->boundingRect().translated(qn->pos()).center();
@@ -84,12 +101,12 @@ void Viewer::processGraph(const gvc::GraphWrapper &ann) {
     if (qt_bounds.top() < qn_b.y())
       qt_bounds.setTop(qn_b.y()), sb_bounds.setTop(sb_p.y());
 
-    for (auto *e = agfstout(g, n); e != NULL; e = agnxtout(g, e)) {
+    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e)) {
       if (gvc::get(e, "style", std::string()) == "invis") continue;
       qn->out.push_back(getOrNew(e));
     }
 
-    for (auto *e = agfstin(g, n); e != NULL; e = agnxtin(g, e)) {
+    for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e)) {
       if (gvc::get(e, "style", std::string()) == "invis") continue;
       qn->in.push_back(getOrNew(e));
     }
@@ -103,6 +120,28 @@ void Viewer::processGraph(const gvc::GraphWrapper &ann) {
     qc.y() + sy * (1 + .5 * (sb_bounds.top() + sb_bounds.bottom())),
     2*sx, -2*sy);
   scene->addItem(new Axis(bounds));
+
+  std::cerr << "Graph created!\n";
+}
+
+void Viewer::startAnimation(void) {
+  _animating = true;
+  qDebug() << "ANN animation started -> notify";
+  for (QGraphicsItem *i: _neurons)
+    dynamic_cast<Node*>(i)->updateAnimation(true);
+}
+
+void Viewer::updateAnimation(void) {
+  qDebug() << "ANN state changed -> update";
+  for (QGraphicsItem *i: _neurons)
+    dynamic_cast<Node*>(i)->updateAnimation(true);
+}
+
+void Viewer::stopAnimation(void) {
+  _animating = false;
+  qDebug() << "ANN animation stopped -> notify";
+  for (QGraphicsItem *i: _neurons)
+    dynamic_cast<Node*>(i)->updateAnimation(false);
 }
 
 } // end of namespace gui::ann

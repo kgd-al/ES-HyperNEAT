@@ -35,7 +35,8 @@ private:
   const QString _type;
 
   virtual const char* gvc_layout (void) const = 0;
-  virtual void processGraph (const gvc::GraphWrapper &graph) = 0;
+  virtual void processGraph (const gvc::Graph &g,
+                             const gvc::GraphWrapper &gw) = 0;
 };
 
 } // end of namespace gui

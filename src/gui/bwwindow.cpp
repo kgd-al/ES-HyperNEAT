@@ -53,7 +53,7 @@ Individual::ptr Individual::mutated (const Individual &i, rng::AbstractDice &d){
 } // end of namespace simu
 
 BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
-  : QMainWindow(parent), _dice(1), _baseSavePath(baseSavePath) {
+  : QMainWindow(parent), _dice(4), _baseSavePath(baseSavePath) {
 //  _sounds = new SoundGenerator(this);
 
   auto splitter = new QSplitter;
@@ -84,7 +84,10 @@ BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
 
       QString name = QString(e.key(i)).replace("_", " ").toLower();
       name[0] = name[0].toUpper();
-      add(_settings[s] = new QCheckBox (name));
+
+      QCheckBox *c;
+      add(_settings[s] = c = new QCheckBox (name));
+      c->setFocusPolicy(Qt::NoFocus);
     }
 
     QButtonGroup *gp = new QButtonGroup(this);
@@ -105,6 +108,9 @@ BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
   restoreSettings();
 
   firstGeneration();
+
+  _animation.index = -1;
+  _animation.step = -1;
 }
 
 void BWWindow::firstGeneration(void) {
@@ -128,10 +134,9 @@ void BWWindow::firstGeneration(void) {
   for (uint i=0; i<N; i++)
     for (uint j=0; j<N; j++)
       setIndividual(simu::Individual::random(_dice), i, j);
-  showIndividualDetails(1);
-  showIndividualDetails(0);
-  showIndividualDetails(N*N/2);
-  showIndividualDetails(7);
+  if (true || setting(LOCK_SELECTION))
+        setSelectedIndividual(N*N/2);
+  else  showIndividualDetails(N*N/2);
 }
 
 void BWWindow::nextGeneration(uint index) {
@@ -163,12 +168,12 @@ void BWWindow::updateSavePath(void) {
 void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   static constexpr auto C = sound::Generator::CHANNELS;
 
-
-  simu::Individual &i = *(_individuals[j*N+k] = std::move(in)).get();
+  const auto ix = j*N+k;
+  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
   auto &ann = i.ann;
+  auto &notes = i.phenotype;
 
-  auto v = _visualizers[j*N+k];
-  sound::Generator::NoteSheet notes;
+  auto v = _visualizers[ix];
 
   auto inputs = ann.inputs();
   auto outputs = ann.outputs();
@@ -176,27 +181,49 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
 
   std::fill(inputs.begin(), inputs.end(), 0);
   for (uint n=0; n<sound::Generator::NOTES; n++) {
-    ann(inputs, outputs);
+    ann(inputs, outputs, i.genome.substeps);
     for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
     inputs = outputs;
   }
   v->setNoteSheet(notes);
 
-  if (j*N+k != N*N/2 || _generation == 0) {
+  using utils::operator<<;
+  std::cerr << "Note sheet for [" << j << "," << k << "]: " << notes << "\n";
+
+  if (ix != N*N/2 || _generation == 0) {
     // Don't save last gen champion again
     std::ostringstream oss;
     oss << "i" << j << "_j" << k;
-    stdfs::path saveFolder = _currentSavePath / oss.str();
-    stdfs::create_directories(saveFolder);
-    i.genome.toFile(saveFolder / "genome");
-    i.genome.cppn.render_gvc_graph(saveFolder / "cppn_gvc.png");
-    using GV = GraphViewer;
-    GV::render<cppn::Viewer>(i.genome.cppn, saveFolder / "cppn_qt.pdf");
-    i.ann.render_gvc_graph(saveFolder / "ann_gvc.png");
-    GV::render<ann::Viewer>(i.ann, saveFolder / "ann_qt.pdf");
-    v->render(saveFolder / "song.png");
-    v->sound().generateWav(saveFolder / "song.wav");
+    logIndividual(ix, _currentSavePath / oss.str(), 3);
   }
+}
+
+void BWWindow::logIndividual(uint index, const stdfs::path &f,
+                             int level) const {
+  if (level <= 0) return;
+  stdfs::create_directories(f);
+
+  /// TODO Also log plain note sheet
+
+  const auto &i = *_individuals[index];
+  if (level >= 1) i.genome.toFile(f / "genome");
+  if (level >= 3) i.genome.cppn.render_gvc_graph(f / "cppn_gvc.png");
+  using GV = GraphViewer;
+  if (level >= 2) GV::render<cppn::Viewer>(i.genome.cppn, f / "cppn_qt.pdf");
+  if (level >= 3) i.ann.render_gvc_graph(f / "ann_gvc.png");
+  if (level >= 2) GV::render<ann::Viewer>(i.ann, f / "ann_qt.pdf");
+
+  const auto &v = *_visualizers[index];
+  if (level >= 1) v.render(f / "song.png");
+  if (level >= 2) v.sound().generateWav(f / "song.wav");
+}
+
+int BWWindow::indexOf (const sound::Visualizer *v) {
+  int index = -1;
+  for (uint i=0; i<_visualizers.size() && index < 0; i++)
+    if (_visualizers[i] == v)
+      index = i;
+  return index;
 }
 
 bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
@@ -210,53 +237,62 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
 
   if (!types.contains(event->type())) return false;
 
-  int index = -1;
-  for (uint i=0; i<_visualizers.size() && index < 0; i++)
-    if (_visualizers[i] == v)
-      index = i;
+  int index = indexOf(v);
+  if (index < 0)  return false;
 
-  if (index >= 0) {
-    switch (event->type()) {
-    case QEvent::HoverEnter:
-      individualHoverEnter(index);
-      break;
-    case QEvent::HoverLeave:
-      individualHoverLeave(index);
-      break;
-    case QEvent::MouseButtonRelease:
-      individualMouseClick(index);
-      break;
-    case QEvent::MouseButtonDblClick:
-      individualMouseDoubleClick(index);
-      break;
-    default:  break;
-    }
+  switch (event->type()) {
+  case QEvent::HoverEnter:
+    individualHoverEnter(index);
+    break;
+  case QEvent::HoverLeave:
+    individualHoverLeave(index);
+    break;
+  case QEvent::MouseButtonRelease:
+    individualMouseClick(index);
+    break;
+  case QEvent::MouseButtonDblClick:
+    individualMouseDoubleClick(index);
+    break;
+  default:  break;
   }
 
   return false;
 }
 
+void BWWindow::keyPressEvent(QKeyEvent *e) {
+  auto s = -1;
+  if (e->modifiers() & Qt::CTRL)        s = PLAY;
+  else if (e->modifiers() & Qt::SHIFT)  s = LOCK_SELECTION;
+  else if (e->modifiers() & Qt::ALT)    s = SELECT_NEXT;
+  if (s >= 0) _settings.value(Setting(s))->setChecked(true);
+
+  auto v = _selection;
+  if (!v) v = dynamic_cast<sound::Visualizer*>(childAt(QCursor::pos()));
+  if (!v) return;
+
+  int index = indexOf(v);
+  if (index < 0)  return;
+
+  switch (e->key()) {
+  case Qt::Key_Space: startVocalisation(index); break;
+  case Qt::Key_Escape: stopVocalisation(index); break;
+  }
+}
+
 void BWWindow::individualHoverEnter(uint index) {
   showIndividualDetails(index);
-  if (setting(AUTOPLAY))
-    _visualizers[index]->vocaliseToAudioOut(sound::Generator::LOOP);
+  if (setting(AUTOPLAY))  startVocalisation(index);
 }
 
 void BWWindow::individualHoverLeave(uint index) {
-  if (setting(AUTOPLAY))
-    _visualizers[index]->stopVocalisationToAudioOut();
+  if (setting(AUTOPLAY) || _selection == nullptr)  stopVocalisation(index);
 }
 
 void BWWindow::individualMouseClick(uint index) {
-  if (setting(LOCK_SELECTION))  setSelectedIndividual(index);
+  if (setting(LOCK_SELECTION))    setSelectedIndividual(index);
   else if (setting(SELECT_NEXT))  nextGeneration(index);
-  else if (setting(PLAY)) {
-    auto v = _visualizers[index];
-    if (setting(MANUAL_PLAY))
-      v->vocaliseToAudioOut(sound::Generator::ONE_PASS);
-    else
-      v->vocaliseToAudioOut(sound::Generator::ONE_NOTE);
-  }
+  else if (setting(PLAY) && !setting(AUTOPLAY))
+    startVocalisation(index);
 }
 
 void BWWindow::individualMouseDoubleClick(uint index) {
@@ -288,6 +324,80 @@ void BWWindow::setSelectedIndividual(int index) {
   if (!deselect) {
     showIndividualDetails(index);
     _selection = v;
+  }
+}
+
+void BWWindow::startVocalisation(uint index) {
+  auto v = _visualizers[index];
+  if (_animation.index < 0) {
+    _animation.index = index;
+    _animation.step = 0;
+    startAnimateShownANN();
+    connect(v, &sound::Visualizer::notifyNote,
+            this, &BWWindow::animateShownANN);
+  }
+
+  if (setting(AUTOPLAY))
+    v->vocaliseToAudioOut(sound::Generator::LOOP);
+  else if (setting(MANUAL_PLAY))
+    v->vocaliseToAudioOut(sound::Generator::ONE_PASS);
+  else if (setting(STEP_PLAY))
+    v->vocaliseToAudioOut(sound::Generator::ONE_NOTE);
+}
+
+void BWWindow::stopVocalisation(uint index) {
+  auto v = _visualizers[index];
+  if (setting(PLAY) && _selection == v) {
+    v->stopVocalisationToAudioOut();
+    stopAnimateShownANN();
+  }
+}
+
+void BWWindow::startAnimateShownANN(void) {
+  assert(_animation.index >= 0);
+  _individuals[_animation.index]->ann.reset();
+  _details->annViewer->startAnimation();
+  qDebug() << "Started animation" << _animation.index << _animation.step;
+}
+
+void BWWindow::animateShownANN(void) {
+  auto &av = *_details->annViewer;
+  assert(_animation.index >= 0);
+  simu::Individual &i = *_individuals[_animation.index];
+
+  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
+  if (_animation.step > 0) {
+    static constexpr auto C = sound::Generator::CHANNELS;
+    uint off = (_animation.step-1)*C;
+    for (uint c=0; c<C; c++)  inputs[c] = i.phenotype[off+c];
+  }
+  i.ann(inputs, outputs, i.genome.substeps);
+  av.updateAnimation();
+  qDebug() << "Stepped animation" << _animation.index << _animation.step;
+
+  if (false) {
+    using utils::operator<<;
+    std::cerr << "Inputs: " << inputs << "\n";
+    std::cerr << "Neurons:\n";
+    for (const auto &p: i.ann.neurons())
+      std::cerr << "\t{" << p.first << "@" << p.second.get() << ": "
+                << p.second->value << "\n";
+    std::cerr << "Outputs: " << outputs << std::endl;
+  }
+
+  _animation.step = (_animation.step + 1) % sound::Generator::NOTES;
+}
+
+void BWWindow::stopAnimateShownANN(void) {
+  auto &av = *_details->annViewer;
+  if (av.isAnimating()) {
+    assert(_animation.index >= 0);
+    qDebug() << "Stopping animation" << _animation.index << _animation.step;
+    disconnect(_visualizers[_animation.index], &sound::Visualizer::notifyNote,
+               this, &BWWindow::animateShownANN);
+    av.stopAnimation();
+    _animation.index = -1;
+    _animation.step = -1;
   }
 }
 

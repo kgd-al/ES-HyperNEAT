@@ -5,6 +5,7 @@
 #include <QTextDocument>
 
 #include "../gvcqtinterface.h"
+#include "../../phenotype/ann.h"
 
 namespace gui::ann {
 
@@ -12,15 +13,22 @@ struct Edge;
 class Node : public QGraphicsObject {
   Q_OBJECT
 public:
-  Node (Agnode_t *node, qreal scale);
+  using Point = phenotype::ANN::Point;
+  using Neuron = phenotype::ANN::Neuron;
+
+  Node (Agnode_t *node, const Neuron &neuron, qreal scale);
 
   QRectF boundingRect(void) const override {    return _bounds; }
 
 #ifndef NDEBUG
   const QString& name (void) const {  return _name; }
+
+  friend std::ostream& operator<< (std::ostream &os, const Node &n);
 #endif
 
-  const QPointF& substratePosition (void) const { return _spos; }
+  const Point& substratePosition (void) const { return _neuron.pos; }
+
+  void updateAnimation (bool running);
 
   void paint (QPainter *painter,
               const QStyleOptionGraphicsItem*, QWidget*) override;
@@ -38,7 +46,8 @@ private:
   QString _name;
 #endif
 
-  QPointF _spos;
+  const Neuron &_neuron;
+
   QRectF _bounds, _shape;
   bool _hovered;
 
@@ -46,6 +55,8 @@ private:
   QTextDocument _label;
 
   bool _srecurrent;
+
+  QColor _currentColor;
 
   void drawRichText(QPainter *painter);
 };

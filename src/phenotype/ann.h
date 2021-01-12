@@ -24,6 +24,14 @@ struct Point_t {
     if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
     return lhs.x() < rhs.x();
   }
+
+#ifndef NDEBUG
+  friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
+    os << "{";
+    for (auto c: p.data)  os << " " << c;
+    return os << " }";
+  }
+#endif
 };
 
 class ANN : public gvc::Graph {
@@ -81,12 +89,14 @@ public:
 #endif
 
   using Inputs = std::vector<float>;
-  auto inputs (void) {  return Inputs(_inputs.size());  }
+  auto inputs (void) {  return Inputs(_inputs.size(), 0);  }
 
   using Outputs = Inputs;
-  auto outputs (void) { return Outputs(_outputs.size());  }
+  auto outputs (void) { return Outputs(_outputs.size(), 0);  }
 
-  void operator() (const Inputs &inputs, Outputs &outputs);
+  void reset (void);
+
+  void operator() (const Inputs &inputs, Outputs &outputs, uint substeps);
 
   using Coordinates = std::vector<Point>;
   static ANN build (const Point &bias, const Coordinates &inputs,

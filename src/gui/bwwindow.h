@@ -22,6 +22,9 @@ struct Individual {
   using ANN = phenotype::ANN;
   ANN ann;
 
+  using Phenotype = sound::Generator::NoteSheet;
+  Phenotype phenotype;
+
   using ptr = std::unique_ptr<Individual>;
   static ptr random (rng::AbstractDice &d);
   static ptr mutated (const Individual &i, rng::AbstractDice &d);
@@ -41,7 +44,7 @@ public:
 
   enum Setting {
     AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
-    LOCK_SELECTION, SELECT_NEXT, PLAY,
+    LOCK_SELECTION, PLAY, SELECT_NEXT,
     FAST_CLOSE
   };
   Q_ENUM(Setting)
@@ -49,7 +52,7 @@ public:
 private:
   ES_HyperNEATPanel *_details;
 
-  static constexpr uint N = 3;
+  static constexpr uint N = 1;
   static_assert(N%2 == 1, "Grid size must be odd");
 
   using IPtr = simu::Individual::ptr;
@@ -65,11 +68,19 @@ private:
 
   stdfs::path _baseSavePath, _currentSavePath;
 
+  struct Animation {
+    int index, step;
+  } _animation;
+
   void firstGeneration (void);
   void nextGeneration (uint index);
   void updateSavePath (void);
 
   void setIndividual(IPtr &&in, uint j, uint k);
+  void logIndividual(uint index, const stdfs::path &folder,
+                     int level) const;
+
+  int indexOf (const sound::Visualizer *v);
 
   bool eventFilter(QObject *watched, QEvent *event) override;
   void individualHoverEnter (uint index);
@@ -80,6 +91,14 @@ private:
   void showIndividualDetails (int index);
   void setSelectedIndividual (int index);
 
+  void startVocalisation (uint index);
+  void stopVocalisation (uint index);
+
+  void startAnimateShownANN (void);
+  void animateShownANN (void);
+  void stopAnimateShownANN (void);
+
+  void keyPressEvent(QKeyEvent *e) override;
   bool setting (Setting s) const;
   void saveSettings (void) const;
   void restoreSettings (void);

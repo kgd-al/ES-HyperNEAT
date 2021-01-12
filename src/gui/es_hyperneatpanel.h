@@ -11,10 +11,10 @@
 namespace gui {
 
 struct ES_HyperNEATPanel : public QWidget {
-  cppn::Viewer *_cppnViewer;
-  cppn::OutputSummary *_cppnOViewer;
-  ann::Viewer *_annViewer;
-  std::map<std::string, QLabel*> _otherFields;
+  cppn::Viewer *cppnViewer;
+  cppn::OutputSummary *cppnOViewer;
+  ann::Viewer *annViewer;
+  std::map<std::string, QLabel*> otherFields;
 
   ES_HyperNEATPanel (QWidget *parent = nullptr);
   void setData (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,

@@ -25,7 +25,7 @@ void GraphViewer::setGraph(const gvc::Graph &graph) {
   auto scene = this->scene();
   scene->clear();
 
-  processGraph(gw);
+  processGraph(graph, gw);
 
   scene->setSceneRect(scene->itemsBoundingRect());
   ensureFit();

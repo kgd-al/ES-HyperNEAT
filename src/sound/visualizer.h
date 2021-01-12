@@ -8,6 +8,8 @@
 namespace sound {
 
 class Visualizer : public QWidget {
+  Q_OBJECT
+
   Generator _sound;
   QImage _data;
   bool _highlight;
@@ -34,7 +36,7 @@ public:
   void setNoteSheet(const Generator::NoteSheet &notes);
   void vocaliseToAudioOut (Generator::PlaybackType t);
   void stopVocalisationToAudioOut (void);
-  const auto& sound (void) const {
+  const Generator& sound (void) const {
     return _sound;
   }
 
@@ -46,6 +48,9 @@ public:
     render(QString::fromStdString(filename));
   }
   void render (const QString &filename) const;
+
+signals:
+  void notifyNote (void);
 
 private:
   void updateSlider (void);

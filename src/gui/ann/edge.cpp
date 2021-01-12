@@ -4,9 +4,36 @@
 
 #include "edge.h"
 
+#include <iostream>
+#include <QDebug>
+
 namespace gui::ann {
 
-Edge::Edge (Agedge_t *edge, qreal scale) {
+QColor redBlackGradient(float v) {
+  static constexpr float minAlpha = 0;
+  assert(-1 <= v && v <= 1);
+  QColor c = QColor(v < 0 ? Qt::red : Qt::black);
+  c.setAlphaF(minAlpha + (1.f-minAlpha)*std::fabs(v));
+  return c;
+}
+
+std::ostream& operator<< (std::ostream &os, const QPointF &p) {
+  return os << "{" << p.x() << ", " << p.y() << "}";
+}
+
+std::ostream& operator<< (std::ostream &os, const QColor &c) {
+  return os << "QColor(" << c.redF() << ", " << c.greenF() << ", " << c.blueF()
+            << ", " << c.alphaF() << ")";
+}
+
+std::ostream& operator<< (std::ostream &os, const Edge &e) {
+  return os << "[" << e._name.toStdString() << "] " << e._edge.pointAtPercent(0)
+            << "->" << e._edge.pointAtPercent(1) << " " << e._color << " "
+            << e._currentColor << " " << e._width;
+}
+
+Edge::Edge (Agedge_t *edge, qreal scale)
+  : _weight(gvc::get(edge, "weight", 0.f)) {
 #ifndef NDEBUG
   _name = QString(agnameof(edge));
 #endif
@@ -19,32 +46,53 @@ Edge::Edge (Agedge_t *edge, qreal scale) {
   _bounds.translate(-_bounds.center());
 
   drawShape(spl, scale, pos(), _edge, _arrow);
+  _width = 1+gvc::get(edge, "penwidth", 0.f);
+  _currentColor = _color =
+      QColor(gvc::get(edge, "color", std::string()).c_str());
+  std::cerr << "EDGE: " << *this << "\n";
+}
 
-  _width = gvc::get(edge, "penwidth", 1.f);
-  _color = QColor(gvc::get(edge, "color", std::string()).c_str());
+void Edge::updateAnimation(float v) {
+  std::cerr << "Updated color: " << *this << "\n\t";
+
+  if (!std::isnan(v)) { // Running
+    std::cerr << "\tred-black gradient of value " << v * _weight << " = "
+              << v << " * " << _weight << "\n";
+    /// TODO What is the synaptic weight range ?
+    _currentColor = redBlackGradient(v * _weight);
+
+  } else
+    _currentColor = _color;
+
+  std::cerr << "\t" << _currentColor << "\n";
+
+  update();
 }
 
 void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
 
-  painter->setPen(_hovered ? scene()->palette().color(QPalette::Highlight)
-                           : _color);
-
   painter->save();
+
+    if (_hovered)
+      painter->setPen(scene()->palette().color(QPalette::Highlight));
+    else
+      painter->setPen(_currentColor);
+    std::cerr << "paint(" << *this << ")\t" << painter->pen().color() << "\n";
+
     QPen p = painter->pen();
     p.setWidthF(_width * p.widthF());
     p.setCapStyle(Qt::FlatCap);
     painter->setPen(p);
     painter->drawPath(_edge);
-  painter->restore();
 
-  painter->save();
-    if constexpr (false) {
-      p = painter->pen();
-      p.setJoinStyle(Qt::MiterJoin);
-      painter->setPen(p);
+    painter->drawEllipse(_edge.pointAtPercent(.5), 1, 1);
+
+    p.setJoinStyle(Qt::MiterJoin);
+    painter->setPen(p);
+    if constexpr (false)
       painter->drawPath(_arrow);
-    } else
+    else
       painter->fillPath(_arrow, p.brush());
   painter->restore();
 }

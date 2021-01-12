@@ -12,8 +12,9 @@ struct Viewer : public GraphViewer {
   Viewer (QWidget *parent = nullptr);
 
 private:
-  const char* gvc_layout (void) const { return "dot"; }
-  void processGraph (const gvc::GraphWrapper &graph);
+  const char* gvc_layout (void) const override { return "dot"; }
+  void processGraph (const gvc::Graph &g,
+                     const gvc::GraphWrapper &gw);
 };
 
 } // end of namespace gui::cppn

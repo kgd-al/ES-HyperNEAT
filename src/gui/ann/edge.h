@@ -7,6 +7,13 @@
 
 namespace gui::ann {
 
+QColor redBlackGradient (float v);
+
+#ifndef NDEBUG
+std::ostream& operator<< (std::ostream &os, const QPointF &p);
+std::ostream& operator<< (std::ostream &os, const QColor &c);
+#endif
+
 class Edge : public QGraphicsObject {
   Q_OBJECT
 
@@ -18,7 +25,12 @@ public:
   void paint (QPainter *painter, const QStyleOptionGraphicsItem*,
               QWidget*) override;
 
+  void updateAnimation (float v);
   void setHovered (bool h);
+
+#ifndef NDEBUG
+  friend std::ostream& operator<< (std::ostream &os, const Edge &e);
+#endif
 
 private:
 #ifndef NDEBUG
@@ -28,8 +40,9 @@ private:
   QRectF _bounds;
   QPainterPath _edge, _arrow;
   float _width;
-  QColor _color;
+  QColor _color, _currentColor;
 
+  const float _weight;  /// TODO Change when implementing learning
   bool _hovered;
 
   void drawShape (const splines *spl, float scale, const QPointF &offset,
