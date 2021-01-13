@@ -1,5 +1,5 @@
-#ifndef CPPN_PHENOTYPE_H
-#define CPPN_PHENOTYPE_H
+#ifndef KGD_CPPN_PHENOTYPE_H
+#define KGD_CPPN_PHENOTYPE_H
 
 #include "../genotype/es-hyperneat.h"
 
@@ -61,4 +61,4 @@ public:
 
 } // end of namespace phenotype
 
-#endif // CPPN_PHENOTYPE_H
+#endif // KGD_CPPN_PHENOTYPE_H

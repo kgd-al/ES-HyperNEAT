@@ -1,5 +1,5 @@
-#ifndef FIXED_SIZE_STRING_HPP
-#define FIXED_SIZE_STRING_HPP
+#ifndef KGD_FIXED_SIZE_STRING_HPP
+#define KGD_FIXED_SIZE_STRING_HPP
 
 #include <array>
 
@@ -80,4 +80,4 @@ public:
 
 } // end of namespace utils
 
-#endif // FIXED_SIZE_STRING_HPP
+#endif // KGD_FIXED_SIZE_STRING_HPP

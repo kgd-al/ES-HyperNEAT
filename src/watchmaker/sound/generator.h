@@ -1,5 +1,5 @@
-#ifndef SOUND_GENERATOR_H
-#define SOUND_GENERATOR_H
+#ifndef KGD_SOUND_GENERATOR_H
+#define KGD_SOUND_GENERATOR_H
 
 /*
  * Mostly thanks to
@@ -74,4 +74,4 @@ private:
 
 } // end of namespace watchmaker::sound
 
-#endif // SOUND_GENERATOR_H
+#endif // KGD_SOUND_GENERATOR_H

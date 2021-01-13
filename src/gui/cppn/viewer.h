@@ -1,5 +1,5 @@
-#ifndef CPPN_VIEWER_H
-#define CPPN_VIEWER_H
+#ifndef KGD_CPPN_VIEWER_H
+#define KGD_CPPN_VIEWER_H
 
 #include "../../genotype/es-hyperneat.h"
 #include "../graphviewer.h"
@@ -19,4 +19,4 @@ private:
 
 } // end of namespace gui::cppn
 
-#endif // CPPN_VIEWER_H
+#endif // KGD_CPPN_VIEWER_H

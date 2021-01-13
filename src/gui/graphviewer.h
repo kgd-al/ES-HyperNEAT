@@ -1,5 +1,5 @@
-#ifndef GRAPHVIEWER_H
-#define GRAPHVIEWER_H
+#ifndef KGD_GRAPHVIEWER_H
+#define KGD_GRAPHVIEWER_H
 
 #include <QGraphicsView>
 
@@ -41,4 +41,4 @@ private:
 
 } // end of namespace gui
 
-#endif // GRAPHVIEWER_H
+#endif // KGD_GRAPHVIEWER_H

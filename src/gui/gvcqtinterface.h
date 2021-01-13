@@ -1,5 +1,5 @@
-#ifndef GVCQTINTERFACE_H
-#define GVCQTINTERFACE_H
+#ifndef KGD_GVCQTINTERFACE_H
+#define KGD_GVCQTINTERFACE_H
 
 #include <QPointF>
 #include <QRectF>
@@ -13,4 +13,4 @@ QRectF toQt (const boxf &b, float scale);
 
 } // end of namespace gui
 
-#endif // GVCQTINTERFACE_H
+#endif // KGD_GVCQTINTERFACE_H

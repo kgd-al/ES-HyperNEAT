@@ -1,5 +1,5 @@
-#ifndef ANN_VIEWER_H
-#define ANN_VIEWER_H
+#ifndef KGD_ANN_VIEWER_H
+#define KGD_ANN_VIEWER_H
 
 #include "../../phenotype/ann.h"
 #include "../graphviewer.h"
@@ -34,4 +34,4 @@ private:
 
 } // end of namespace gui::ann
 
-#endif // ANN_VIEWER_H
+#endif // KGD_ANN_VIEWER_H

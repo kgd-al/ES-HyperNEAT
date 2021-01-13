@@ -226,6 +226,7 @@ if (NOT CLUSTER_BUILD)
 
         set(WATCHMAKER_SRC
             ${SOUND_SRC}
+            "config.cpp"
             "bwwindow.cpp"
             "main.cpp"
         )

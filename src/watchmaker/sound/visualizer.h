@@ -1,5 +1,5 @@
-#ifndef SOUND_VISUALIZER_H
-#define SOUND_VISUALIZER_H
+#ifndef KGD_SOUND_VISUALIZER_H
+#define KGD_SOUND_VISUALIZER_H
 
 #include <QWidget>
 
@@ -59,4 +59,4 @@ private:
 
 } // end of namespace watchmaker::sound
 
-#endif // SOUND_VISUALIZER_H
+#endif // KGD_SOUND_VISUALIZER_H

@@ -1,11 +1,11 @@
-#ifndef ANN_GRAPHIC_EDGE_H
-#define ANN_GRAPHIC_EDGE_H
+#ifndef KGD_ANN_GRAPHIC_EDGE_H
+#define KGD_ANN_GRAPHIC_EDGE_H
 
 #include <QGraphicsObject>
 
 #include "../gvcqtinterface.h"
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 QColor redBlackGradient (float v);
 
@@ -49,6 +49,6 @@ private:
                   QPainterPath &edge, QPainterPath &arrow);
 };
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann
 
-#endif // ANN_GRAPHIC_EDGE_H
+#endif // KGD_ANN_GRAPHIC_EDGE_H

@@ -1,5 +1,5 @@
-#ifndef BWWINDOW_H
-#define BWWINDOW_H
+#ifndef KGD_BWWINDOW_H
+#define KGD_BWWINDOW_H
 
 #include <QMainWindow>
 #include <QCheckBox>
@@ -113,4 +113,4 @@ private:
 
 } // end of namespace watchmaker
 
-#endif // BWWINDOW_H
+#endif // KGD_BWWINDOW_H

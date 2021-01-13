@@ -7,7 +7,7 @@
 #include <iostream>
 #include <QDebug>
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 QColor redBlackGradient(float v) {
   static constexpr float minAlpha = 0;
@@ -146,4 +146,4 @@ void Edge::drawShape (const splines *spl, float scale,
   }
 }
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann

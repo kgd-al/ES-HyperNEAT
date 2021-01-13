@@ -1,5 +1,5 @@
-#ifndef GVC_WRAPPER_HPP
-#define GVC_WRAPPER_HPP
+#ifndef KGD_GVC_WRAPPER_HPP
+#define KGD_GVC_WRAPPER_HPP
 
 #ifdef WITH_GVC
 
@@ -115,4 +115,4 @@ struct Graph {
 } // end of namespace gvc
 #endif
 
-#endif // GVC_WRAPPER_HPP
+#endif // KGD_GVC_WRAPPER_HPP

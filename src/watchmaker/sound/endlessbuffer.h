@@ -1,5 +1,5 @@
-#ifndef ENDLESSBUFFER_H
-#define ENDLESSBUFFER_H
+#ifndef KGD_ENDLESSBUFFER_H
+#define KGD_ENDLESSBUFFER_H
 
 #include <QIODevice>
 
@@ -44,4 +44,4 @@ private:
 
 } // end of namespace watchmaker::utils
 
-#endif // ENDLESSBUFFER_H
+#endif // KGD_ENDLESSBUFFER_H

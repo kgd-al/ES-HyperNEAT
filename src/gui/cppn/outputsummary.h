@@ -1,5 +1,5 @@
-#ifndef CPPN_OUTPUTSUMMARY_H
-#define CPPN_OUTPUTSUMMARY_H
+#ifndef KGD_CPPN_OUTPUTSUMMARY_H
+#define KGD_CPPN_OUTPUTSUMMARY_H
 
 #include <QLabel>
 
@@ -28,4 +28,4 @@ private:
 
 } // end of namespace gui::cppn
 
-#endif // CPPN_OUTPUTSUMMARY_H
+#endif // KGD_CPPN_OUTPUTSUMMARY_H

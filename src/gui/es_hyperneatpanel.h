@@ -1,5 +1,5 @@
-#ifndef ES_HYPERNEATPANEL_H
-#define ES_HYPERNEATPANEL_H
+#ifndef KGD_ES_HYPERNEATPANEL_H
+#define KGD_ES_HYPERNEATPANEL_H
 
 #include <QLabel>
 
@@ -32,4 +32,4 @@ private:
 
 } // end of namespace gui
 
-#endif // ES_HYPERNEATPANEL_H
+#endif // KGD_ES_HYPERNEATPANEL_H

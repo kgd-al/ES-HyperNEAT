@@ -1,5 +1,5 @@
-#ifndef ANN_GRAPHIC_NODE_H
-#define ANN_GRAPHIC_NODE_H
+#ifndef KGD_ANN_GRAPHIC_NODE_H
+#define KGD_ANN_GRAPHIC_NODE_H
 
 #include <QGraphicsObject>
 #include <QTextDocument>
@@ -63,4 +63,4 @@ private:
 
 } // end of namespace gui::ann
 
-#endif // ANN_GRAPHIC_NODE_H
+#endif // KGD_ANN_GRAPHIC_NODE_H

@@ -1,5 +1,5 @@
-#ifndef CPPN_GENOTYPE_H
-#define CPPN_GENOTYPE_H
+#ifndef KGD_CPPN_GENOTYPE_H
+#define KGD_CPPN_GENOTYPE_H
 
 #include "kgd/genotype/selfawaregenome.hpp"
 
@@ -127,4 +127,4 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
 
 } // end of namespace config
 
-#endif // CPPN_GENOTYPE_H
+#endif // KGD_CPPN_GENOTYPE_H

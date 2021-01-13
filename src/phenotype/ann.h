@@ -1,5 +1,5 @@
-#ifndef ANN_PHENOTYPE_H
-#define ANN_PHENOTYPE_H
+#ifndef KGD_ANN_PHENOTYPE_H
+#define KGD_ANN_PHENOTYPE_H
 
 #include "cppn.h"
 
@@ -151,4 +151,4 @@ private:
 
 } // namespace phenotype
 
-#endif // ANN_PHENOTYPE_H
+#endif // KGD_ANN_PHENOTYPE_H

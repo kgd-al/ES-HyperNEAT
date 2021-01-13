@@ -1,5 +1,5 @@
-#ifndef CPPN_GRAPHIC_EDGE_H
-#define CPPN_GRAPHIC_EDGE_H
+#ifndef KGD_CPPN_GRAPHIC_EDGE_H
+#define KGD_CPPN_GRAPHIC_EDGE_H
 
 #include <QGraphicsObject>
 
@@ -34,4 +34,4 @@ private:
 
 } // end of namespace gui::cppn
 
-#endif // CPPN_GRAPHIC_EDGE_H
+#endif // KGD_CPPN_GRAPHIC_EDGE_H

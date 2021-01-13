@@ -1,5 +1,5 @@
-#ifndef CPPN_GRAPHIC_NODE_H
-#define CPPN_GRAPHIC_NODE_H
+#ifndef KGD_CPPN_GRAPHIC_NODE_H
+#define KGD_CPPN_GRAPHIC_NODE_H
 
 #include <QGraphicsObject>
 #include <QTextDocument>
@@ -33,4 +33,4 @@ private:
 
 } // end of namespace gui::cppn
 
-#endif // CPPN_GRAPHIC_NODE_H
+#endif // KGD_CPPN_GRAPHIC_NODE_H

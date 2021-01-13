@@ -9,7 +9,7 @@
 
 #include <QDebug>
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 const QTextOption TextAspect = QTextOption(Qt::AlignCenter);
 
@@ -162,4 +162,4 @@ void Node::hoverLeaveEvent(QGraphicsSceneHoverEvent *e) {
   QGraphicsObject::hoverLeaveEvent(e);
 }
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann
