@@ -40,19 +40,20 @@ private:
 class BWWindow : public QMainWindow {
   Q_OBJECT
 public:
-  BWWindow(QWidget *parent = nullptr, const stdfs::path &baseSavePath = "");
+  BWWindow(const stdfs::path &baseSavePath, uint seed,
+           QWidget *parent = nullptr);
 
   enum Setting {
     AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
     LOCK_SELECTION, PLAY, SELECT_NEXT,
-    FAST_CLOSE
+    ANIMATE, FAST_CLOSE
   };
   Q_ENUM(Setting)
 
 private:
   ES_HyperNEATPanel *_details;
 
-  static constexpr uint N = 1;
+  static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
 
   using IPtr = simu::Individual::ptr;

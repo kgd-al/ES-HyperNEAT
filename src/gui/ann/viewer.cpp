@@ -72,23 +72,14 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   const auto &ann = dynamic_cast<const phenotype::ANN&>(g);
   const auto &neurons = ann.neurons();
 
-  std::cerr << "neurons:" << std::setprecision(25);
-  for (const auto &p: neurons)
-    std::cerr << "\t" << p.first << "\n";
-  std::cerr << "\n";
-
   QRectF qt_bounds (.5*INT_MAX, -.5*INT_MAX, -INT_MAX, INT_MAX), sb_bounds;
 
   _neurons.clear();
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
     phenotype::ANN::Point p;
-    {
-      auto spos_str = gvc::get(n, "spos", std::string());
-      char c;
-      std::istringstream (spos_str) >> p.data[0] >> c >> p.data[1];
-    }
+    auto spos_str = gvc::get(n, "spos", std::string());
+    std::istringstream (spos_str) >> p;
 
-    std::cerr << "Querying " << p << "\n";
     auto qn = new Node(n, *neurons.at(p), s);
     scene->addItem(qn);
     _neurons.append(qn);

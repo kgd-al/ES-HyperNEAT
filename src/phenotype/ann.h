@@ -12,8 +12,8 @@ class Point_t {
   static_assert(DIMENSIONS < 3, "3D ANNs are far from fonctional");
 
   static constexpr uint MAX_DECIMALS = std::numeric_limits<int>::digits10-1;
-  static_assert(DECIMALS <= MAX_DECIMALS, "Cannot represent such precision in"
-                                          " fixed point type");
+  static_assert(DECIMALS <= MAX_DECIMALS,
+                "Cannot represent such precision in fixed point type");
 
   static constexpr int RATIO = std::pow(10, DECIMALS);
   std::array<int, DIMENSIONS> _data;
@@ -27,9 +27,11 @@ class Point_t {
   }
 
 public:
-  Point_t(std::initializer_list<float> &&v) {
-    for (uint i=0; i<v.size(); i++) set(i, v[i]);
+  Point_t(std::initializer_list<float> &&flist) {
+    uint i=0;
+    for (float f: flist) set(i++, f);
   }
+  Point_t(void) : Point_t{0,0} {}
 
   float x (void) const {  return get(0); }
 
@@ -44,9 +46,21 @@ public:
   }
 
   friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
-    os << "{";
-    for (auto c: p.data)  os << " " << c;
-    return os << " }";
+    os << p.get(0);
+    for (uint i=1; i<DIMENSIONS; i++)  os << "," << p.get(i);
+    return os;
+  }
+
+  friend std::istream& operator>> (std::istream &is, Point_t &p) {
+    char c;
+    float f;
+    is >> f;
+    p.set(0, f);
+    for (uint i=1; i<DIMENSIONS; i++) {
+      is >> c >> f;
+      p.set(i, f);
+    }
+    return is;
   }
 };
 

@@ -210,6 +210,8 @@ struct Generator::Data {
 
   IFunc ifunc;
 
+  Generator::PlaybackType currentPlayback;
+
   Data (void) : buffer(bytes) {
     bytes.resize(FormatData::B * SAMPLE_RATE * Generator::DURATION);
 //    qDebug() << bytes.size() << "bytes in current buffer";
@@ -231,6 +233,8 @@ struct Generator::Data {
 
     // Create an output with our premade QAudioFormat (See example in QAudioOutput)
     audio = new QAudioOutput (currFormat);
+
+    currentPlayback = LOOP;
   }
 
   ~Data (void) {
@@ -265,6 +269,10 @@ Generator::Generator(QObject *parent) : QObject(parent), d(new Data) {
   connect(d->audio, &QAudioOutput::notify, this, &Generator::notify);
   connect(d->audio, &QAudioOutput::stateChanged,
                    this, &Generator::stateChanged);
+
+  d->buffer.setNotifyPeriod(BYTES_PER_NOTE);
+  connect(&d->buffer, &utils::EndlessBuffer::notify,
+          this, &Generator::onNoteConsumed);
 }
 
 Generator::~Generator(void) { delete d; }
@@ -341,12 +349,7 @@ void Generator::start(PlaybackType t) {
            << ") on audio device" << d->audio << " (" << d->audio->state()
            << ")";
 #endif
-
-  if (t == ONE_NOTE) {
-    d->buffer.setNotifyPeriod(BYTES_PER_NOTE);
-    connect(&d->buffer, &utils::EndlessBuffer::notify,
-            this, &Generator::onNoteConsumed);
-  }
+  d->currentPlayback = t;
 
   if (d->audio->state() != QAudio::StoppedState && t == ONE_NOTE)
     resume();
@@ -397,10 +400,8 @@ void Generator::onNoteConsumed(void) {
 #if DEBUG_AUDIO
   qDebug() << TIME << "Note consumed. Emitting signals and disconnecting";
 #endif
-  disconnect(&d->buffer, &utils::EndlessBuffer::notify,
-             this, &Generator::onNoteConsumed);
   emit notifyNote();
-  pause();
+  if (d->currentPlayback == ONE_NOTE) pause();
 }
 
 } // end of namespace sound

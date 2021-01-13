@@ -52,8 +52,8 @@ Individual::ptr Individual::mutated (const Individual &i, rng::AbstractDice &d){
 
 } // end of namespace simu
 
-BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
-  : QMainWindow(parent), _dice(4), _baseSavePath(baseSavePath) {
+BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
+  : QMainWindow(parent), _dice(seed), _baseSavePath(baseSavePath) {
 //  _sounds = new SoundGenerator(this);
 
   auto splitter = new QSplitter;
@@ -80,7 +80,7 @@ BWWindow::BWWindow(QWidget *parent, const stdfs::path &baseSavePath)
       Setting s = Setting(e.value(i));
       if (s == AUTOPLAY)  add(new QLabel("Sound"));
       else if (s == LOCK_SELECTION) add(new QLabel ("LMouse"));
-      else if (s == FAST_CLOSE) add(new QLabel ("Other"));
+      else if (s == ANIMATE) add(new QLabel ("Other"));
 
       QString name = QString(e.key(i)).replace("_", " ").toLower();
       name[0] = name[0].toUpper();
@@ -144,6 +144,7 @@ void BWWindow::nextGeneration(uint index) {
   showIndividualDetails(-1);
 
   _generation++;
+  std::cerr << "Processing generation" << _generation << "\n";
   updateSavePath();
 
   IPtr parent = std::move(_individuals[index]);
@@ -329,13 +330,11 @@ void BWWindow::setSelectedIndividual(int index) {
 
 void BWWindow::startVocalisation(uint index) {
   auto v = _visualizers[index];
-  if (_animation.index < 0) {
-    _animation.index = index;
-    _animation.step = 0;
-    startAnimateShownANN();
-    connect(v, &sound::Visualizer::notifyNote,
-            this, &BWWindow::animateShownANN);
-  }
+  if (_selection != nullptr && _selection != v) return;
+
+  _animation.index = index;
+  _animation.step = 0;
+  startAnimateShownANN();
 
   if (setting(AUTOPLAY))
     v->vocaliseToAudioOut(sound::Generator::LOOP);
@@ -347,20 +346,26 @@ void BWWindow::startVocalisation(uint index) {
 
 void BWWindow::stopVocalisation(uint index) {
   auto v = _visualizers[index];
-  if (setting(PLAY) && _selection == v) {
+  if ((setting(PLAY) || setting(AUTOPLAY))
+       && ((_selection == nullptr) || (_selection == v))) {
     v->stopVocalisationToAudioOut();
-    stopAnimateShownANN();
+    if (setting(ANIMATE)) stopAnimateShownANN();
   }
 }
 
 void BWWindow::startAnimateShownANN(void) {
-  assert(_animation.index >= 0);
+  if (!setting(ANIMATE))  return;
+
+  connect(_visualizers[_animation.index], &sound::Visualizer::notifyNote,
+          this, &BWWindow::animateShownANN);
   _individuals[_animation.index]->ann.reset();
   _details->annViewer->startAnimation();
   qDebug() << "Started animation" << _animation.index << _animation.step;
 }
 
 void BWWindow::animateShownANN(void) {
+  if (!setting(ANIMATE))  return;
+
   auto &av = *_details->annViewer;
   assert(_animation.index >= 0);
   simu::Individual &i = *_individuals[_animation.index];
@@ -379,6 +384,8 @@ void BWWindow::animateShownANN(void) {
 }
 
 void BWWindow::stopAnimateShownANN(void) {
+  if (!setting(ANIMATE))  return;
+
   auto &av = *_details->annViewer;
   if (av.isAnimating()) {
     assert(_animation.index >= 0);
