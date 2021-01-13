@@ -439,7 +439,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (const char *ext) const {
     set(n, "height", ".1");
     set(n, "style", "filled");
     set(n, "fillcolor", (neuron->type != Neuron::H) ? "black" : "gray");
-    set(n, "spos", p.first.x(), ",", p.first.y());
+    set(n, "spos", p.first);
 
     bool selfRecurrent = false;
     for (const auto &l: neuron->links) {

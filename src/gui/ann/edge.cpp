@@ -48,7 +48,7 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   _bounds.translate(-_bounds.center());
 
   drawShape(spl, scale, pos(), _edge, _arrow);
-  _width = 1+gvc::get(edge, "penwidth", 0.f);
+  _width = gvc::get(edge, "penwidth", 0.f);
   _currentColor = _color =
       QColor(gvc::get(edge, "color", std::string()).c_str());
 }
@@ -79,8 +79,6 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
     p.setCapStyle(Qt::FlatCap);
     painter->setPen(p);
     painter->drawPath(_edge);
-
-    painter->drawEllipse(_edge.pointAtPercent(.5), 1, 1);
 
     p.setJoinStyle(Qt::MiterJoin);
     painter->setPen(p);
