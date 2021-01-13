@@ -13,21 +13,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
-
-option(WITH_DEBUG_INFO "Sets whether to maximize debug data collection" OFF)
-message("> With debug info " ${WITH_DEBUG_INFO})
-if(WITH_DEBUG_INFO)
-    add_definitions(-DWITH_DEBUG_INFO)
-
-    # Enable small memory error detector (fuse=gold fixes linker errors)
-#    set(ASAN "-fsanitize=thread")
-    set(ASAN "-fsanitize=address -fsanitize=undefined")
-    string(APPEND CMAKE_CXX_FLAGS " -g ${ASAN} -fno-omit-frame-pointer")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        string(APPEND CMAKE_CXX_FLAGS " -fuse-ld=gold")
-    endif()
-endif()
-
 ################################################################################
 ## Multi-configuration installation path
 ################################################################################
@@ -219,18 +204,7 @@ if (NOT CLUSTER_BUILD)
     )
     PREPEND(GUI_SRC "src/gui")
 
-    set(SOUND_SRC
-        "endlessbuffer.cpp"
-        "generator.cpp"
-        "visualizer.cpp"
-        )
-    PREPEND(SOUND_SRC "src/sound")
-
-#    set(EXT_SRC
-#    )
-#    PREPEND(EXT_SRC "src/external")
-
-    add_library(GUI_OBJS OBJECT ${GUI_SRC} ${SOUND_SRC})
+    add_library(GUI_OBJS OBJECT ${GUI_SRC})
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -242,18 +216,27 @@ if (NOT CLUSTER_BUILD)
 ##################################################################################
 #### Target (watchmaker)
 ##################################################################################
+    if (WITH_SONGMAKER)
+        set(SOUND_SRC
+            "endlessbuffer.cpp"
+            "generator.cpp"
+            "visualizer.cpp"
+            )
+        PREPEND(SOUND_SRC "src/watchmaker/sound")
 
-    add_executable(
-      watchmaker
-      $<TARGET_OBJECTS:SIMU_OBJS>
-      $<TARGET_OBJECTS:GUI_OBJS>
-      "src/gui/bwwindow.cpp"
-      "src/watchmaker.cpp"
-    )
-    set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-    target_link_libraries(watchmaker ${CORE_LIBS}
-#                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-                                     ${QT_LIBS})
+        add_executable(
+          watchmaker
+          $<TARGET_OBJECTS:SIMU_OBJS>
+          $<TARGET_OBJECTS:GUI_OBJS>
+
+          "src/watchmaker/bwwindow.cpp"
+          "src/watchmaker/main.cpp"
+        )
+        set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
+        target_link_libraries(watchmaker ${CORE_LIBS}
+    #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
+                                         ${QT_LIBS})
+    endif()
 
 
 ################################################################################
@@ -334,6 +317,21 @@ endif()
 
 #message("")
 
+
+option(WITH_DEBUG_INFO "Sets whether to maximize debug data collection" OFF)
+message("> With debug info " ${WITH_DEBUG_INFO})
+if(WITH_DEBUG_INFO)
+    add_definitions(-DWITH_DEBUG_INFO)
+
+    # Enable small memory error detector (fuse=gold fixes linker errors)
+#    set(ASAN "-fsanitize=thread")
+    set(ASAN "-fsanitize=address -fsanitize=undefined")
+    string(APPEND CMAKE_CXX_FLAGS " -g ${ASAN} -fno-omit-frame-pointer")
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        string(APPEND CMAKE_CXX_FLAGS " -fuse-ld=gold")
+    endif()
+endif()
+
 option(CLUSTER_BUILD "Whether or not building on a cluster
                       (i-e no gui and local linkage)" ON)
 message("> Cluster building mode is " ${CLUSTER_BUILD})
@@ -343,6 +341,9 @@ endif()
 
 option(WITH_TESTS "Whether or not to build all test targets" OFF)
 message("> Building tests: " ${WITH_TESTS})
+
+option(WITH_SONGMAKER "Whether or not to build songmaker" OFF)
+message("> SongMaker: " ${WITH_SONGMAKER})
 
 #option(UPDATE_DEPENDENCIES "Whether or not to keep dependency data up-to-date
 #                            (implies extra compilation time)" ON)
