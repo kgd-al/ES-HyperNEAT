@@ -375,16 +375,6 @@ void BWWindow::animateShownANN(void) {
   av.updateAnimation();
   qDebug() << "Stepped animation" << _animation.index << _animation.step;
 
-  if (false) {
-    using utils::operator<<;
-    std::cerr << "Inputs: " << inputs << "\n";
-    std::cerr << "Neurons:\n";
-    for (const auto &p: i.ann.neurons())
-      std::cerr << "\t{" << p.first << "@" << p.second.get() << ": "
-                << p.second->value << "\n";
-    std::cerr << "Outputs: " << outputs << std::endl;
-  }
-
   _animation.step = (_animation.step + 1) % sound::Generator::NOTES;
 }
 

@@ -5,19 +5,37 @@
 
 namespace phenotype {
 
-template <uint D>
-struct Point_t {
-  static_assert(D > 0, "Null points do not make sense");
-  static_assert(D > 1, "1D ANNs are far from fonctional");
-  static_assert(D < 3, "3D ANNs are far from fonctional");
+template <uint DIMENSIONS, uint DECIMALS>
+class Point_t {
+  static_assert(DIMENSIONS > 0, "Null points do not make sense");
+  static_assert(DIMENSIONS > 1, "1D ANNs are far from fonctional");
+  static_assert(DIMENSIONS < 3, "3D ANNs are far from fonctional");
 
-  std::array<float, D> data;
+  static constexpr uint MAX_DECIMALS = std::numeric_limits<int>::digits10-1;
+  static_assert(DECIMALS <= MAX_DECIMALS, "Cannot represent such precision in"
+                                          " fixed point type");
 
-  float x (void) const {  return data[0]; }
+  static constexpr int RATIO = std::pow(10, DECIMALS);
+  std::array<int, DIMENSIONS> _data;
+
+  float get (uint i) const {
+    return _data[i] / float(RATIO);
+  }
+
+  void set (uint i, float v) {
+    _data[i] = std::round(RATIO * v);
+  }
+
+public:
+  Point_t(std::initializer_list<float> &&v) {
+    for (uint i=0; i<v.size(); i++) set(i, v[i]);
+  }
+
+  float x (void) const {  return get(0); }
 
   float y (void) const {
-    static_assert(D >= 1, "Current point type is mono-dimensional");
-    return data[1];
+    static_assert(DIMENSIONS >= 1, "Current point type is mono-dimensional");
+    return get(1);
   }
 
   friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
@@ -25,18 +43,16 @@ struct Point_t {
     return lhs.x() < rhs.x();
   }
 
-#ifndef NDEBUG
   friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
     os << "{";
     for (auto c: p.data)  os << " " << c;
     return os << " }";
   }
-#endif
 };
 
 class ANN : public gvc::Graph {
 public:
-  using Point = Point_t<2>;
+  using Point = Point_t<2, 3>;
 
 private:
   struct RangeFinder {

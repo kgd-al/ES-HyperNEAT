@@ -78,8 +78,6 @@ void Node::updateAnimation (bool running) {
     float v = _neuron.value;
     _currentColor = redBlackGradient(v);
     for (Edge *e: out)  e->updateAnimation(v);
-//    qDebug() << "NODE@" << &_neuron << ": " << v << _currentColor;
-//    setOpacity(); /// TODO
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
@@ -154,11 +152,6 @@ void Node::hoverEnterEvent(QGraphicsSceneHoverEvent *e) {
   _hovered = true;
   for (auto e: in)  e->setHovered(true);
   for (auto e: out)  e->setHovered(true);
-
-  std::cerr << "Hover enter in " << *this << "\n";
-  for (const Edge *e: in)   std::cerr << "\t-> " << *e << "\n";
-  for (const Edge *e: out)  std::cerr << "\t<- " << *e << "\n";
-
   QGraphicsObject::hoverEnterEvent(e);
 }
 

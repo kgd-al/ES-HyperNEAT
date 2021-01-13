@@ -58,13 +58,13 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   const auto getOrNew = [&edges, &scene, s] (Agedge_t *e) {
     auto ename = std::string(agnameof(e));
     auto it = edges.find(ename);
-    if (it != edges.end()) {
-      std::cerr << ename << " found\n";
+
+    if (it != edges.end())
       return it->second;
-    } else {
+    else {
       auto qe = new Edge(e, s);
-      std::cerr << ename << " created\n";
       scene->addItem(qe);
+      edges[ename] = qe;
       return qe;
     }
   };
@@ -72,9 +72,12 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   const auto &ann = dynamic_cast<const phenotype::ANN&>(g);
   const auto &neurons = ann.neurons();
 
-  QRectF qt_bounds (.5*INT_MAX, -.5*INT_MAX, -INT_MAX, INT_MAX), sb_bounds;
+  std::cerr << "neurons:" << std::setprecision(25);
+  for (const auto &p: neurons)
+    std::cerr << "\t" << p.first << "\n";
+  std::cerr << "\n";
 
-  std::cerr << "Creating graph...\n";
+  QRectF qt_bounds (.5*INT_MAX, -.5*INT_MAX, -INT_MAX, INT_MAX), sb_bounds;
 
   _neurons.clear();
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
@@ -85,6 +88,7 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
       std::istringstream (spos_str) >> p.data[0] >> c >> p.data[1];
     }
 
+    std::cerr << "Querying " << p << "\n";
     auto qn = new Node(n, *neurons.at(p), s);
     scene->addItem(qn);
     _neurons.append(qn);
@@ -120,8 +124,6 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
     qc.y() + sy * (1 + .5 * (sb_bounds.top() + sb_bounds.bottom())),
     2*sx, -2*sy);
   scene->addItem(new Axis(bounds));
-
-  std::cerr << "Graph created!\n";
 }
 
 void Viewer::startAnimation(void) {

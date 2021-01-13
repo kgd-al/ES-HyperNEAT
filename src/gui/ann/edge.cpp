@@ -17,6 +17,7 @@ QColor redBlackGradient(float v) {
   return c;
 }
 
+#ifndef NDEBUG
 std::ostream& operator<< (std::ostream &os, const QPointF &p) {
   return os << "{" << p.x() << ", " << p.y() << "}";
 }
@@ -31,6 +32,7 @@ std::ostream& operator<< (std::ostream &os, const Edge &e) {
             << "->" << e._edge.pointAtPercent(1) << " " << e._color << " "
             << e._currentColor << " " << e._width;
 }
+#endif
 
 Edge::Edge (Agedge_t *edge, qreal scale)
   : _weight(gvc::get(edge, "weight", 0.f)) {
@@ -49,22 +51,15 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   _width = 1+gvc::get(edge, "penwidth", 0.f);
   _currentColor = _color =
       QColor(gvc::get(edge, "color", std::string()).c_str());
-  std::cerr << "EDGE: " << *this << "\n";
 }
 
 void Edge::updateAnimation(float v) {
-  std::cerr << "Updated color: " << *this << "\n\t";
-
-  if (!std::isnan(v)) { // Running
-    std::cerr << "\tred-black gradient of value " << v * _weight << " = "
-              << v << " * " << _weight << "\n";
+  if (!std::isnan(v))// Running
     /// TODO What is the synaptic weight range ?
     _currentColor = redBlackGradient(v * _weight);
 
-  } else
+  else
     _currentColor = _color;
-
-  std::cerr << "\t" << _currentColor << "\n";
 
   update();
 }
@@ -78,7 +73,6 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
       painter->setPen(scene()->palette().color(QPalette::Highlight));
     else
       painter->setPen(_currentColor);
-    std::cerr << "paint(" << *this << ")\t" << painter->pen().color() << "\n";
 
     QPen p = painter->pen();
     p.setWidthF(_width * p.widthF());
