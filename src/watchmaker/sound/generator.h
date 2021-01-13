@@ -13,7 +13,7 @@
 #include <QVector>
 #include <QAudio>
 
-namespace sound {
+namespace watchmaker::sound {
 
 class Generator : public QObject {
   Q_OBJECT
@@ -72,6 +72,6 @@ private:
   void onNoteConsumed (void);
 };
 
-} // end of namespace sound
+} // end of namespace watchmaker::sound
 
 #endif // SOUND_GENERATOR_H

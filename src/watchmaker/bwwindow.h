@@ -5,10 +5,10 @@
 #include <QCheckBox>
 #include <QMap>
 
-#include "es_hyperneatpanel.h"
-#include "../sound/visualizer.h"
+#include "../gui/es_hyperneatpanel.h"
+#include "sound/visualizer.h"
 
-namespace gui {
+namespace watchmaker {
 
 namespace simu {
 
@@ -37,6 +37,8 @@ private:
 
 } // end of namespace simu
 
+namespace gui {
+
 class BWWindow : public QMainWindow {
   Q_OBJECT
 public:
@@ -51,7 +53,7 @@ public:
   Q_ENUM(Setting)
 
 private:
-  ES_HyperNEATPanel *_details;
+  ::gui::ES_HyperNEATPanel *_details;
 
   static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
@@ -108,5 +110,7 @@ private:
 };
 
 } // end of namespace gui
+
+} // end of namespace watchmaker
 
 #endif // BWWINDOW_H

@@ -14,7 +14,7 @@
 #include <QToolButton>
 #include <QMetaEnum>
 
-namespace gui {
+namespace watchmaker {
 
 namespace simu {
 
@@ -51,6 +51,8 @@ Individual::ptr Individual::mutated (const Individual &i, rng::AbstractDice &d){
 }
 
 } // end of namespace simu
+
+namespace gui {
 
 BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
   : QMainWindow(parent), _dice(seed), _baseSavePath(baseSavePath) {
@@ -437,3 +439,5 @@ void BWWindow::closeEvent(QCloseEvent *e) {
 }
 
 } // end of namespace gui
+
+} // end of namespace watchmaker

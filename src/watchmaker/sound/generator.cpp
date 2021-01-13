@@ -21,7 +21,7 @@
 #define DEBUG_AUDIO 0
 #endif
 
-namespace sound {
+namespace watchmaker::sound {
 
 const QVector<QString> Generator::baseNotes {
   "A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#",
@@ -404,4 +404,4 @@ void Generator::onNoteConsumed(void) {
   if (d->currentPlayback == ONE_NOTE) pause();
 }
 
-} // end of namespace sound
+} // end of namespace watchmaker::sound

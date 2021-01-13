@@ -3,7 +3,7 @@
 
 #include <QIODevice>
 
-namespace utils {
+namespace watchmaker::utils {
 
 class EndlessBuffer : public QIODevice {
   Q_OBJECT
@@ -42,6 +42,6 @@ private:
   bool open (OpenMode /*openMode*/) override;
 };
 
-} // end of namespace utils
+} // end of namespace watchmaker::utils
 
 #endif // ENDLESSBUFFER_H

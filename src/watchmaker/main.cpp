@@ -2,7 +2,7 @@
 
 #include "kgd/external/cxxopts.hpp"
 
-#include "gui/bwwindow.h"
+#include "bwwindow.h"
 
 int main (int argc, char **argv) {
   QApplication app (argc, argv);

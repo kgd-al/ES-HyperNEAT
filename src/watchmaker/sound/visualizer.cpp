@@ -4,9 +4,7 @@
 
 #include "visualizer.h"
 
-#include <QDebug>
-
-namespace sound {
+namespace watchmaker::sound {
 
 Visualizer::Visualizer(QWidget *parent) : QWidget(parent) {
 //  setSizePolicy(QSizePolicy::Fixed,QSizePolicy::Fixed);
@@ -95,4 +93,4 @@ void Visualizer::render (const QString &filename) const {
   i.save(filename);
 }
 
-} // end of namespace sound
+} // end of namespace watchmaker::sound

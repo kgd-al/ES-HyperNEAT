@@ -222,15 +222,20 @@ if (NOT CLUSTER_BUILD)
             "generator.cpp"
             "visualizer.cpp"
             )
-        PREPEND(SOUND_SRC "src/watchmaker/sound")
+        PREPEND(SOUND_SRC "sound")
+
+        set(WATCHMAKER_SRC
+            ${SOUND_SRC}
+            "bwwindow.cpp"
+            "main.cpp"
+        )
+        PREPEND(WATCHMAKER_SRC "src/watchmaker")
 
         add_executable(
           watchmaker
           $<TARGET_OBJECTS:SIMU_OBJS>
           $<TARGET_OBJECTS:GUI_OBJS>
-
-          "src/watchmaker/bwwindow.cpp"
-          "src/watchmaker/main.cpp"
+          ${WATCHMAKER_SRC}
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
         target_link_libraries(watchmaker ${CORE_LIBS}
