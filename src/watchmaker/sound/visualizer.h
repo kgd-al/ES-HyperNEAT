@@ -5,7 +5,7 @@
 
 #include "generator.h"
 
-namespace watchmaker::sound {
+namespace kgd::watchmaker::sound {
 
 class Visualizer : public QWidget {
   Q_OBJECT
@@ -57,6 +57,6 @@ private:
   void stateChanged (QAudio::State s);
 };
 
-} // end of namespace watchmaker::sound
+} // end of namespace kgd::watchmaker::sound
 
 #endif // KGD_SOUND_VISUALIZER_H

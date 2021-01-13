@@ -4,7 +4,7 @@
 #include "../../genotype/es-hyperneat.h"
 #include "../graphviewer.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 struct Viewer : public GraphViewer {
   using Graph_t = genotype::ES_HyperNEAT::CPPN;
@@ -17,6 +17,6 @@ private:
                      const gvc::GraphWrapper &gw);
 };
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn
 
 #endif // KGD_CPPN_VIEWER_H

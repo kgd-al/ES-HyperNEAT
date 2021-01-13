@@ -3,6 +3,7 @@
 #include "kgd/external/cxxopts.hpp"
 
 #include "bwwindow.h"
+#include "config.h"
 
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
@@ -21,18 +22,22 @@ int main (int argc, char **argv) {
   std::string configFile = "auto";  // Default to auto-config
   Verbosity verbosity = Verbosity::QUIET;
 
-  std::string outputFolder = "";
+  stdfs::path outputFolder = "";
   int seed = -1;
 
-  cxxopts::Options options("Splinoids (visualisation)",
-                             "2D simulation of critters in a changing environment");
+  cxxopts::Options options("SongMaker (ES-HyperNEAT)",
+                           "Test environment for personnal implementation of "
+                           "the ES-HyperNEAT core algorithm (i.e. ann "
+                           "generation without evolutionary algorithmic "
+                           "components) on a sound generation user-driven "
+                           "task");
   options.add_options()
     ("h,help", "Display help")
-//    ("a,auto-config", "Load configuration data from default location")
-//    ("c,config", "File containing configuration data",
-//     cxxopts::value(configFile))
-//    ("v,verbosity", "Verbosity level. " + config::verbosityValues(),
-//     cxxopts::value(verbosity))
+    ("a,auto-config", "Load configuration data from default location")
+    ("c,config", "File containing configuration data",
+     cxxopts::value(configFile))
+    ("v,verbosity", "Verbosity level. " + config::verbosityValues(),
+     cxxopts::value(verbosity))
 
     ("s,seed", "Seed value for simulation's RNG", cxxopts::value(seed))
     ("o,out-folder", "Folder under which to store the computational outputs",
@@ -48,7 +53,15 @@ int main (int argc, char **argv) {
   if (result.count("auto-config") && result["auto-config"].as<bool>())
     configFile = "auto";
 
-  gui::BWWindow w (outputFolder, seed);
+  using namespace kgd::watchmaker::gui;
+  outputFolder = BWWindow::generateOutputFolder (outputFolder);
+
+  if (verbosity != Verbosity::QUIET) {
+    config::WatchMaker::printConfig(outputFolder / "config/");
+    config::WatchMaker::printConfig();
+  }
+
+  BWWindow w (outputFolder, seed);
   w.show();
 
   return app.exec();

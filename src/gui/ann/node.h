@@ -7,7 +7,7 @@
 #include "../gvcqtinterface.h"
 #include "../../phenotype/ann.h"
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 struct Edge;
 class Node : public QGraphicsObject {
@@ -61,6 +61,6 @@ private:
   void drawRichText(QPainter *painter);
 };
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann
 
 #endif // KGD_ANN_GRAPHIC_NODE_H

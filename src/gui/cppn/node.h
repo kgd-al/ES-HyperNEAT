@@ -6,7 +6,7 @@
 
 #include "../gvcqtinterface.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 class Node : public QGraphicsObject {
 
@@ -31,6 +31,6 @@ private:
   void drawRichText(QPainter *painter);
 };
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn
 
 #endif // KGD_CPPN_GRAPHIC_NODE_H

@@ -2,7 +2,7 @@
 
 #include "edge.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 Edge::Edge (Agedge_t *edge, qreal scale) {
   setZValue(-1);
@@ -96,4 +96,4 @@ void Edge::drawShape (const splines *spl, float scale,
   }
 }
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn

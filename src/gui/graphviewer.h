@@ -5,7 +5,7 @@
 
 #include "../misc/gvc_wrapper.h"
 
-namespace gui {
+namespace kgd::gui {
 
 class GraphViewer : public QGraphicsView {
 public:
@@ -39,6 +39,6 @@ private:
                              const gvc::GraphWrapper &gw) = 0;
 };
 
-} // end of namespace gui
+} // end of namespace kgd::gui
 
 #endif // KGD_GRAPHVIEWER_H

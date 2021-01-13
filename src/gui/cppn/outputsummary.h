@@ -5,7 +5,7 @@
 
 #include "../../phenotype/cppn.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 struct OutputViewer;
 
@@ -26,6 +26,6 @@ private:
   QLabel* keyLabel (const QString &text);
 };
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn
 
 #endif // KGD_CPPN_OUTPUTSUMMARY_H

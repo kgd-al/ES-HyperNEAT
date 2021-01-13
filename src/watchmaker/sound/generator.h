@@ -13,7 +13,7 @@
 #include <QVector>
 #include <QAudio>
 
-namespace watchmaker::sound {
+namespace kgd::watchmaker::sound {
 
 class Generator : public QObject {
   Q_OBJECT
@@ -72,6 +72,6 @@ private:
   void onNoteConsumed (void);
 };
 
-} // end of namespace watchmaker::sound
+} // end of namespace kgd::watchmaker::sound
 
 #endif // KGD_SOUND_GENERATOR_H

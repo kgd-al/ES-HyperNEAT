@@ -6,7 +6,7 @@
 #include "node.h"
 #include "../../phenotype/cppn.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 using NodeFunc = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
 
@@ -189,4 +189,4 @@ void Node::drawRichText(QPainter *painter) {
   painter->restore();
 }
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn

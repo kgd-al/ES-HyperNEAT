@@ -8,7 +8,7 @@
 #include "../gui/es_hyperneatpanel.h"
 #include "sound/visualizer.h"
 
-namespace watchmaker {
+namespace kgd::watchmaker {
 
 namespace simu {
 
@@ -45,6 +45,8 @@ public:
   BWWindow(const stdfs::path &baseSavePath, uint seed,
            QWidget *parent = nullptr);
 
+  static stdfs::path generateOutputFolder (const stdfs::path &base);
+
   enum Setting {
     AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
     LOCK_SELECTION, PLAY, SELECT_NEXT,
@@ -53,7 +55,7 @@ public:
   Q_ENUM(Setting)
 
 private:
-  ::gui::ES_HyperNEATPanel *_details;
+  kgd::gui::ES_HyperNEATPanel *_details;
 
   static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
@@ -111,6 +113,6 @@ private:
 
 } // end of namespace gui
 
-} // end of namespace watchmaker
+} // end of namespace kgd::watchmaker
 
 #endif // KGD_BWWINDOW_H

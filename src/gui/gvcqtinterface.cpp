@@ -1,6 +1,6 @@
 #include "gvcqtinterface.h"
 
-namespace gui {
+namespace kgd::gui {
 
 QPointF toQt (const pointf &p, float scale) {
     return QPointF(p.x * scale, -p.y * scale);
@@ -13,4 +13,4 @@ QRectF toQt (const boxf &b, float scale) {
   );
 }
 
-}
+} // end of namespace kgd::gui

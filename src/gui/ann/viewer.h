@@ -4,7 +4,7 @@
 #include "../../phenotype/ann.h"
 #include "../graphviewer.h"
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 struct Viewer : public GraphViewer {
   Q_OBJECT
@@ -32,6 +32,6 @@ private:
                      const gvc::GraphWrapper &gw) override;
 };
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann
 
 #endif // KGD_ANN_VIEWER_H

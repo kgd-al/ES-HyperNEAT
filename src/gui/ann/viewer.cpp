@@ -7,7 +7,7 @@
 
 #include <QDebug>
 
-namespace gui::ann {
+namespace kgd::gui::ann {
 
 struct Axis : public QGraphicsRectItem {
   Axis (const QRectF &bounds) : QGraphicsRectItem(bounds) {
@@ -137,4 +137,4 @@ void Viewer::stopAnimation(void) {
     dynamic_cast<Node*>(i)->updateAnimation(false);
 }
 
-} // end of namespace gui::ann
+} // end of namespace kgd::gui::ann

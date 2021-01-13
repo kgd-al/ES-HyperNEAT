@@ -3,7 +3,7 @@
 
 #include "es_hyperneatpanel.h"
 
-namespace gui {
+namespace kgd::gui {
 
 struct VLabel : public QLabel {
   VLabel (const QString &text = "", QWidget *parent = nullptr)
@@ -82,4 +82,4 @@ void ES_HyperNEATPanel::showCPPNOutputsAt(const QPointF &p) {
   cppnOViewer->phenotypes(*_genome, *_cppn, p);
 }
 
-} // end of namespace gui
+} // end of namespace kgd::gui

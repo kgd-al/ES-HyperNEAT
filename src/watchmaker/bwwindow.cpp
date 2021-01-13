@@ -6,7 +6,7 @@
 #include <QButtonGroup>
 
 #include "bwwindow.h"
-#include "kgd/settings/configfile.h"
+#include "config.h"
 
 #include <QDebug>
 #include <QComboBox>
@@ -14,7 +14,7 @@
 #include <QToolButton>
 #include <QMetaEnum>
 
-namespace watchmaker {
+namespace kgd::watchmaker {
 
 namespace simu {
 
@@ -104,7 +104,7 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
 
   holder->setLayout(layout);
   splitter->addWidget(holder);
-  splitter->addWidget(_details = new ES_HyperNEATPanel);
+  splitter->addWidget(_details = new kgd::gui::ES_HyperNEATPanel);
   setCentralWidget(splitter);
 
   restoreSettings();
@@ -115,21 +115,24 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
   _animation.step = -1;
 }
 
-void BWWindow::firstGeneration(void) {
-  if (_baseSavePath.empty())  _baseSavePath = "./tmp/";
+stdfs::path BWWindow::generateOutputFolder (const stdfs::path &base) {
+  stdfs::path path = base;
+  if (path.empty())  path = "./tmp/";
 
   std::ostringstream oss;
   oss << utils::CurrentTime("%Y-%m-%d_%H-%M-%S");
-  auto link = _baseSavePath / "last";
-  _baseSavePath /= oss.str();
-  stdfs::create_directories(_baseSavePath);
-  _baseSavePath = stdfs::canonical(_baseSavePath);
+  auto link = path / "last";
+  path /= oss.str();
+  stdfs::create_directories(path);
+  path = stdfs::canonical(path);
 
   if (stdfs::exists(link))  stdfs::remove(link);
-  stdfs::create_directory_symlink(_baseSavePath, link);
+  stdfs::create_directory_symlink(path, link);
 
-  std::cerr << "baseSavePath: " << _baseSavePath << std::endl;
+  return path;
+}
 
+void BWWindow::firstGeneration(void) {
   _generation = 0;
   updateSavePath();
 
@@ -197,7 +200,8 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
     // Don't save last gen champion again
     std::ostringstream oss;
     oss << "i" << j << "_j" << k;
-    logIndividual(ix, _currentSavePath / oss.str(), 3);
+    logIndividual(ix, _currentSavePath / oss.str(),
+                  config::WatchMaker::dataLogLevel());
   }
 }
 
@@ -208,6 +212,7 @@ void BWWindow::logIndividual(uint index, const stdfs::path &f,
 
   /// TODO Also log plain note sheet
 
+  using namespace kgd::gui;
   const auto &i = *_individuals[index];
   if (level >= 1) i.genome.toFile(f / "genome");
   if (level >= 3) i.genome.cppn.render_gvc_graph(f / "cppn_gvc.png");
@@ -440,4 +445,4 @@ void BWWindow::closeEvent(QCloseEvent *e) {
 
 } // end of namespace gui
 
-} // end of namespace watchmaker
+} // end of namespace kgd::watchmaker

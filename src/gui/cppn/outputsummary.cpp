@@ -4,7 +4,7 @@
 
 #include "outputsummary.h"
 
-namespace gui::cppn {
+namespace kgd::gui::cppn {
 
 static constexpr int S = 25;
 
@@ -119,4 +119,4 @@ void OutputSummary::noPhenotypes(void) {
   for (auto v: _viewers)  v->image.fill(Qt::gray);
 }
 
-} // end of namespace gui::cppn
+} // end of namespace kgd::gui::cppn

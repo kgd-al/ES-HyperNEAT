@@ -8,7 +8,7 @@
 
 #include "ann/viewer.h"
 
-namespace gui {
+namespace kgd::gui {
 
 struct ES_HyperNEATPanel : public QWidget {
   cppn::Viewer *cppnViewer;
@@ -30,6 +30,6 @@ private:
   const phenotype::ANN *_ann;
 };
 
-} // end of namespace gui
+} // end of namespace kgd::gui
 
 #endif // KGD_ES_HYPERNEATPANEL_H

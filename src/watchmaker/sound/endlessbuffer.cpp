@@ -5,7 +5,7 @@
 #include <QDebug>
 #endif
 
-namespace watchmaker::utils {
+namespace kgd::watchmaker::utils {
 
 EndlessBuffer::EndlessBuffer (QByteArray &array, QObject *parent)
   : QIODevice(parent), _data(array), _index(0), _looping(false),
@@ -89,4 +89,4 @@ bool EndlessBuffer::open(OpenMode) {
   return false;
 }
 
-} // end of namespace watchmaker::utils
+} // end of namespace kgd::watchmaker::utils

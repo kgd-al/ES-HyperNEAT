@@ -2,7 +2,7 @@
 
 #include "graphviewer.h"
 
-namespace gui {
+namespace kgd::gui {
 
 GraphViewer::GraphViewer(QWidget *parent, const QString &type)
   : QGraphicsView(parent), _type(type) {
@@ -51,4 +51,4 @@ void GraphViewer::render (const QString &filename) {
 }
 
 
-} // end of namespace gui
+} // end of namespace kgd::gui
