@@ -237,11 +237,14 @@ if (NOT CLUSTER_BUILD)
           $<TARGET_OBJECTS:SIMU_OBJS>
           $<TARGET_OBJECTS:GUI_OBJS>
           ${WATCHMAKER_SRC}
+          "${CMAKE_HOME_DIRECTORY}/midi/rtmidi-4.0.0/RtMidi.cpp"
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
         target_link_libraries(watchmaker ${CORE_LIBS}
     #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
                                          ${QT_LIBS})
+        target_compile_definitions(watchmaker PRIVATE __LINUX_ALSA__)
+        target_link_libraries(watchmaker asound pthread)
     endif()
 
 

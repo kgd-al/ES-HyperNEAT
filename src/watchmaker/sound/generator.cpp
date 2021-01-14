@@ -9,7 +9,11 @@
 #include "generator.h"
 #include "endlessbuffer.h"
 
+#include "../../../midi/rtmidi-4.0.0/RtMidi.h"
+#include <memory>
+
 #include <QDebug>
+#include "kgd/utils/utils.h"
 
 #include <fstream>
 #include <sstream>
@@ -19,9 +23,62 @@
 
 #ifndef NDEBUG
 #define DEBUG_AUDIO 0
+#define DEBUG_MIDI_AUDIO 100
 #endif
 
 namespace kgd::watchmaker::sound {
+
+struct MidiWrapper {
+  static bool initialiseRtLibrary (const std::string &pattern) {
+    uint n = _rtOut.getPortCount();
+    int index = -1;
+    std::cout << "\nThere are " << n << " MIDI output ports available.\n";
+    for (uint i=0; i<n; i++) {
+      std::string portName = _rtOut.getPortName(i);
+      bool match = false;
+      if (index < 0) {
+        auto it = std::search(portName.begin(), portName.end(),
+                              pattern.begin(), pattern.end(),
+                              [] (char lhs, char rhs) {
+          return std::toupper(lhs) == std::toupper(rhs);
+        });
+        match = (it != portName.end());
+        if (match)  index = i;
+      }
+      std::cout << (match? '*' : ' ') << " Output Port #" << i+1 << ": "
+                << portName << '\n';
+    }
+    std::cout << '\n';
+
+    if (index < 0) {
+      std::cout << "Did not find a port matching pattern '" << pattern << "'.\n"
+                << "Defaulting to first available port\n";
+      index = 0;
+    }
+
+    std::cout << "Using port #" << index+1 << ": " << _rtOut.getPortName(index)
+              << "\n";
+    _rtOut.openPort(index);
+
+    return true;
+  }
+  static const bool initialized;
+
+  static RtMidiOut& midiOut(void) {
+    return _rtOut;
+  }
+
+  static void sendMessage (const std::vector<uchar> &message) {
+    using ::utils::operator<<;
+    std::cout << "Sending Midi message: " << message << std::endl;
+    _rtOut.sendMessage(&message);
+  }
+
+private:
+  static RtMidiOut _rtOut;
+};
+RtMidiOut MidiWrapper::_rtOut;
+const bool MidiWrapper::initialized = MidiWrapper::initialiseRtLibrary("Timidity");
 
 const QVector<QString> Generator::baseNotes {
   "A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#",
@@ -235,6 +292,29 @@ struct Generator::Data {
     audio = new QAudioOutput (currFormat);
 
     currentPlayback = LOOP;
+
+    std::vector<unsigned char> message;
+    // Send out a series of MIDI messages.
+    // Program change: 192, 5
+    message.push_back( 192 );
+    message.push_back( 5 );
+    MidiWrapper::sendMessage(message);
+    // Control Change: 176, 7, 100 (volume)
+    message[0] = 176;
+    message[1] = 7;
+    message.push_back( 100 );
+    MidiWrapper::sendMessage(message);
+    // Note On: 144, 64, 90
+    message[0] = 144;
+    message[1] = 64;
+    message[2] = 90;
+    MidiWrapper::sendMessage(message);
+//    SLEEP( 500 ); // Platform-dependent ... see example in tests directory.
+    // Note Off: 128, 64, 40
+    message[0] = 128;
+    message[1] = 64;
+    message[2] = 40;
+    MidiWrapper::sendMessage(message);
   }
 
   ~Data (void) {

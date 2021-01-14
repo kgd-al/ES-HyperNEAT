@@ -156,6 +156,7 @@ void BWWindow::nextGeneration(uint index) {
   showIndividualDetails(-1);
 
   _generation++;
+  /// TODO Put a blocking dialog on that
   std::cerr << "Processing generation" << _generation << "\n";
   updateSavePath();
 
@@ -221,8 +222,8 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   }
   v->setNoteSheet(notes);
 
-  using utils::operator<<;
-  std::cerr << "Note sheet for [" << j << "," << k << "]: " << notes << "\n";
+//  using utils::operator<<;
+//  std::cerr << "Note sheet for [" << j << "," << k << "]: " << notes << "\n";
 
   if (ix != N*N/2 || _generation == 0) {
     // Don't save last gen champion again
