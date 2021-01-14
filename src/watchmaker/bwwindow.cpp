@@ -303,9 +303,13 @@ void BWWindow::keyPressEvent(QKeyEvent *e) {
   if (s >= 0) _settings.value(Setting(s))->setChecked(true);
 
   if (N == 3 && e->modifiers() == Qt::KeypadModifier) {
-    /// TODO Here
-    resume here
-    qDebug() << "Should show: " << i;
+    int ix = e->key() - Qt::Key_1;
+    if (0 > ix || ix > 8) return;
+
+    ix = N * (N - ix/N - 1) + ix%N;
+
+    showIndividualDetails(ix);
+    individualMouseClick(ix);
     return;
   }
 
