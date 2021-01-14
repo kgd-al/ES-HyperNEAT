@@ -22,15 +22,22 @@ Individual::Individual(const Genome &g, const CPPN &c, const ANN &a)
   : genome(g), cppn(c), ann(a) {}
 
 Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
+  using Config = config::WatchMaker;
+
   auto cppn = phenotype::CPPN::fromGenotype(genome);
 
-  phenotype::ANN::Point bias {0,-.9};
+  phenotype::ANN::Point bias { NAN, NAN };
+  if (Config::withBias()) bias = {0,-.9};
+
   phenotype::ANN::Coordinates inputs, outputs;
   static constexpr auto C = sound::Generator::CHANNELS;
   for (uint i=0; i<C; i++) {
-    inputs.push_back( { float(i) / (C-1) - .5f, -1 });
-    outputs.push_back({ float(i) / (C-1) - .5f, +1 });
+    if (Config::audition() != Audition::NONE)
+      inputs.push_back( { 2*float(i) / (C-1) - 1.f, -1 });
+    outputs.push_back({ 2*float(i) / (C-1) - 1.f, +1 });
   }
+
+  if (Config::tinput() != TemporalInput::NONE)  inputs.push_back({0,0});
 
   auto ann = phenotype::ANN::build(bias, inputs, outputs, genome, cppn);
 
@@ -139,7 +146,7 @@ void BWWindow::firstGeneration(void) {
   for (uint i=0; i<N; i++)
     for (uint j=0; j<N; j++)
       setIndividual(simu::Individual::random(_dice), i, j);
-  if (true || setting(LOCK_SELECTION))
+  if (setting(LOCK_SELECTION))
         setSelectedIndividual(N*N/2);
   else  showIndividualDetails(N*N/2);
 }
@@ -162,6 +169,7 @@ void BWWindow::nextGeneration(uint index) {
   }
   setIndividual(std::move(parent), mid, mid);
   showIndividualDetails(N*N/2);
+  QCursor::setPos(mapToGlobal(_visualizers[N*N/2]->geometry().center()));
 }
 
 void BWWindow::updateSavePath(void) {
@@ -172,6 +180,7 @@ void BWWindow::updateSavePath(void) {
 }
 
 void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
+  using Config = config::WatchMaker;
   static constexpr auto C = sound::Generator::CHANNELS;
 
   const auto ix = j*N+k;
@@ -183,13 +192,32 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
 
   auto inputs = ann.inputs();
   auto outputs = ann.outputs();
-  assert(inputs.size() == outputs.size());
 
   std::fill(inputs.begin(), inputs.end(), 0);
   for (uint n=0; n<sound::Generator::NOTES; n++) {
     ann(inputs, outputs, i.genome.substeps);
     for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
-    inputs = outputs;
+
+    /// TODO Factorise with animateANN
+    switch (Config::audition()) {
+    case Audition::NONE:  break;
+    case Audition::SELF:
+      std::copy(outputs.begin(), outputs.end(), inputs.begin());
+      break;
+    case Audition::COMMUNITY:
+      assert(false);
+      break;
+    }
+
+    switch (Config::tinput()) {
+    case TemporalInput::NONE: break;
+    case TemporalInput::LINEAR:
+      inputs.back() = float(n) / (sound::Generator::NOTES-1);
+      break;
+    case TemporalInput::SINUSOIDAL:
+      inputs.back() = std::sin(2 * M_PI * n * sound::Generator::STEP);
+      break;
+    }
   }
   v->setNoteSheet(notes);
 
@@ -274,6 +302,13 @@ void BWWindow::keyPressEvent(QKeyEvent *e) {
   else if (e->modifiers() & Qt::ALT)    s = SELECT_NEXT;
   if (s >= 0) _settings.value(Setting(s))->setChecked(true);
 
+  if (N == 3 && e->modifiers() == Qt::KeypadModifier) {
+    /// TODO Here
+    resume here
+    qDebug() << "Should show: " << i;
+    return;
+  }
+
   auto v = _selection;
   if (!v) v = dynamic_cast<sound::Visualizer*>(childAt(QCursor::pos()));
   if (!v) return;
@@ -309,7 +344,6 @@ void BWWindow::individualMouseDoubleClick(uint index) {
 
 void BWWindow::showIndividualDetails(int index) {
   if (_selection)  return;
-  std::cerr << "\nShowing details of individual at index " << index << "\n";
 
   if (_shown) _shown->setHighlighted(false);
 
@@ -367,10 +401,11 @@ void BWWindow::startAnimateShownANN(void) {
           this, &BWWindow::animateShownANN);
   _individuals[_animation.index]->ann.reset();
   _details->annViewer->startAnimation();
-  qDebug() << "Started animation" << _animation.index << _animation.step;
 }
 
 void BWWindow::animateShownANN(void) {
+  using Config = config::WatchMaker;
+
   if (!setting(ANIMATE))  return;
 
   auto &av = *_details->annViewer;
@@ -381,11 +416,33 @@ void BWWindow::animateShownANN(void) {
   if (_animation.step > 0) {
     static constexpr auto C = sound::Generator::CHANNELS;
     uint off = (_animation.step-1)*C;
-    for (uint c=0; c<C; c++)  inputs[c] = i.phenotype[off+c];
+
+    /// TODO Factorise with setIndividual
+    switch (Config::audition()) {
+    case Audition::NONE:  break;
+    case Audition::SELF:
+      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
+                inputs.begin());
+      break;
+    case Audition::COMMUNITY:
+      assert(false);
+      break;
+    }
+
+    switch (Config::tinput()) {
+    case TemporalInput::NONE: break;
+    case TemporalInput::LINEAR:
+      inputs.back() = float(_animation.step) / (sound::Generator::NOTES-1);
+      break;
+    case TemporalInput::SINUSOIDAL:
+      inputs.back() =
+          std::sin(2 * M_PI * _animation.step * sound::Generator::STEP);
+      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
+      break;
+    }
   }
   i.ann(inputs, outputs, i.genome.substeps);
   av.updateAnimation();
-  qDebug() << "Stepped animation" << _animation.index << _animation.step;
 
   _animation.step = (_animation.step + 1) % sound::Generator::NOTES;
 }
@@ -396,7 +453,6 @@ void BWWindow::stopAnimateShownANN(void) {
   auto &av = *_details->annViewer;
   if (av.isAnimating()) {
     assert(_animation.index >= 0);
-    qDebug() << "Stopping animation" << _animation.index << _animation.step;
     disconnect(_visualizers[_animation.index], &sound::Visualizer::notifyNote,
                this, &BWWindow::animateShownANN);
     av.stopAnimation();

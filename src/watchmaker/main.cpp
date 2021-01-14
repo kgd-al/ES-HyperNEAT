@@ -57,6 +57,7 @@ int main (int argc, char **argv) {
   outputFolder = BWWindow::generateOutputFolder (outputFolder);
 
   if (verbosity != Verbosity::QUIET) {
+    genotype::ES_HyperNEAT::printMutationRates(std::cout, 3);
     config::WatchMaker::printConfig(outputFolder / "config/");
     config::WatchMaker::printConfig();
   }

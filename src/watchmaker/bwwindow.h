@@ -85,6 +85,8 @@ private:
   void logIndividual(uint index, const stdfs::path &folder,
                      int level) const;
 
+  void evaluateIndividual (uint index);
+
   int indexOf (const sound::Visualizer *v);
 
   bool eventFilter(QObject *watched, QEvent *event) override;

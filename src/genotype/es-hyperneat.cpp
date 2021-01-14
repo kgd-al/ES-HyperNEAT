@@ -475,13 +475,13 @@ DEFINE_GENOME_FIELD_WITH_BOUNDS(uint, substeps, "n", 1u, 1u, 2u, 5u)
 
 DEFINE_GENOME_MUTATION_RATES({
   EDNA_PAIR(       cppn, 95),
-  EDNA_PAIR(recurrentDY, 3),
-  EDNA_PAIR(   substeps, 2)
+  EDNA_PAIR(recurrentDY, 0),
+  EDNA_PAIR(   substeps, 5)
 })
 DEFINE_GENOME_DISTANCE_WEIGHTS({
   EDNA_PAIR(       cppn, 95),
-  EDNA_PAIR(recurrentDY, 3),
-  EDNA_PAIR(   substeps, 2)
+  EDNA_PAIR(recurrentDY, 0),
+  EDNA_PAIR(   substeps, 5)
 })
 
 #undef GENOME
@@ -507,7 +507,7 @@ DEFINE_CONTAINER_PARAMETER(CFILE::MutationRates, cppn_mutationRates,
   { "add_l",  .5f   },
   { "del_n",  .25f  },
   { "del_l",  .25f  },
-  { "mut_w", 6.f    },
+  { "mut_w", 5.5f   },
   { "mut_f", 2.5f   },
 }))
 

@@ -26,7 +26,7 @@ static constexpr float bndThr = .03;  // band
 static constexpr float bprThr = .3; // band-pruning
 static constexpr float divThr = .5; // division
 static constexpr bool useLEO = true;
-static constexpr bool discoverLEONodes = useLEO && true;
+static constexpr bool discoverLEONodes = useLEO && false;
 
 using Point = ANN::Point;
 using Coordinates = ANN::Coordinates;

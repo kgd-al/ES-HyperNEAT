@@ -46,7 +46,7 @@ Node::Node (Agnode_t *node, const Neuron &neuron, qreal scale)
 
   _fill = QColor(QString::fromStdString(gvc::get(node, "fillcolor",
                                                  std::string())));
-  _currentColor = _fill;
+  _currentColor = QColor();
 
 //  {
 //    auto spos_str = gvc::get(node, "spos", std::string());
@@ -81,7 +81,7 @@ void Node::updateAnimation (bool running) {
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
-    _currentColor = _fill;
+    _currentColor = QColor();
   }
 
   update();
@@ -93,9 +93,9 @@ void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
   painter->save();
     if (_hovered)
       painter->setPen(scene()->palette().color(QPalette::Highlight));
-    else if (_fill != _currentColor)
+    else if (_currentColor.isValid())
       painter->setPen(_currentColor);
-    painter->setBrush(_currentColor);
+    painter->setBrush(_currentColor.isValid() ? _currentColor : _fill);
     painter->drawEllipse(_shape);
 
     if (_srecurrent) {

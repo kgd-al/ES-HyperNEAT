@@ -119,20 +119,17 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
 
 void Viewer::startAnimation(void) {
   _animating = true;
-  qDebug() << "ANN animation started -> notify";
   for (QGraphicsItem *i: _neurons)
     dynamic_cast<Node*>(i)->updateAnimation(true);
 }
 
 void Viewer::updateAnimation(void) {
-  qDebug() << "ANN state changed -> update";
   for (QGraphicsItem *i: _neurons)
     dynamic_cast<Node*>(i)->updateAnimation(true);
 }
 
 void Viewer::stopAnimation(void) {
   _animating = false;
-  qDebug() << "ANN animation stopped -> notify";
   for (QGraphicsItem *i: _neurons)
     dynamic_cast<Node*>(i)->updateAnimation(false);
 }

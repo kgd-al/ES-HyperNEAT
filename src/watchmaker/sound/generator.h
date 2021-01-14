@@ -18,9 +18,9 @@ namespace kgd::watchmaker::sound {
 class Generator : public QObject {
   Q_OBJECT
 public:
-  static constexpr uint CHANNELS = 4;
-  static constexpr float STEP = 1./4;
-  static constexpr float DURATION = 5;
+  static constexpr uint CHANNELS = 6;
+  static constexpr float STEP = 1./8;
+  static constexpr float DURATION = 2;
 
   static constexpr uint NOTES = DURATION / STEP;
 
