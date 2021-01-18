@@ -23,7 +23,7 @@ int main (int argc, char **argv) {
   Verbosity verbosity = Verbosity::QUIET;
 
   stdfs::path outputFolder = "";
-  int seed = -1;
+  int seed = 4;
 
   cxxopts::Options options("SongMaker (ES-HyperNEAT)",
                            "Test environment for personnal implementation of "
@@ -61,6 +61,8 @@ int main (int argc, char **argv) {
     config::WatchMaker::printConfig(outputFolder / "config/");
     config::WatchMaker::printConfig();
   }
+
+  if (seed < 0) seed = rng::FastDice::currentMilliTime();
 
   BWWindow w (outputFolder, seed);
   w.show();

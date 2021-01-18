@@ -4,6 +4,8 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QButtonGroup>
+#include <QApplication>
+#include <QThread>
 
 #include "bwwindow.h"
 #include "config.h"
@@ -30,7 +32,7 @@ Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
   if (Config::withBias()) bias = {0,-.9};
 
   phenotype::ANN::Coordinates inputs, outputs;
-  static constexpr auto C = sound::Generator::CHANNELS;
+  static constexpr auto C = sound::StaticData::CHANNELS;
   for (uint i=0; i<C; i++) {
     if (Config::audition() != Audition::NONE)
       inputs.push_back( { 2*float(i) / (C-1) - 1.f, -1 });
@@ -65,13 +67,21 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
   : QMainWindow(parent), _dice(seed), _baseSavePath(baseSavePath) {
 //  _sounds = new SoundGenerator(this);
 
+  std::cerr << "Using seed: " << seed << " -> " << _dice.getSeed() << "\n";
+
   auto splitter = new QSplitter;
   auto holder = new QWidget;
   auto layout = new QGridLayout;
 
-  for (uint i=0; i<N; i++)
-    for (uint j=0; j<N; j++)
-      layout->addWidget(_visualizers[i*N+j] = new sound::Visualizer, i, j);
+  for (uint i=0; i<N; i++) {
+    for (uint j=0; j<N; j++) {
+      uint ix = i*N+j;
+      auto v = new sound::Visualizer(i*N+j);
+      layout->addWidget(_visualizers[ix] = v, i, j);
+      sound::MidiWrapper::setInstrument(ix, 0);
+    }
+  }
+  sound::MidiWrapper::setInstrument(9, 69);
   for (auto v: _visualizers)
     v->QWidget::installEventFilter(this);
   _shown = nullptr;
@@ -139,6 +149,23 @@ stdfs::path BWWindow::generateOutputFolder (const stdfs::path &base) {
   return path;
 }
 
+struct GenerationDialog : public QDialog {
+  GenerationDialog (uint generation, bool newGeneration,
+                    QWidget *parent) : QDialog(parent) {
+    setWindowTitle("Please wait");
+    setModal(true);
+    auto *layout = new QVBoxLayout;
+    QString msg;
+    if (newGeneration)
+      msg = QString("Spawning generation %1").arg(generation);
+    else
+      msg = QString("Spawning alternatives for generation %1").arg(generation);
+    layout->addWidget(new QLabel(windowTitle()));
+    layout->addWidget(new QLabel(msg));
+    setLayout(layout);
+  }
+};
+
 void BWWindow::firstGeneration(void) {
   _generation = 0;
   updateSavePath();
@@ -155,9 +182,11 @@ void BWWindow::nextGeneration(uint index) {
   setSelectedIndividual(-1);
   showIndividualDetails(-1);
 
-  _generation++;
-  /// TODO Put a blocking dialog on that
-  std::cerr << "Processing generation" << _generation << "\n";
+  if (index != N*N/2) _generation++;
+
+  /// TODO Put a (non-freezing) blocking dialog on that
+
+  std::cerr << "Processing generation " << _generation << "\n";
   updateSavePath();
 
   IPtr parent = std::move(_individuals[index]);
@@ -182,7 +211,7 @@ void BWWindow::updateSavePath(void) {
 
 void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   using Config = config::WatchMaker;
-  static constexpr auto C = sound::Generator::CHANNELS;
+  static constexpr auto C = sound::StaticData::CHANNELS;
 
   const auto ix = j*N+k;
   simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
@@ -195,7 +224,7 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   auto outputs = ann.outputs();
 
   std::fill(inputs.begin(), inputs.end(), 0);
-  for (uint n=0; n<sound::Generator::NOTES; n++) {
+  for (uint n=0; n<sound::StaticData::NOTES; n++) {
     ann(inputs, outputs, i.genome.substeps);
     for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
 
@@ -213,10 +242,10 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
     switch (Config::tinput()) {
     case TemporalInput::NONE: break;
     case TemporalInput::LINEAR:
-      inputs.back() = float(n) / (sound::Generator::NOTES-1);
+      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
       break;
     case TemporalInput::SINUSOIDAL:
-      inputs.back() = std::sin(2 * M_PI * n * sound::Generator::STEP);
+      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
       break;
     }
   }
@@ -252,7 +281,7 @@ void BWWindow::logIndividual(uint index, const stdfs::path &f,
 
   const auto &v = *_visualizers[index];
   if (level >= 1) v.render(f / "song.png");
-  if (level >= 2) v.sound().generateWav(f / "song.wav");
+//  if (level >= 2) v.sound().generateWav(f / "song.wav");
 }
 
 int BWWindow::indexOf (const sound::Visualizer *v) {
@@ -383,11 +412,11 @@ void BWWindow::startVocalisation(uint index) {
   startAnimateShownANN();
 
   if (setting(AUTOPLAY))
-    v->vocaliseToAudioOut(sound::Generator::LOOP);
+    v->vocaliseToAudioOut(sound::StaticData::LOOP);
   else if (setting(MANUAL_PLAY))
-    v->vocaliseToAudioOut(sound::Generator::ONE_PASS);
+    v->vocaliseToAudioOut(sound::StaticData::ONE_PASS);
   else if (setting(STEP_PLAY))
-    v->vocaliseToAudioOut(sound::Generator::ONE_NOTE);
+    v->vocaliseToAudioOut(sound::StaticData::ONE_NOTE);
 }
 
 void BWWindow::stopVocalisation(uint index) {
@@ -419,7 +448,7 @@ void BWWindow::animateShownANN(void) {
 
   auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
   if (_animation.step > 0) {
-    static constexpr auto C = sound::Generator::CHANNELS;
+    static constexpr auto C = sound::StaticData::CHANNELS;
     uint off = (_animation.step-1)*C;
 
     /// TODO Factorise with setIndividual
@@ -437,11 +466,11 @@ void BWWindow::animateShownANN(void) {
     switch (Config::tinput()) {
     case TemporalInput::NONE: break;
     case TemporalInput::LINEAR:
-      inputs.back() = float(_animation.step) / (sound::Generator::NOTES-1);
+      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
       break;
     case TemporalInput::SINUSOIDAL:
       inputs.back() =
-          std::sin(2 * M_PI * _animation.step * sound::Generator::STEP);
+          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
       std::cerr << _animation.step << ": " << inputs.back() << std::endl;
       break;
     }
@@ -449,7 +478,7 @@ void BWWindow::animateShownANN(void) {
   i.ann(inputs, outputs, i.genome.substeps);
   av.updateAnimation();
 
-  _animation.step = (_animation.step + 1) % sound::Generator::NOTES;
+  _animation.step = (_animation.step + 1) % sound::StaticData::NOTES;
 }
 
 void BWWindow::stopAnimateShownANN(void) {

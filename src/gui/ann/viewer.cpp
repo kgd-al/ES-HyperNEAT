@@ -112,8 +112,8 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
         sy = qt_bounds.height() / sb_bounds.height();
   QRectF bounds (
     qc.x() - sx * (1 + .5 * (sb_bounds.left() + sb_bounds.right())),
-    qc.y() + sy * (1 + .5 * (sb_bounds.top() + sb_bounds.bottom())),
-    2*sx, -2*sy);
+    qc.y() - sy * (1 + .5 * (sb_bounds.top() + sb_bounds.bottom())),
+    2*sx, 2*sy);
   scene->addItem(new Axis(bounds));
 }
 

@@ -45,20 +45,20 @@ int main (int argc, char **argv) {
 //  rnd_hidden = {{0,0}};
 
   phenotype::ANN ann = phenotype::ANN::build(
+    { NAN, NAN},
     { { -1, -1 }, { 0, -1}, { 1, -1 } },
     { { -.5, 1 }, { 0, 1}, { .5, 1 } },
-    rnd_hidden,
     genome, cppn
   );
 
-  gui::ES_HyperNEATPanel p;
+  kgd::gui::ES_HyperNEATPanel p;
   p.setData(genome, cppn, ann);
   p.show();
 
-  genome.cppn.graphviz_render_graph("tmp/cppn_genotype.png");
-  p._cppnViewer->render("tmp/cppn_qt.pdf");
-  ann.graphviz_render_graph("tmp/ann_phenotype.pdf");
-  p._annViewer->render("tmp/ann_qt.pdf");
+  genome.cppn.render_gvc_graph("tmp/cppn_genotype.png");
+  p.cppnViewer->render("tmp/cppn_qt.pdf");
+  ann.render_gvc_graph("tmp/ann_phenotype.pdf");
+  p.annViewer->render("tmp/ann_qt.pdf");
 
   return app.exec();
 }

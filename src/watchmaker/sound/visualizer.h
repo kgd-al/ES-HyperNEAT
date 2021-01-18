@@ -2,6 +2,7 @@
 #define KGD_SOUND_VISUALIZER_H
 
 #include <QWidget>
+#include <QTimer>
 
 #include "generator.h"
 
@@ -10,15 +11,23 @@ namespace kgd::watchmaker::sound {
 class Visualizer : public QWidget {
   Q_OBJECT
 
-  Generator _sound;
+//  Generator _sound;
+  const uchar _channel;
+
+  const StaticData::NoteSheet *_notes;
+  int _prevNote, _currNote;
+
   QImage _data;
   bool _highlight;
 
-  bool _playing;
+  QTimer _timer;
+  uint _currentMS;
+  StaticData::PlaybackType _playback;
+
   float _sliderPos;
 
 public:
-  Visualizer(QWidget *parent = nullptr);
+  Visualizer(uchar channel, QWidget *parent = nullptr);
   ~Visualizer (void);
 
   QSize minimumSizeHint(void) const override {
@@ -33,12 +42,17 @@ public:
     return w;
   }
 
-  void setNoteSheet(const Generator::NoteSheet &notes);
-  void vocaliseToAudioOut (Generator::PlaybackType t);
+  void setNoteSheet(const StaticData::NoteSheet &notes);
+  void vocaliseToAudioOut (StaticData::PlaybackType t);
   void stopVocalisationToAudioOut (void);
-  const Generator& sound (void) const {
-    return _sound;
-  }
+
+  void start (void);
+  void pause (void);
+  void resume (void);
+  void stop (void);
+//  const Generator& sound (void) const {
+//    return _sound;
+//  }
 
   void setHighlighted (bool s);
 
@@ -53,8 +67,10 @@ signals:
   void notifyNote (void);
 
 private:
+  void timeout(void);
   void updateSlider (void);
-  void stateChanged (QAudio::State s);
+  void nextNote (bool spontaneous);
+//  void stateChanged (QAudio::State s);
 };
 
 } // end of namespace kgd::watchmaker::sound

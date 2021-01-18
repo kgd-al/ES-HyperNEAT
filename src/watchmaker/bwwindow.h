@@ -22,7 +22,7 @@ struct Individual {
   using ANN = phenotype::ANN;
   ANN ann;
 
-  using Phenotype = sound::Generator::NoteSheet;
+  using Phenotype = sound::StaticData::NoteSheet;
   Phenotype phenotype;
 
   using ptr = std::unique_ptr<Individual>;

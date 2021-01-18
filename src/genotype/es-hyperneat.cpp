@@ -84,7 +84,7 @@ gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
     set(e, "color", l.weight < 0 ? "red" : "black");
     auto w = std::fabs(l.weight) / config_t::weightBounds().max;
     set(e, "penwidth", 3.75*w+.25);
-    set(e, "weight", w);
+//    set(e, "weight", w);
 //    set(e, "label", w);
   }
 
@@ -144,7 +144,7 @@ CPPN CPPN::fromDot(const std::string &data) {
       std::istringstream (matches[1]) >> id;
       id--; // NID increases id by 1, so decrement first
       auto func = CPPN::Node::FuncID(matches[2]);
-      if (cppn.inputs <= id && id < cppn.inputs + cppn.outputs) {
+      if (cppn.isOutput(id)) {
         id -= cppn.inputs;
         cppn.outputFunctions[id] = func;
       } else
@@ -260,6 +260,23 @@ using Config = GENOME::config_t;
 using NID = CPPN::Node::ID;
 using LID = CPPN::Link::ID;
 
+bool CPPN::isInput(NID::ut id) const {  return id < inputs; }
+
+bool CPPN::isOutput(NID::ut id) const {
+  return inputs <= id && id < inputs+outputs;
+}
+
+bool CPPN::isHidden(NID::ut id) const { return inputs+outputs <= id;  }
+
+bool nid_ut (NID nid) {
+  assert(NID::ut(nid.id) > 0);
+  return NID::ut(nid.id)-1;
+}
+
+bool CPPN::isInput(NID nid) const {   return isInput(nid_ut(nid));  }
+bool CPPN::isOutput(NID nid) const {  return isOutput(nid_ut(nid)); }
+bool CPPN::isHidden(NID nid) const {  return isHidden(nid_ut(nid)); }
+
 NID addNode (CPPN &data, rng::AbstractDice &dice) {
   auto id = NID::next(data.nextNID);
   data.nodes.emplace(id, *dice(Config::functions()));
@@ -285,9 +302,13 @@ auto initialCPPN (rng::AbstractDice &dice) {
 
   d.nextNID = NID(d.inputs+d.outputs);
   d.nextLID = LID(0);
-  for (uint i=0; i<d.inputs; i++)
-    for (uint j=0; j<d.outputs; j++)
+  for (uint i=0; i<d.inputs; i++) {
+    for (uint j=0; j<d.outputs; j++) {
+      if (Config::cppnInit() == config::CPPNInitMethod::BIMODAL
+          && dice(.5))  continue;
       addLink(d, NID(i), NID(d.inputs+j), dice);
+    }
+  }
 
   d.outputFunctions = Config::outputFunctions();
   return d;
@@ -333,10 +354,12 @@ void CPPN_del_node (CPPN &d, const MDelNCandidates &candidates,
   d.nodes.erase(d.nodes.find(nid));
 }
 
-void CPPN_del_link (CPPN &d, rng::AbstractDice &dice) {
-  auto it = dice(d.links);
+using MDelLCandidates = std::set<LID>;
+void CPPN_del_link (CPPN &d, const MDelLCandidates &candidates,
+                    rng::AbstractDice &dice) {
+  auto it = dice(candidates);
 //  std::cerr << "\n- " << it->nid_src << " -> " << it->nid_dst << "\n";
-  d.links.erase(it);
+  d.links.erase(d.links.find(*it));
 }
 
 void CPPN_mutate_weight (CPPN &d, rng::AbstractDice &dice) {
@@ -382,21 +405,28 @@ void mutateCPPN (CPPN &d, rng::AbstractDice &dice) {
     }
   }
 
-  std::map<NID, std::pair<uint,uint>> nodeDegrees;
+  struct Degree { uint in = 0, out = 0; };
+  std::map<NID, Degree> nodeDegrees;
   for (const CPPN::Link &l: d.links) {
-    nodeDegrees[l.nid_src].second++;
-    nodeDegrees[l.nid_dst].first++;
+    nodeDegrees[l.nid_src].out++;
+    nodeDegrees[l.nid_dst].in++;
 
     potentialLinks.erase({l.nid_src, l.nid_dst});
   }
 
+  MDelLCandidates nonEssentialLinks;
+  for (const CPPN::Link &l: d.links)
+    if ((d.isInput(l.nid_src) && d.isOutput(l.nid_dst))
+        || (nodeDegrees[l.nid_src].out > 1 && nodeDegrees[l.nid_dst].in > 1))
+      nonEssentialLinks.insert(l.id);
+
   MDelNCandidates simpleNodes;
   for (const auto &p: nodeDegrees)
-    if (p.second.first == 1 && p.second.second == 1)
+    if (p.second.in == 1 && p.second.out == 1)
       simpleNodes.insert(p.first);
 
   rates["add_l"] *= (potentialLinks.size() > 0);
-  rates["del_l"] *= (d.links.size() > 0);
+  rates["del_l"] *= (nonEssentialLinks.size() > 0);
   rates["del_n"] *= (simpleNodes.size() > 0);
   rates["mut_f"] *= (d.nodes.size() > 0);
   auto type = dice.pickOne(rates);
@@ -404,12 +434,13 @@ void mutateCPPN (CPPN &d, rng::AbstractDice &dice) {
     CPPN_add_link(d, potentialLinks, dice);
   else if (type == "del_n")
     CPPN_del_node(d, simpleNodes, dice);
+  else if (type == "del_l")
+    CPPN_del_link(d, nonEssentialLinks, dice);
   else {
     static const std::map<std::string,
                           void(*)(CPPN&, rng::AbstractDice&)>
         mutators {
         { "add_n", &CPPN_add_node },
-        { "del_l", &CPPN_del_link },
         { "mut_w", &CPPN_mutate_weight },
         { "mut_f", &CPPN_mutate_function },
     };
@@ -497,6 +528,9 @@ DEFINE_PARAMETER(CFILE::Bounds<float>, weightBounds, -3.f, -1.f, 1.f, 3.f)
 DEFINE_PARAMETER(int, substrateDimension, 2)
 DEFINE_PARAMETER(bool, withBias, true)
 DEFINE_PARAMETER(bool, withLEO, true)
+
+DEFINE_PARAMETER(config::CPPNInitMethod, cppnInit,
+                 config::CPPNInitMethod::BIMODAL)
 
 DEFINE_CONTAINER_PARAMETER(CFILE::OFunctions, outputFunctions, {
                             "sigm", "step" })

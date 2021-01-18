@@ -13,7 +13,7 @@ int main (void) {
   std::cout << "random genotype: " << genotype << std::endl;
 //  genotype.cppn.graphviz_render_graph("random.pdf");
 //  genotype.cppn.graphviz_render_graph("random.png");
-  genotype.cppn.graphviz_render_graph("random.ps");
+  genotype.cppn.render_gvc_graph("random.ps");
 
 //  std::cout << cppn.dump(1) << std::endl;
 
@@ -40,7 +40,7 @@ int main (void) {
 //  std::cout << cppn.dump(1) << std::endl;
 //  genotype.cppn.graphviz_render_graph("mutated.pdf");
 //  genotype.cppn.graphviz_render_graph("mutated.png");
-  genotype.cppn.graphviz_render_graph("mutated.ps");
+  genotype.cppn.render_gvc_graph("mutated.ps");
 
   auto manual_cppn = CPPN::fromDot(R"(
   CPPN(5,2)
@@ -57,7 +57,7 @@ int main (void) {
     9 -> 6 [+1];
     8 -> 7 [+1];
   )");
-  manual_cppn.graphviz_render_graph("manual.ps");
+  manual_cppn.render_gvc_graph("manual.ps");
 
   return 0;
 }

@@ -67,6 +67,10 @@ public:
     void render_gvc_graph (const std::string &path) const;
 #endif
 
+    bool isInput (Node::ID nid) const;
+    bool isOutput (Node::ID nid) const;
+    bool isHidden (Node::ID nid) const;
+
     static CPPN fromDot (const std::string &data);
 
     friend std::ostream& operator<< (std::ostream &os, const CPPN &d);
@@ -76,6 +80,11 @@ public:
 
     friend bool operator== (const CPPN &lhs, const CPPN &rhs);
     friend void assertEqual(const CPPN &lhs, const CPPN &rhs, bool deepcopy);
+
+  private:
+    bool isInput (Node::ID::ut nid) const;
+    bool isOutput (Node::ID::ut nid) const;
+    bool isHidden (Node::ID::ut nid) const;
   } cppn;
 
   float recurrentDY;
@@ -93,6 +102,10 @@ DECLARE_GENOME_FIELD(ES_HyperNEAT, uint, substeps)
 
 } // end of namespace genotype
 
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+  config, CPPNInitMethod,
+    PERCEPTRON, BIMODAL)
+
 namespace config {
 
 template <>
@@ -108,6 +121,8 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
   DECLARE_PARAMETER(bool, withBias)
 
   DECLARE_PARAMETER(bool, withLEO)
+
+  DECLARE_PARAMETER(CPPNInitMethod, cppnInit)
 
   using OFunctions = decltype(genotype::ES_HyperNEAT::CPPN::outputFunctions);
   DECLARE_PARAMETER(OFunctions, outputFunctions)

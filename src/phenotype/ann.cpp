@@ -18,15 +18,9 @@ namespace phenotype {
 #endif
 
 namespace evolvable_substrate {
-static constexpr uint initialDepth = 3;
-static constexpr uint maxDepth = 5;
-static constexpr uint iterations = 1;
-static constexpr float varThr = .03;  // variance
-static constexpr float bndThr = .03;  // band
-static constexpr float bprThr = .3; // band-pruning
-static constexpr float divThr = .5; // division
-static constexpr bool useLEO = true;
-static constexpr bool discoverLEONodes = useLEO && false;
+
+using Config = config::EvolvableSubstrate;
+using LEO = config::EvolvableSubstrateLEO;
 
 using Point = ANN::Point;
 using Coordinates = ANN::Coordinates;
@@ -75,6 +69,9 @@ QuadTreeNode::ptr node (ARGS... args) {
 
 
 QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
+  static const auto &initialDepth = Config::initialDepth();
+  static const auto &maxDepth = Config::maxDepth();
+  static const auto &divThr = Config::divThr();
 
   QuadTree root = node(0.f, 0.f, 1.f, 1);
   std::queue<QuadTreeNode*> q;
@@ -89,7 +86,7 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
     cppn_inputs[3] = p1.y();
     cppn(cppn_inputs, cppn_outputs);
     auto r = cppn_outputs[0];
-    if (discoverLEONodes && cppn_outputs.size() >= 2)
+    if (Config::leo() == LEO::DISCOVER_NODES && cppn_outputs.size() >= 2)
       r *= cppn_outputs[1];
     return r;
   };
@@ -134,6 +131,9 @@ using Connections = std::vector<Connection>;
 void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
                       const QuadTree &t, bool out) {
 
+  static const auto &varThr = Config::varThr();
+  static const auto &bndThr = Config::bndThr();
+  static const auto &leoMode = Config::leo();
   static const auto leo = [] (const auto &cppn, auto i, auto o) {
     static auto inputs = cppn.inputs();
     static auto outputs = cppn.outputs();
@@ -145,7 +145,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     return (bool)outputs[1];
   };
   static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
-    return !useLEO || discoverLEONodes || leo(cppn, i, o);
+    return (leoMode != LEO::DISCOVER_NODES) || leo(cppn, i, o);
   };
 
   for (auto &c: t->cs) {
@@ -261,6 +261,8 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
 void connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
+
+  static const auto &iterations = Config::iterations();
 
 #if DEBUG_ES
   using utils::operator<<;
@@ -462,7 +464,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (const char *ext) const {
     set(e, "color", w < 0 ? "red" : "black");
     auto sw = std::fabs(w);// / config_t::weightBounds().max;
     set(e, "penwidth", .875*sw+.125);
-    set(e, "weight", w);
+//    set(e, "weight", w);
   }
 
   return g;
@@ -532,3 +534,17 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 }
 
 } // end of namespace phenotype
+
+#define CFILE config::EvolvableSubstrate
+
+DEFINE_PARAMETER(uint, initialDepth, 3)
+DEFINE_PARAMETER(uint, maxDepth, 5)
+DEFINE_PARAMETER(uint, iterations, 1)
+DEFINE_PARAMETER(float, varThr, .03)  // variance
+DEFINE_PARAMETER(float, bndThr, .03)  // band
+DEFINE_PARAMETER(float, bprThr, .3) // band-pruning
+DEFINE_PARAMETER(float, divThr, .5) // division
+DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
+                 config::EvolvableSubstrateLEO::NONE)
+
+#undef CFILE

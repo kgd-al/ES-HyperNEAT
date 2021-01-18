@@ -151,4 +151,23 @@ private:
 
 } // namespace phenotype
 
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+  config, EvolvableSubstrateLEO,
+    NONE, FILTER, DISCOVER_NODES)
+
+namespace config {
+
+struct CONFIG_FILE(EvolvableSubstrate) {
+  DECLARE_PARAMETER(uint, initialDepth)
+  DECLARE_PARAMETER(uint, maxDepth)
+  DECLARE_PARAMETER(uint, iterations)
+  DECLARE_PARAMETER(float, varThr)  // variance
+  DECLARE_PARAMETER(float, bndThr)  // band
+  DECLARE_PARAMETER(float, bprThr)  // band-pruning
+  DECLARE_PARAMETER(float, divThr)  // division
+  DECLARE_PARAMETER(EvolvableSubstrateLEO, leo)
+};
+
+} // end of namespace config
+
 #endif // KGD_ANN_PHENOTYPE_H
