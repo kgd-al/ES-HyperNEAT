@@ -221,6 +221,7 @@ if (NOT CLUSTER_BUILD)
             "endlessbuffer.cpp"
             "generator.cpp"
             "visualizer.cpp"
+            "rtmidi/RtMidi.cpp"
             )
         PREPEND(SOUND_SRC "sound")
 
@@ -237,7 +238,6 @@ if (NOT CLUSTER_BUILD)
           $<TARGET_OBJECTS:SIMU_OBJS>
           $<TARGET_OBJECTS:GUI_OBJS>
           ${WATCHMAKER_SRC}
-          "${CMAKE_HOME_DIRECTORY}/midi/rtmidi-4.0.0/RtMidi.cpp"
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
         target_link_libraries(watchmaker ${CORE_LIBS}

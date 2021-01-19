@@ -10,7 +10,7 @@ DEFINE_PARAMETER(Audition, audition, Audition::SELF)
 
 DEFINE_PARAMETER(int, dataLogLevel, 1)
 
-DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configESHN)
+DEFINE_SUBCONFIG(config::EvolvableSubstrate, configESHN)
 
 #undef CFILE
 } // end of namespace config

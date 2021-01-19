@@ -166,6 +166,8 @@ struct CONFIG_FILE(EvolvableSubstrate) {
   DECLARE_PARAMETER(float, bprThr)  // band-pruning
   DECLARE_PARAMETER(float, divThr)  // division
   DECLARE_PARAMETER(EvolvableSubstrateLEO, leo)
+
+  DECLARE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 };
 
 } // end of namespace config

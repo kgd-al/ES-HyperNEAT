@@ -2,7 +2,7 @@
 #define KGD_WATCHMAKER_CONFIG_H
 
 #include "kgd/settings/configfile.h"
-#include "../genotype/es-hyperneat.h"
+#include "../phenotype/ann.h"
 
 DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
     kgd::watchmaker, TemporalInput,
@@ -15,7 +15,7 @@ DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
 namespace config {
 
 struct CONFIG_FILE(WatchMaker) {
-  DECLARE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configESHN)
+  DECLARE_SUBCONFIG(config::EvolvableSubstrate, configESHN)
 
   DECLARE_PARAMETER(bool, withBias)
   DECLARE_PARAMETER(kgd::watchmaker::TemporalInput, tinput)

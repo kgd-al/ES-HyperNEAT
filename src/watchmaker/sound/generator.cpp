@@ -69,10 +69,10 @@ bool MidiWrapper::initialize (const std::string &preferredPort) {
 }
 
 void MidiWrapper::sendMessage (const std::vector<uchar> &message) {
-  std::cout << "Sending Midi message:";
-  for (uchar c: message)
-    std::cout << " " << std::hex << std::setw(2) << uint(c);
-  std::cout << std::endl;
+//  std::cout << "Sending Midi message:";
+//  for (uchar c: message)
+//    std::cout << " " << std::hex << std::setw(2) << uint(c);
+//  std::cout << std::endl;
 
   midiOut().sendMessage(&message);
 }

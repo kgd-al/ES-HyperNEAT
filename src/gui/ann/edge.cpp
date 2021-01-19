@@ -61,6 +61,8 @@ void Edge::updateAnimation(float v) {
   else
     _currentColor = _color;
 
+  qDebug() << _currentColor << _weight << v;
+
   update();
 }
 

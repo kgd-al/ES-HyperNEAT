@@ -210,46 +210,50 @@ void BWWindow::updateSavePath(void) {
 }
 
 void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
-  using Config = config::WatchMaker;
-  static constexpr auto C = sound::StaticData::CHANNELS;
-
   const auto ix = j*N+k;
-  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
-  auto &ann = i.ann;
-  auto &notes = i.phenotype;
+  IPtr &i = _individuals[ix] = std::move(in);
 
-  auto v = _visualizers[ix];
+  for (uint n=0; n<sound::StaticData::NOTES; n++)
+    evaluateIndividual(i, n, true);
 
-  auto inputs = ann.inputs();
-  auto outputs = ann.outputs();
+//  const auto ix = j*N+k;
+//  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
+//  auto &ann = i.ann;
+//  auto &notes = i.phenotype;
 
-  std::fill(inputs.begin(), inputs.end(), 0);
-  for (uint n=0; n<sound::StaticData::NOTES; n++) {
-    ann(inputs, outputs, i.genome.substeps);
-    for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
+//  auto v = _visualizers[ix];
 
-    /// TODO Factorise with animateANN
-    switch (Config::audition()) {
-    case Audition::NONE:  break;
-    case Audition::SELF:
-      std::copy(outputs.begin(), outputs.end(), inputs.begin());
-      break;
-    case Audition::COMMUNITY:
-      assert(false);
-      break;
-    }
+//  auto inputs = ann.inputs();
+//  auto outputs = ann.outputs();
 
-    switch (Config::tinput()) {
-    case TemporalInput::NONE: break;
-    case TemporalInput::LINEAR:
-      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
-      break;
-    case TemporalInput::SINUSOIDAL:
-      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
-      break;
-    }
-  }
-  v->setNoteSheet(notes);
+//  std::fill(inputs.begin(), inputs.end(), 0);
+//  for (uint n=0; n<sound::StaticData::NOTES; n++) {
+//    ann(inputs, outputs, i.genome.substeps);
+//    for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
+
+//    /// TODO Factorise with animateANN
+//    switch (Config::audition()) {
+//    case Audition::NONE:  break;
+//    case Audition::SELF:
+//      std::copy(outputs.begin(), outputs.end(), inputs.begin());
+//      break;
+//    case Audition::COMMUNITY:
+//      assert(false);
+//      break;
+//    }
+
+//    switch (Config::tinput()) {
+//    case TemporalInput::NONE: break;
+//    case TemporalInput::LINEAR:
+//      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
+//      break;
+//    case TemporalInput::SINUSOIDAL:
+//      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
+//      break;
+//    }
+//  }
+
+  _visualizers[ix]->setNoteSheet(i->phenotype);
 
 //  using utils::operator<<;
 //  std::cerr << "Note sheet for [" << j << "," << k << "]: " << notes << "\n";
@@ -261,6 +265,45 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
     logIndividual(ix, _currentSavePath / oss.str(),
                   config::WatchMaker::dataLogLevel());
   }
+}
+
+void BWWindow::evaluateIndividual(IPtr &i, uint step, bool setPhenotype) {
+  using Config = config::WatchMaker;
+  static constexpr auto C = sound::StaticData::CHANNELS;
+
+  auto &ann = i->ann;
+  auto &notes = i->phenotype;
+  auto inputs = ann.inputs(), outputs = ann.outputs();
+
+  if (step > 0) {
+    uint off = (step-1)*C;
+
+    switch (Config::audition()) {
+    case Audition::NONE:  break;
+    case Audition::SELF:
+      std::copy(notes.begin()+off, notes.begin()+off+C, inputs.begin());
+      break;
+    case Audition::COMMUNITY:
+      assert(false);
+      break;
+    }
+
+    switch (Config::tinput()) {
+    case TemporalInput::NONE: break;
+    case TemporalInput::LINEAR:
+      inputs.back() = float(step) / (sound::StaticData::NOTES-1);
+      break;
+    case TemporalInput::SINUSOIDAL:
+      inputs.back() =
+          std::sin(2 * M_PI * step * sound::StaticData::STEP);
+      break;
+    }
+  }
+
+  ann(inputs, outputs, i->genome.substeps);
+
+  if (setPhenotype)
+    std::copy(outputs.begin(), outputs.end(), notes.begin()+step*C);
 }
 
 void BWWindow::logIndividual(uint index, const stdfs::path &f,
@@ -438,45 +481,49 @@ void BWWindow::startAnimateShownANN(void) {
 }
 
 void BWWindow::animateShownANN(void) {
-  using Config = config::WatchMaker;
-
   if (!setting(ANIMATE))  return;
 
-  auto &av = *_details->annViewer;
   assert(_animation.index >= 0);
-  simu::Individual &i = *_individuals[_animation.index];
+  assert(_animation.step >= 0);
 
-  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
-  if (_animation.step > 0) {
-    static constexpr auto C = sound::StaticData::CHANNELS;
-    uint off = (_animation.step-1)*C;
+  std::cerr << "animation step " << _animation.step << " of individual "
+            << _animation.index << "\n";
+  evaluateIndividual(_individuals[_animation.index], _animation.step, false);
 
-    /// TODO Factorise with setIndividual
-    switch (Config::audition()) {
-    case Audition::NONE:  break;
-    case Audition::SELF:
-      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
-                inputs.begin());
-      break;
-    case Audition::COMMUNITY:
-      assert(false);
-      break;
-    }
+//  simu::Individual &i = *_individuals[_animation.index];
 
-    switch (Config::tinput()) {
-    case TemporalInput::NONE: break;
-    case TemporalInput::LINEAR:
-      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
-      break;
-    case TemporalInput::SINUSOIDAL:
-      inputs.back() =
-          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
-      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
-      break;
-    }
-  }
-  i.ann(inputs, outputs, i.genome.substeps);
-  av.updateAnimation();
+//  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
+//  if (_animation.step > 0) {
+//    static constexpr auto C = sound::StaticData::CHANNELS;
+//    uint off = (_animation.step-1)*C;
+
+//    /// TODO Factorise with setIndividual
+//    switch (Config::audition()) {
+//    case Audition::NONE:  break;
+//    case Audition::SELF:
+//      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
+//                inputs.begin());
+//      break;
+//    case Audition::COMMUNITY:
+//      assert(false);
+//      break;
+//    }
+
+//    switch (Config::tinput()) {
+//    case TemporalInput::NONE: break;
+//    case TemporalInput::LINEAR:
+//      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
+//      break;
+//    case TemporalInput::SINUSOIDAL:
+//      inputs.back() =
+//          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
+//      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
+//      break;
+//    }
+//  }
+//  i.ann(inputs, outputs, i.genome.substeps);
+
+  _details->annViewer->updateAnimation();
 
   _animation.step = (_animation.step + 1) % sound::StaticData::NOTES;
 }

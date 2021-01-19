@@ -547,4 +547,6 @@ DEFINE_PARAMETER(float, divThr, .5) // division
 DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
                  config::EvolvableSubstrateLEO::NONE)
 
+DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
+
 #undef CFILE

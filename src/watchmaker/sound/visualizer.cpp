@@ -148,6 +148,7 @@ void Visualizer::nextNote(bool spontaneous) {
   }
 
   _prevNote = _currNote;
+  emit notifyNote();
 }
 
 void Visualizer::paintEvent(QPaintEvent *e) {

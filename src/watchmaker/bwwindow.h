@@ -82,10 +82,9 @@ private:
   void updateSavePath (void);
 
   void setIndividual(IPtr &&in, uint j, uint k);
+  static void evaluateIndividual (IPtr &i, uint step, bool setPhenotype);
   void logIndividual(uint index, const stdfs::path &folder,
                      int level) const;
-
-  void evaluateIndividual (uint index);
 
   int indexOf (const sound::Visualizer *v);
 
