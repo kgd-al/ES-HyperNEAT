@@ -35,7 +35,7 @@ std::ostream& operator<< (std::ostream &os, const Edge &e) {
 #endif
 
 Edge::Edge (Agedge_t *edge, qreal scale)
-  : _weight(gvc::get(edge, "weight", 0.f)) {
+  : _weight(gvc::get(edge, "w", 0.f)) {
 #ifndef NDEBUG
   _name = QString(agnameof(edge));
 #endif
@@ -54,9 +54,9 @@ Edge::Edge (Agedge_t *edge, qreal scale)
 }
 
 void Edge::updateAnimation(float v) {
+  static const auto& weightRange = config::EvolvableSubstrate::weightRange();
   if (!std::isnan(v))// Running
-    /// TODO What is the synaptic weight range ?
-    _currentColor = redBlackGradient(v * _weight);
+    _currentColor = redBlackGradient(v * _weight / weightRange);
 
   else
     _currentColor = _color;

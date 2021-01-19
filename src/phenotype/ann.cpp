@@ -348,6 +348,9 @@ ANN::ANN(void){}
 ANN ANN::build (const Point &bias, const Coordinates &inputs,
                 const Coordinates &outputs,
                 const genotype::ES_HyperNEAT &genome, const CPPN &cppn) {
+
+  static const auto& weightRange = config::EvolvableSubstrate::weightRange();
+
   ANN ann;
   ann._hasBias = (!std::isnan(bias.x()) && !std::isnan(bias.y()));
 
@@ -379,7 +382,7 @@ ANN ANN::build (const Point &bias, const Coordinates &inputs,
   for (auto &p: hidden) neurons[p] = add(p, Neuron::H);
   for (auto &c: connections) {
     auto &src = neurons.at(c.from), &dst = neurons.at(c.to);
-    dst->links.push_back({c.weight,src});
+    dst->links.push_back({c.weight * weightRange, src});
   }
 
   return ann;
@@ -464,7 +467,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (const char *ext) const {
     set(e, "color", w < 0 ? "red" : "black");
     auto sw = std::fabs(w);// / config_t::weightBounds().max;
     set(e, "penwidth", .875*sw+.125);
-//    set(e, "weight", w);
+    set(e, "w", w);
   }
 
   return g;
@@ -546,5 +549,5 @@ DEFINE_PARAMETER(float, bprThr, .3) // band-pruning
 DEFINE_PARAMETER(float, divThr, .5) // division
 DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
                  config::EvolvableSubstrateLEO::NONE)
-
+DEFINE_PARAMETER(float, weightRange, 3)
 #undef CFILE
