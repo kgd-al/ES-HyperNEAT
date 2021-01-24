@@ -83,13 +83,8 @@ static QColor redBlackGradient(float v) {
 }
 
 void Node::updateAnimation (bool running) {
-  static const auto &sweight = config::EvolvableSubstrate::weightRange();
   if (running) {
-    float v = _neuron.input;
-    if (!_neuron.links.empty())
-      v /= _neuron.links.size() * sweight;
-    _currentColor = redBlackGradient(v);
-
+    _currentColor = redBlackGradient(_neuron.output);
     for (Edge *e: out)  e->updateAnimation(_neuron.output);
 
   } else {

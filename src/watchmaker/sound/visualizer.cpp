@@ -132,8 +132,10 @@ void Visualizer::updateSlider(void) {
 //}
 
 void Visualizer::nextNote(bool spontaneous) {
+  static constexpr auto C = StaticData::CHANNELS;
+
   _currNote = (_currentMS / MS_PER_NOTE);
-  std::cerr << "_currNote = " << _currNote << "\n";
+
   if (_playback == StaticData::ONE_NOTE && spontaneous) {
       pause();
       return;
@@ -146,13 +148,11 @@ void Visualizer::nextNote(bool spontaneous) {
   } else if (_playback == StaticData::LOOP)
     _currNote %= StaticData::NOTES;
 
-  static constexpr auto C = StaticData::CHANNELS;
-//  std::cerr << utils::CurrentTime{} << " playing next notes: "
-//            << _currNote << "\n";
-//  std::cout << "sending notes [";
-//  for (uint i=0; i<C; i++)
-//    std::cout << " " << (*_notes)[i+C*_currNote];
-//  std::cout << " ]\n";
+  std::cout << utils::CurrentTime{} << " playing next notes[" << _currNote
+            << "]: [";
+  for (uint i=0; i<C; i++)
+   std::cout << " " << (*_notes)[i+C*_currNote];
+  std::cout << " ]\n";
 
   for (uint i=0; i<C; i++) {
     float n = (*_notes)[i+C*_currNote];

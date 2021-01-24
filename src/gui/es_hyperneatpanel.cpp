@@ -33,13 +33,16 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
   setWindowTitle("ES-HyperNEAT Panel");
 
   _mainSplitter = new QSplitter (Qt::Vertical);
+  _mainSplitter->setObjectName("eshn::splitters::main");
 
   _cppnSplitter = new QSplitter;
+  _cppnSplitter->setObjectName("eshn::splitters::cppn");
   _cppnSplitter->addWidget(cppnViewer = new cppn::Viewer);
   _cppnSplitter->addWidget(cppnOViewer = new cppn::OutputSummary);
   _mainSplitter->addWidget(row("CPPN", _cppnSplitter));
 
   _annSplitter = new QSplitter;
+  _annSplitter->setObjectName("eshn::splitters::ann");
   _annSplitter->addWidget(annViewer = new ann::Viewer);
   _annSplitter->addWidget(neuronViewer = new ann::NeuronStateViewer);
   _mainSplitter->addWidget(row("ANN", _annSplitter));
@@ -104,25 +107,11 @@ void ES_HyperNEATPanel::neuronHovered(const phenotype::ANN::Neuron &n) {
   neuronViewer->displayState(n);
 }
 
-template <uint n>
-auto slist (const QSettings &s, const QString &key) {
-  static const auto def =
-      QVariant::fromValue(QList<int>::fromStdList(std::list<int>(n, 1)));
-  return s.value(key, def).value<QList<int>>();
-}
-
-auto slist (const QSplitter *s) {
-  return QVariant::fromValue(s->sizes());
-}
-
 void ES_HyperNEATPanel::showEvent(QShowEvent *e) {
   if (!_settingsLoaded) {
     QSettings settings;
-    settings.beginGroup("eshn_panel");
-    settings.beginGroup("splitters");
-    _mainSplitter->setSizes(slist<3>(settings, "main"));
-    _cppnSplitter->setSizes(slist<2>(settings, "cppn"));
-    _annSplitter->setSizes(slist<1>(settings, "ann"));
+    for (QSplitter *s: { _mainSplitter, _cppnSplitter, _annSplitter })
+      kgd::gui::restore(settings, s);
     _settingsLoaded = true;
   }
   QWidget::showEvent(e);
@@ -130,12 +119,28 @@ void ES_HyperNEATPanel::showEvent(QShowEvent *e) {
 
 void ES_HyperNEATPanel::hideEvent(QHideEvent *e) {
   QSettings settings;
-  settings.beginGroup("eshn_panel");
-  settings.beginGroup("splitters");
-  settings.setValue("main", slist(_mainSplitter));
-  settings.setValue("cppn", slist(_cppnSplitter));
-  settings.setValue("ann", slist(_annSplitter));
+  for (QSplitter *s: { _mainSplitter, _cppnSplitter, _annSplitter })
+    kgd::gui::save(settings, s);
   QWidget::hideEvent(e);
 }
 
 } // end of namespace kgd::es_hyperneat::gui
+
+namespace kgd::gui {
+
+void save (QSettings &settings, const QSplitter *splitter) {
+  Q_ASSERT(!splitter->objectName().isEmpty());
+  QVariantList l;
+  for (int s: splitter->sizes())  l.append(s);
+  settings.setValue(splitter->objectName(), l);
+}
+
+void restore (const QSettings &settings, QSplitter *splitter) {
+  Q_ASSERT(!splitter->objectName().isEmpty());
+  QList<int> l;
+  for (const QVariant &v: settings.value(splitter->objectName()).toList())
+    l.append(v.toInt());
+  splitter->setSizes(l);
+}
+
+} // end of namespace kgd::gui

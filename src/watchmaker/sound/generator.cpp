@@ -117,6 +117,7 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
   static constexpr auto N = StaticData::NOTES;
 //  static constexpr auto S = StaticData::STEP;
   static constexpr auto C = StaticData::CHANNELS;
+  static constexpr auto T = StaticData::TEMPO;
 
 //  std::ofstream ofs (path, std::ios::out | std::ios::binary);
 //  if (!ofs) return false;
@@ -134,7 +135,7 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 //  ofs << "MTrk";  // Identifier
 
   smf::MidiFile midifile;
-  midifile.addTempo(0, 0, 120);
+  midifile.addTempo(0, 0, T);
   midifile.setTicksPerQuarterNote(96);
   midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
 

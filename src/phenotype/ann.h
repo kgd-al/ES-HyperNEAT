@@ -102,7 +102,7 @@ public:
     enum Type { B, I, O, H };
     Type type;
 
-    float input, output;
+    float value;
 
     using ptr = std::shared_ptr<Neuron>;
     using wptr = std::weak_ptr<Neuron>;

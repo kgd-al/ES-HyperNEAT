@@ -78,6 +78,8 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
   std::cerr << "Using seed: " << seed << " -> " << _dice.getSeed() << "\n";
 
   _splitter = new QSplitter;
+  _splitter->setObjectName("bw::splitter");
+
   auto holder = new QWidget;
   auto layout = new QGridLayout;
 
@@ -503,9 +505,11 @@ void BWWindow::startVocalisation(uint index) {
   auto v = _visualizers[index];
   if (_selection != nullptr && _selection != v) return;
 
-  _animation.index = index;
-  _animation.step = 0;
-  startAnimateShownANN();
+  if (_animation.index < 0) {
+    _animation.index = index;
+    _animation.step = 0;
+    startAnimateShownANN();
+  }
 
   if (setting(AUTOPLAY))
     v->vocaliseToAudioOut(sound::StaticData::LOOP);
@@ -531,6 +535,8 @@ void BWWindow::startAnimateShownANN(void) {
           this, &BWWindow::animateShownANN);
   _individuals[_animation.index]->ann.reset();
   _details->annViewer->startAnimation();
+
+  std::cerr << "Started animation of individual " << _animation.index << "\n";
 }
 
 void BWWindow::animateShownANN(void) {
@@ -584,6 +590,8 @@ void BWWindow::animateShownANN(void) {
 void BWWindow::stopAnimateShownANN(void) {
   if (!setting(ANIMATE))  return;
 
+  std::cerr << "Stopped animation of individual " << _animation.index << "\n";
+
   auto &av = *_details->annViewer;
   if (av.isAnimating()) {
     assert(_animation.index >= 0);
@@ -607,7 +615,7 @@ bool BWWindow::setting(Setting s) const {
 void BWWindow::saveSettings(void) const {
   QSettings settings;
   settings.setValue("geom", saveGeometry());
-  settings.setValue("sizes", QVariant::fromValue(_splitter->sizes()));
+  kgd::gui::save(settings, _splitter);
 
   settings.beginGroup("settings");
   QMetaEnum e = QMetaEnum::fromType<Setting>();
@@ -620,7 +628,7 @@ void BWWindow::saveSettings(void) const {
 
 void BWWindow::restoreSettings(void) {
   QSettings settings;
-  _splitter->setSizes(settings.value("sizes").value<QList<int>>());
+  kgd::gui::restore(settings, _splitter);
   restoreGeometry(settings.value("geom").toByteArray());
 
   settings.beginGroup("settings");

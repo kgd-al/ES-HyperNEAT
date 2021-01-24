@@ -3,11 +3,19 @@
 
 #include <QLabel>
 #include <QSplitter>
+#include <QSettings>
 
 #include "cppn/viewer.h"
 #include "cppn/outputsummary.h"
 
 #include "ann/viewer.h"
+
+namespace kgd::gui {
+
+void save (QSettings &settings, const QSplitter *splitter);
+void restore (const QSettings &settings, QSplitter *splitter);
+
+} // end of namespace gui
 
 namespace kgd::es_hyperneat::gui {
 
