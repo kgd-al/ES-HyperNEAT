@@ -5,9 +5,7 @@
 
 #include "../gvcqtinterface.h"
 
-namespace kgd::gui::ann {
-
-QColor redBlackGradient (float v);
+namespace kgd::es_hyperneat::gui::ann {
 
 #ifndef NDEBUG
 std::ostream& operator<< (std::ostream &os, const QPointF &p);
@@ -49,6 +47,6 @@ private:
                   QPainterPath &edge, QPainterPath &arrow);
 };
 
-} // end of namespace kgd::gui::ann
+} // end of namespace kgd::es_hyperneat::gui::ann
 
 #endif // KGD_ANN_GRAPHIC_EDGE_H

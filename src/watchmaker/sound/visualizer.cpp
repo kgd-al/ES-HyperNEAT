@@ -9,9 +9,21 @@
 
 namespace kgd::watchmaker::sound {
 
-static constexpr uint MS_PER_NOTE = StaticData::STEP * 1000.;
+static constexpr uint MS_PER_NOTE = StaticData::NOTE_DURATION * 1000.;
 static constexpr uint UPDATE_PERIOD_MS = 1000. / 25;
-static constexpr uint DURATION_MS = StaticData::DURATION * 1000;
+static constexpr uint DURATION_MS = StaticData::SONG_DURATION * 1000;
+
+static const bool b = [] {
+  using D = StaticData;
+  std::cerr << "           TEMPO: " << D::TEMPO << "\n"
+            << "           NOTES: " << D::NOTES << "\n"
+            << "   NOTE_DURATION: " << D::NOTE_DURATION << "\n"
+            << "   SONG_DURATION: " << D::SONG_DURATION << "\n"
+            << "     MS_PER_NOTE: " << MS_PER_NOTE << "\n"
+            << "UPDATE_PERIOD_MS: " << UPDATE_PERIOD_MS << "\n"
+            << "     DURATION_MS: " << DURATION_MS << "\n";
+  return true;
+}();
 
 Visualizer::Visualizer(uchar channel, QWidget *parent)
   : QWidget(parent), _channel(channel) {
@@ -50,7 +62,7 @@ void Visualizer::setNoteSheet(const StaticData::NoteSheet &notes) {
     auto b = (QRgb*) _data.scanLine(c);
     for (uint n=0; n<StaticData::NOTES; n++)
       b[n] = QColor::fromHsv(
-        0, 0, 255*std::max(0.f, notes[n*StaticData::CHANNELS+c])).rgb();
+        0, 0, 255*2*std::max(0.f, notes[n*StaticData::CHANNELS+c]-.5f)).rgb();
   }
 
   update();
@@ -121,6 +133,7 @@ void Visualizer::updateSlider(void) {
 
 void Visualizer::nextNote(bool spontaneous) {
   _currNote = (_currentMS / MS_PER_NOTE);
+  std::cerr << "_currNote = " << _currNote << "\n";
   if (_playback == StaticData::ONE_NOTE && spontaneous) {
       pause();
       return;
@@ -133,21 +146,27 @@ void Visualizer::nextNote(bool spontaneous) {
   } else if (_playback == StaticData::LOOP)
     _currNote %= StaticData::NOTES;
 
-  std::cerr << utils::CurrentTime{} << " playing next notes: "
-            << _currNote << "\n";
-  std::cout << "sending notes [";
   static constexpr auto C = StaticData::CHANNELS;
-  for (uint i=0; i<C; i++)
-    std::cout << " " << (*_notes)[i+C*_currNote];
-  std::cout << " ]\n";
+//  std::cerr << utils::CurrentTime{} << " playing next notes: "
+//            << _currNote << "\n";
+//  std::cout << "sending notes [";
+//  for (uint i=0; i<C; i++)
+//    std::cout << " " << (*_notes)[i+C*_currNote];
+//  std::cout << " ]\n";
 
   for (uint i=0; i<C; i++) {
     float n = (*_notes)[i+C*_currNote];
-    if (_prevNote < 0 || (*_notes)[i+C*_prevNote] != n)
-      MidiWrapper::noteOn(_channel, 60+i, std::round(127*std::max(0.f, n)));
+//    std::cerr << "note[" << i << "] = " << n << ", prev was " << _prevNote;
+//    if (_prevNote >= 0)
+//      std::cerr << ": " << (*_notes)[i+C*_prevNote] << "\n";
+    if (_prevNote <= 0 || (*_notes)[i+C*_prevNote] != n) {
+      MidiWrapper::noteOn(_channel, i, 0.f);
+      MidiWrapper::noteOn(_channel, i, 2*(n-.5f));
+    }
   }
 
   _prevNote = _currNote;
+  emit notifyNote();
 }
 
 void Visualizer::paintEvent(QPaintEvent *e) {

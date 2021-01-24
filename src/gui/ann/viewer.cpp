@@ -7,7 +7,39 @@
 
 #include <QDebug>
 
-namespace kgd::gui::ann {
+namespace kgd::es_hyperneat::gui::ann {
+
+NeuronStateViewer::NeuronStateViewer (void) {
+  setReadOnly(true);
+}
+
+void NeuronStateViewer::noState(void) {
+  setPlainText("N/A");
+}
+
+void NeuronStateViewer::displayState(const Neuron &n) {
+  static const auto activation =
+    QString::fromStdString(
+      (std::string)config::EvolvableSubstrate::activationFunc());
+
+  QString contents;
+  QTextStream qts (&contents);
+  qts.setRealNumberNotation(QTextStream::FixedNotation);
+  qts.setRealNumberPrecision(3);
+  qts.setNumberFlags(QTextStream::ForceSign);
+  qts << " input:\n";
+
+  for (const phenotype::ANN::Neuron::Link &l: n.links) {
+    const Neuron &in = *l.in.lock();
+    qts << "[" << in.pos.x() << ", " << in.pos.y() << "] "
+        << in.output * l.weight << " (" << in.output << " * " << l.weight
+        << ")\n";
+  }
+
+  qts << "                 = " << n.input << "\n"
+      << "output: " << n.output << " = " << activation << "(" << n.input << ")";
+  setPlainText(contents);
+}
 
 struct Axis : public QGraphicsRectItem {
   Axis (const QRectF &bounds) : QGraphicsRectItem(bounds) {
@@ -96,15 +128,11 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
     if (qt_bounds.top() < qn_b.y())
       qt_bounds.setTop(qn_b.y()), sb_bounds.setTop(sb_p.y());
 
-    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e)) {
-      if (gvc::get(e, "style", std::string()) == "invis") continue;
+    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
       qn->out.push_back(getOrNew(e));
-    }
 
-    for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e)) {
-      if (gvc::get(e, "style", std::string()) == "invis") continue;
+    for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e))
       qn->in.push_back(getOrNew(e));
-    }
   }
 
   QPointF qc = qt_bounds.center();
@@ -134,4 +162,4 @@ void Viewer::stopAnimation(void) {
     dynamic_cast<Node*>(i)->updateAnimation(false);
 }
 
-} // end of namespace kgd::gui::ann
+} // end of namespace kgd::es_hyperneat::gui::ann

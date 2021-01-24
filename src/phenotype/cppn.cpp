@@ -10,24 +10,45 @@ namespace phenotype {
  { NAME, [] (float x) -> float { return BODY; } }
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
                CPPN::Function> CPPN::functions {
+
+  // Function set from Risi
+//  F("line", std::fabs(x)),  // Described as "linear"
+//  F("gaus", 2*std::exp(-std::pow(2.5*x, 2))-1), // Negative gaussian
+////  F(  "id", x), // None
+//  F("ssgm", 1.f / (1.f + std::exp(-4.9*x))),  // Steepened sigmoid
+//  F("bsgm", 2.f / (1.f + std::exp(-4.9*x)) - 1.f),  // Bipolar sigmoid
+//  F( "sin", std::sin(2*x)),
+//  F("step", x < 0 ? 0 : 1),
+
+  // Personal take on the function set
   F( "abs", std::fabs(x)),
-  F("sigm", 2.f / (1.f + std::exp(-x)) - 1.f),
-  F( "sin", std::sin(x)),
+  F("gaus", std::exp(-6.25*x*x)), // Same steepness as Risi's but positive
+  F(  "id", x),
+  F("ssgm", 1.f / (1.f + std::exp(-4.9*x))),
+  F("bsgm", 2.f / (1.f + std::exp(-4.9*x)) - 1.f),
+  F( "sin", std::sin(2*x)),
   F("step", x < 0 ? 0 : 1),
-  F("gaus", std::exp(-(x*x)/2)),
-  F(  "id", x)
 };
 #undef F
 
 #define F(NAME, MIN, MAX) { NAME, { MIN, MAX }}
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
                CPPN::Range> CPPN::functionRanges {
+
+  // Risi function set bounds
+//  F("line",  0, 1),
+//  F("gaus", -1, 1),
+//  F("ssgm",  0, 1),
+//  F("bsgm", -1, 1),
+//  F( "sin", -1, 1),
+
   F( "abs",  0, 1),
-  F("sigm", -1, 1),
-  F( "sin", -1, 1),
-  F("step",  0, 1),
   F("gaus",  0, 1),
   F(  "id", -1, 1),
+  F("ssgm",  0, 1),
+  F("bsgm", -1, 1),
+  F( "sin", -1, 1),
+  F("step",  0, 1),
 };
 #undef F
 
@@ -83,8 +104,8 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
 }
 
 float CPPN::INode::value (void) {
-  utils::IndentingOStreambuf indent (std::cout);
 #ifdef DEBUG
+  utils::IndentingOStreambuf indent (std::cout);
   std::cout << "I: " << data << std::endl;
 #endif
   return data;
@@ -103,9 +124,12 @@ float CPPN::FNode::value (void) {
     std::cout << func(data) << " = func(" << data << ")\n";
 #endif
     data = func(data);
-  }
+
 #ifdef DEBUG
-  std::cout << data << "\n";
+  } else
+    std::cout << data << "\n";
+#else
+  }
 #endif
   return data;
 }
@@ -121,8 +145,10 @@ void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
   assert(inputs.size() == _inputs.size()-bias);
   assert(outputs.size() == _outputs.size());
 
-//  utils::IndentingOStreambuf indent (std::cout);
-//  std::cout << "compute step\n" << inputs << std::endl;
+#ifdef DEBUG
+  utils::IndentingOStreambuf indent (std::cout);
+  std::cout << "compute step\n" << inputs << std::endl;
+#endif
 
   for (uint i=0; i<inputs.size(); i++)  _inputs[i]->data = inputs[i];
   if (bias) _inputs.back()->data = 1;
@@ -132,7 +158,9 @@ void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
 
   for (uint i=0; i<outputs.size(); i++) outputs[i] = _outputs[i]->value();
 
-//  std::cout << outputs << "\n" << std::endl;
+#ifdef DEBUG
+  std::cout << outputs << "\n" << std::endl;
+#endif
 }
 
 } // end of namespace phenotype

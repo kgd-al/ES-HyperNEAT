@@ -1,9 +1,10 @@
 #ifndef KGD_BWWINDOW_H
 #define KGD_BWWINDOW_H
 
+#include <QMap>
 #include <QMainWindow>
 #include <QCheckBox>
-#include <QMap>
+#include <QSplitter>
 
 #include "../gui/es_hyperneatpanel.h"
 #include "sound/visualizer.h"
@@ -27,6 +28,7 @@ struct Individual {
 
   using ptr = std::unique_ptr<Individual>;
   static ptr random (rng::AbstractDice &d);
+  static ptr fromFile (const stdfs::path &path, rng::AbstractDice &dice);
   static ptr mutated (const Individual &i, rng::AbstractDice &d);
 
 private:
@@ -47,6 +49,9 @@ public:
 
   static stdfs::path generateOutputFolder (const stdfs::path &base);
 
+  void firstGeneration (const stdfs::path &baseGenome);
+  void show (void);
+
   enum Setting {
     AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
     LOCK_SELECTION, PLAY, SELECT_NEXT,
@@ -55,7 +60,8 @@ public:
   Q_ENUM(Setting)
 
 private:
-  kgd::gui::ES_HyperNEATPanel *_details;
+  QSplitter *_splitter;
+  kgd::es_hyperneat::gui::ES_HyperNEATPanel *_details;
 
   static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
@@ -77,17 +83,15 @@ private:
     int index, step;
   } _animation;
 
-  void firstGeneration (void);
   void nextGeneration (uint index);
   void updateSavePath (void);
 
   void setIndividual(IPtr &&in, uint j, uint k);
+  static void evaluateIndividual (IPtr &i, uint step, bool setPhenotype);
   void logIndividual(uint index, const stdfs::path &folder,
                      int level) const;
 
-  void evaluateIndividual (uint index);
-
-  int indexOf (const sound::Visualizer *v);
+  int indexOf (const sound::Visualizer *v) const;
 
   bool eventFilter(QObject *watched, QEvent *event) override;
   void individualHoverEnter (uint index);
@@ -106,6 +110,8 @@ private:
   void stopAnimateShownANN (void);
 
   void keyPressEvent(QKeyEvent *e) override;
+
+  using QMainWindow::show;
   bool setting (Setting s) const;
   void saveSettings (void) const;
   void restoreSettings (void);

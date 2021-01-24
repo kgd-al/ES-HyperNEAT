@@ -3,6 +3,13 @@
 
 #include "cppn.h"
 
+//#define DEBUG_QUADTREE
+#ifdef DEBUG_QUADTREE
+namespace quadtree_debug {
+const stdfs::path& debugFilePrefix (const stdfs::path &path = "");
+}
+#endif
+
 namespace phenotype {
 
 template <uint DIMENSIONS, uint DECIMALS>
@@ -95,7 +102,7 @@ public:
     enum Type { B, I, O, H };
     Type type;
 
-    float value;
+    float input, output;
 
     using ptr = std::shared_ptr<Neuron>;
     using wptr = std::weak_ptr<Neuron>;
@@ -161,12 +168,17 @@ struct CONFIG_FILE(EvolvableSubstrate) {
   DECLARE_PARAMETER(uint, initialDepth)
   DECLARE_PARAMETER(uint, maxDepth)
   DECLARE_PARAMETER(uint, iterations)
-  DECLARE_PARAMETER(float, varThr)  // variance
-  DECLARE_PARAMETER(float, bndThr)  // band
-  DECLARE_PARAMETER(float, bprThr)  // band-pruning
+
   DECLARE_PARAMETER(float, divThr)  // division
+  DECLARE_PARAMETER(float, varThr)  // variance
+  DECLARE_PARAMETER(float, bndThr)  // band-pruning
   DECLARE_PARAMETER(EvolvableSubstrateLEO, leo)
+
   DECLARE_PARAMETER(float, weightRange)
+  DECLARE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
+                          activationFunc)
+
+  DECLARE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 };
 
 } // end of namespace config

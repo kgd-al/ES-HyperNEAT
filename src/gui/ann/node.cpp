@@ -9,7 +9,7 @@
 
 #include <QDebug>
 
-namespace kgd::gui::ann {
+namespace kgd::es_hyperneat::gui::ann {
 
 const QTextOption TextAspect = QTextOption(Qt::AlignCenter);
 
@@ -24,7 +24,7 @@ std::ostream& operator<< (std::ostream &os, const Node &n) {
   return os << n._neuron.pos
             << "{" << n.pos() << "}"
             << "@" << &n._neuron
-            << ": " << n._neuron.value;
+            << ": " << n._neuron.input << " -> " << n._neuron.output;
 }
 #endif
 
@@ -38,7 +38,7 @@ Node::Node (Agnode_t *node, const Neuron &neuron, qreal scale)
 #endif
 
   auto b = ND_bb(node);
-  _bounds = toQt(b, scale);
+  _bounds = kgd::gui::toQt(b, scale);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
   _shape = _bounds;
@@ -73,11 +73,24 @@ Node::Node (Agnode_t *node, const Neuron &neuron, qreal scale)
 //  }
 }
 
+static QColor redBlackGradient(float v) {
+  static constexpr float minAlpha = 0;
+
+  QColor c = QColor(v < 0 ? Qt::red : Qt::black);
+  c.setAlphaF(minAlpha + (1.f-minAlpha)*std::fabs(v));
+  assert(0 <= c.alphaF() && c.alphaF() <= 1);
+  return c;
+}
+
 void Node::updateAnimation (bool running) {
+  static const auto &sweight = config::EvolvableSubstrate::weightRange();
   if (running) {
-    float v = _neuron.value;
+    float v = _neuron.input;
+    if (!_neuron.links.empty())
+      v /= _neuron.links.size() * sweight;
     _currentColor = redBlackGradient(v);
-    for (Edge *e: out)  e->updateAnimation(v);
+
+    for (Edge *e: out)  e->updateAnimation(_neuron.output);
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
@@ -148,7 +161,7 @@ void Node::drawRichText(QPainter *painter) {
 }
 
 void Node::hoverEnterEvent(QGraphicsSceneHoverEvent *e) {
-  emit hovered(QPointF(_neuron.pos.x(), _neuron.pos.y()));
+  emit hovered(_neuron);
   _hovered = true;
   for (auto e: in)  e->setHovered(true);
   for (auto e: out)  e->setHovered(true);
@@ -162,4 +175,4 @@ void Node::hoverLeaveEvent(QGraphicsSceneHoverEvent *e) {
   QGraphicsObject::hoverLeaveEvent(e);
 }
 
-} // end of namespace kgd::gui::ann
+} // end of namespace kgd::es_hyperneat::gui::ann

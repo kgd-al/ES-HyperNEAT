@@ -2,7 +2,7 @@
 
 #include "edge.h"
 
-namespace kgd::gui::cppn {
+namespace kgd::es_hyperneat::gui::cppn {
 
 Edge::Edge (Agedge_t *edge, qreal scale) {
   setZValue(-1);
@@ -12,7 +12,7 @@ Edge::Edge (Agedge_t *edge, qreal scale) {
 #endif
 
   const splines* spl = ED_spl(edge);
-  _bounds = toQt(spl->bb, scale);
+  _bounds = kgd::gui::toQt(spl->bb, scale);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
 
@@ -53,7 +53,7 @@ void Edge::drawShape (const splines *spl, float scale,
   static constexpr float arrowFolding = .25;
 
   auto convert = [scale, offset] (pointf p) {
-    return toQt(p, scale) - offset;
+    return kgd::gui::toQt(p, scale) - offset;
   };
 
   if ((spl->list != 0) && (spl->list->size%3 == 1)) {
@@ -96,4 +96,4 @@ void Edge::drawShape (const splines *spl, float scale,
   }
 }
 
-} // end of namespace kgd::gui::cppn
+} // end of namespace kgd::es_hyperneat::gui::cppn

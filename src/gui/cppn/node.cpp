@@ -6,13 +6,13 @@
 #include "node.h"
 #include "../../phenotype/cppn.h"
 
-namespace kgd::gui::cppn {
+namespace kgd::es_hyperneat::gui::cppn {
 
 using NodeFunc = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
 
 namespace autoplot {
 
-static constexpr float X_MAX = 5, Y_MAX = 1, Y_SCALE = 7*X_MAX/10,
+static constexpr float X_MAX = 2, Y_MAX = 1, Y_SCALE = 7*X_MAX/10,
                        Y_MAX_SCALED = Y_MAX * Y_SCALE;
 static const QPainterPath arrowHead = [] {
   static constexpr float dx = X_MAX*.15, dy = Y_MAX, a = .25*dy;
@@ -30,6 +30,8 @@ void basePainter (QPainter *p) {
   p->drawLine(QPointF(-X_MAX, 0), QPointF(X_MAX, 0));
   p->drawLine(QPointF(0, -Y_MAX_SCALED*1.25), QPointF(0, Y_MAX_SCALED*1.25));
   p->fillPath(arrowHead, p->pen().color());
+
+  p->drawLine(QPointF(1, .125), QPointF(1, -.125));
 
 //  for (int i: {-1, 1})
 //    p->drawLine(QPointF(-.1*X_MAX, i*Y_MAX_SCALED),
@@ -78,7 +80,7 @@ Node::Node (Agnode_t *node, qreal scale) {
 #endif
 
   auto b = ND_bb(node);
-  _bounds = toQt(b, scale);
+  _bounds = kgd::gui::toQt(b, scale);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
   _shape = _bounds;
@@ -131,8 +133,8 @@ void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
       painter->setPen(p);
       painter->scale(scale, scale);
 
-      if (_fPath->boundingRect().height() <= autoplot::Y_MAX_SCALED)
-        painter->translate(0, .5*autoplot::Y_MAX_SCALED);
+//      if (_fPath->boundingRect().height() <= autoplot::Y_MAX_SCALED)
+//        painter->translate(0, .5*autoplot::Y_MAX_SCALED);
 
       autoplot::basePainter(painter);
 
@@ -189,4 +191,4 @@ void Node::drawRichText(QPainter *painter) {
   painter->restore();
 }
 
-} // end of namespace kgd::gui::cppn
+} // end of namespace kgd::es_hyperneat::gui::cppn

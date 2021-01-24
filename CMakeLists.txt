@@ -207,8 +207,8 @@ if (NOT CLUSTER_BUILD)
     add_library(GUI_OBJS OBJECT ${GUI_SRC})
     target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
-    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
-    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_COMPILE_DEFINITIONS>)
+#    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
+#    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_COMPILE_DEFINITIONS>)
     set_property(TARGET GUI_OBJS PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET GUI_OBJS PROPERTY AUTOMOC ON)
 
@@ -218,14 +218,21 @@ if (NOT CLUSTER_BUILD)
 ##################################################################################
     if (WITH_SONGMAKER)
         set(SOUND_SRC
-            "endlessbuffer.cpp"
             "generator.cpp"
             "visualizer.cpp"
-            )
+
+            "rtmidi/RtMidi.cpp"
+        )
         PREPEND(SOUND_SRC "sound")
+        set(MIDI_DEFS __LINUX_ALSA__)
+        set(MIDI_LIBS asound pthread)
+
+        add_subdirectory(midi/midifile/)
+        list(APPEND MIDI_LIBS midifile)
 
         set(WATCHMAKER_SRC
             ${SOUND_SRC}
+            "qflowlayout.cpp"
             "config.cpp"
             "bwwindow.cpp"
             "main.cpp"
@@ -237,14 +244,13 @@ if (NOT CLUSTER_BUILD)
           $<TARGET_OBJECTS:SIMU_OBJS>
           $<TARGET_OBJECTS:GUI_OBJS>
           ${WATCHMAKER_SRC}
-          "${CMAKE_HOME_DIRECTORY}/midi/rtmidi-4.0.0/RtMidi.cpp"
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
         target_link_libraries(watchmaker ${CORE_LIBS}
     #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
                                          ${QT_LIBS})
-        target_compile_definitions(watchmaker PRIVATE __LINUX_ALSA__)
-        target_link_libraries(watchmaker asound pthread)
+        target_compile_definitions(watchmaker PRIVATE ${MIDI_DEFS})
+        target_link_libraries(watchmaker ${MIDI_LIBS})
     endif()
 
 

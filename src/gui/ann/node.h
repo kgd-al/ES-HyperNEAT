@@ -7,7 +7,7 @@
 #include "../gvcqtinterface.h"
 #include "../../phenotype/ann.h"
 
-namespace kgd::gui::ann {
+namespace kgd::es_hyperneat::gui::ann {
 
 struct Edge;
 class Node : public QGraphicsObject {
@@ -39,7 +39,7 @@ public:
   std::vector<Edge*> in, out;
 
 signals:
-  void hovered (const QPointF &p);
+  void hovered (const Neuron &n);
 
 private:
 #ifndef NDEBUG
@@ -61,6 +61,6 @@ private:
   void drawRichText(QPainter *painter);
 };
 
-} // end of namespace kgd::gui::ann
+} // end of namespace kgd::es_hyperneat::gui::ann
 
 #endif // KGD_ANN_GRAPHIC_NODE_H

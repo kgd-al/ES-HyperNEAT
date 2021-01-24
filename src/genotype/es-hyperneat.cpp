@@ -168,6 +168,19 @@ CPPN CPPN::fromDot(const std::string &data) {
   return cppn;
 }
 
+ES_HyperNEAT ES_HyperNEAT::fromGenomeFile(const std::string &path) {
+  return genotype::EDNA<ES_HyperNEAT>::fromFile(path);
+}
+
+ES_HyperNEAT ES_HyperNEAT::fromDotFile(const std::string &path,
+                                       rng::AbstractDice &dice) {
+
+  std::string data = utils::readAll(path);
+  ES_HyperNEAT genome = random(dice);
+  genome.cppn = CPPN::fromDot(data);
+  return genome;
+}
+
 std::ostream& operator<< (std::ostream &os, const CPPN &d) {
   os << "CPPN " << d.inputs << ":" << d.nodes.size() << ":" << d.outputs << " ("
      << d.links.size() << ")\n";
@@ -501,17 +514,14 @@ struct genotype::Aggregator<CPPN, GENOME> {
   }
 };
 
-DEFINE_GENOME_FIELD_WITH_BOUNDS(float, recurrentDY, "dy", 0.f, 0.f, .5f, 2.f)
 DEFINE_GENOME_FIELD_WITH_BOUNDS(uint, substeps, "n", 1u, 1u, 2u, 5u)
 
 DEFINE_GENOME_MUTATION_RATES({
   EDNA_PAIR(       cppn, 95),
-  EDNA_PAIR(recurrentDY, 0),
   EDNA_PAIR(   substeps, 5)
 })
 DEFINE_GENOME_DISTANCE_WEIGHTS({
   EDNA_PAIR(       cppn, 95),
-  EDNA_PAIR(recurrentDY, 0),
   EDNA_PAIR(   substeps, 5)
 })
 
@@ -520,7 +530,8 @@ DEFINE_GENOME_DISTANCE_WEIGHTS({
 #define CFILE genotype::ES_HyperNEAT::config_t
 
 DEFINE_CONTAINER_PARAMETER(CFILE::FunctionSet, functions, {
-  "gaus", "sin", "abs", "sigm"
+//  "bsgm", "gaus", "line", "sin" // Risi function set
+  "abs", "gaus", "id", "bsgm", "sin", "step"
 })
 
 DEFINE_PARAMETER(CFILE::Bounds<float>, weightBounds, -3.f, -1.f, 1.f, 3.f)
@@ -533,7 +544,7 @@ DEFINE_PARAMETER(config::CPPNInitMethod, cppnInit,
                  config::CPPNInitMethod::BIMODAL)
 
 DEFINE_CONTAINER_PARAMETER(CFILE::OFunctions, outputFunctions, {
-                            "sigm", "step" })
+                            "bsgm", "step" })
 
 DEFINE_CONTAINER_PARAMETER(CFILE::MutationRates, cppn_mutationRates,
                            utils::normalizeRates({

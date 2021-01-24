@@ -3,19 +3,12 @@
 #include <QPalette>
 
 #include "edge.h"
+#include "../../phenotype/ann.h"
 
 #include <iostream>
 #include <QDebug>
 
-namespace kgd::gui::ann {
-
-QColor redBlackGradient(float v) {
-  static constexpr float minAlpha = 0;
-  assert(-1 <= v && v <= 1);
-  QColor c = QColor(v < 0 ? Qt::red : Qt::black);
-  c.setAlphaF(minAlpha + (1.f-minAlpha)*std::fabs(v));
-  return c;
-}
+namespace kgd::es_hyperneat::gui::ann {
 
 #ifndef NDEBUG
 std::ostream& operator<< (std::ostream &os, const QPointF &p) {
@@ -43,7 +36,7 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   setHovered(false);
 
   const splines* spl = ED_spl(edge);
-  _bounds = toQt(spl->bb, scale);
+  _bounds = kgd::gui::toQt(spl->bb, scale);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
 
@@ -51,6 +44,14 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   _width = gvc::get(edge, "penwidth", 0.f);
   _currentColor = _color =
       QColor(gvc::get(edge, "color", std::string()).c_str());
+}
+
+static QColor redBlackGradient(float v) {
+  static constexpr float minAlpha = 0;
+  assert(-1 <= v && v <= 1);
+  QColor c = QColor(v < 0 ? Qt::red : Qt::black);
+  c.setAlphaF(minAlpha + (1.f-minAlpha)*std::fabs(v));
+  return c;
 }
 
 void Edge::updateAnimation(float v) {
@@ -102,7 +103,7 @@ void Edge::drawShape (const splines *spl, float scale,
   static constexpr float arrowFolding = .25;
 
   auto convert = [scale, offset] (pointf p) {
-    return toQt(p, scale) - offset;
+    return kgd::gui::toQt(p, scale) - offset;
   };
 
   if ((spl->list != 0) && (spl->list->size%3 == 1)) {
@@ -146,4 +147,4 @@ void Edge::drawShape (const splines *spl, float scale,
   }
 }
 
-} // end of namespace kgd::gui::ann
+} // end of namespace kgd::es_hyperneat::gui::ann

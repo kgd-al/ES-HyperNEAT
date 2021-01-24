@@ -1,17 +1,7 @@
 #ifndef KGD_SOUND_GENERATOR_H
 #define KGD_SOUND_GENERATOR_H
 
-/*
- * Mostly thanks to
- * https://stackoverflow.com/questions/21310324/play-notification-frequency-x-
- * sound-in-qt-easiest-way
- */
-
-//#include <map>
-
-//#include <QString>
-//#include <QVector>
-//#include <QAudio>
+#include <string>
 
 struct RtMidiOut;
 
@@ -19,12 +9,14 @@ namespace kgd::watchmaker::sound {
 
 struct StaticData {
   static constexpr uint CHANNELS = 4;
-  static constexpr float STEP = 1/4.;
-  static constexpr float DURATION = 5;
+  static constexpr uint TEMPO = 120;  // BPM
+  static constexpr uint NOTES = 20;
 
-  static constexpr uint NOTES = DURATION / STEP;
+  static constexpr float NOTE_DURATION = 60.f / TEMPO;
+  static constexpr float SONG_DURATION = NOTES * 50.f / TEMPO;
 
   static constexpr uint BASE_OCTAVE = 3;
+  static constexpr uint BASE_A = 21 + 12 * BASE_OCTAVE;
 
   using NoteSheet = std::array<float, NOTES*CHANNELS>;
 
@@ -34,8 +26,7 @@ struct StaticData {
 };
 
 struct MidiWrapper {
-  static bool initialize (const std::string &preferredPort = "Timidity");
-  static const bool initialized;
+  static bool initialize (std::string preferredPort = "");
 
   static RtMidiOut& midiOut(void);
 
@@ -44,52 +35,12 @@ struct MidiWrapper {
   static void setInstrument (uchar channel, uchar i);
   static void noteOn (uchar channel, uchar note, uchar volume);
   static void notesOff (uchar channel);
+
+  static void noteOn (uchar channel, uchar note_index, float volume);
+
+  static bool writeMidi (const StaticData::NoteSheet &notes,
+                         const std::string &path);
 };
-
-//class Generator : public QObject {
-//  Q_OBJECT
-//public:
-//  static const QVector<QString> baseNotes;
-//  static const std::map<QString, float> notes;
-
-//  enum Instrument {
-//    SIN, SQUARE, TRI, SAW, ORGAN, CHIRP
-//  };
-//  Q_ENUM(Instrument);
-
-//  Generator(QObject *parent = nullptr);
-//  ~Generator (void);
-
-//  void setInstrument (Instrument i);
-
-//  void setNoteSheet (const NoteSheet &notes);
-
-//  void start (PlaybackType t);
-//  void stop (void);
-//  void pause (void);
-//  void resume (void);
-
-//  void generateWav(const std::string &filename) const {
-//    generateWav(QString::fromStdString(filename));
-//  }
-//  void generateWav (const QString &filename = "") const;
-
-//  void setNotifyPeriod (int ms);
-
-//  // In [0,1]
-//  float progress (void) const;
-
-//signals:
-//  void notify (void);
-//  void notifyNote (void); ///< A full note has been played back
-//  void stateChanged (QAudio::State s);
-
-//private:
-//  struct Data;
-//  Data *d;
-
-//  void onNoteConsumed (void);
-//};
 
 } // end of namespace kgd::watchmaker::sound
 

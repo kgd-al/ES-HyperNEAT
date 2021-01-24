@@ -1,14 +1,14 @@
 #include <QGridLayout>
 #include <QHoverEvent>
-#include <QSplitter>
 #include <QMessageBox>
 #include <QSettings>
 #include <QButtonGroup>
 #include <QApplication>
-#include <QThread>
+#include <QGroupBox>
 
 #include "bwwindow.h"
 #include "config.h"
+#include "qflowlayout.h"
 
 #include <QDebug>
 #include <QComboBox>
@@ -46,6 +46,14 @@ Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
   return ptr(new Individual(genome, cppn, ann));
 }
 
+Individual::ptr Individual::fromFile(const stdfs::path &path,
+                                     rng::AbstractDice &dice) {
+  auto ext = path.extension();
+  return fromGenome(
+    (ext == ".dot") ? genotype::ES_HyperNEAT::fromDotFile(path, dice)
+                    : genotype::ES_HyperNEAT::fromGenomeFile(path));
+}
+
 Individual::ptr Individual::random(rng::AbstractDice &d) {
   return fromGenome(genotype::ES_HyperNEAT::random(d));
 }
@@ -69,7 +77,7 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
 
   std::cerr << "Using seed: " << seed << " -> " << _dice.getSeed() << "\n";
 
-  auto splitter = new QSplitter;
+  _splitter = new QSplitter;
   auto holder = new QWidget;
   auto layout = new QGridLayout;
 
@@ -78,28 +86,35 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
       uint ix = i*N+j;
       auto v = new sound::Visualizer(i*N+j);
       layout->addWidget(_visualizers[ix] = v, i, j);
-      sound::MidiWrapper::setInstrument(ix, 0);
+      sound::MidiWrapper::setInstrument(ix,
+                                        config::WatchMaker::midiInstrument());
     }
   }
-  sound::MidiWrapper::setInstrument(9, 69);
   for (auto v: _visualizers)
     v->QWidget::installEventFilter(this);
   _shown = nullptr;
   _selection = nullptr;
 
-  auto *clayout = new QGridLayout;
+  auto *clayout = new FlowLayout;
   {
-    uint r = 0, c = 0;
-    auto add = [&r, &c, clayout] (QWidget *w) {
-      clayout->addWidget(w, r++, c);
-      if (r == 4) r = 0, c++;
+    QLayout *subLayout = nullptr;
+    auto newFrame = [&subLayout, clayout] (const QString &title) {
+      auto w = new QGroupBox(title);
+      w->setFlat(true);
+      w->setAlignment(Qt::AlignLeft);
+      subLayout = new FlowLayout;
+      w->setLayout(subLayout);
+      clayout->addWidget(w);
+    };
+    auto add = [&subLayout] (QWidget *w) {
+      subLayout->addWidget(w);
     };
     QMetaEnum e = QMetaEnum::fromType<Setting>();
     for (int i=0; i<e.keyCount(); i++) {
       Setting s = Setting(e.value(i));
-      if (s == AUTOPLAY)  add(new QLabel("Sound"));
-      else if (s == LOCK_SELECTION) add(new QLabel ("LMouse"));
-      else if (s == ANIMATE) add(new QLabel ("Other"));
+      if (s == AUTOPLAY)  newFrame("Sound");
+      else if (s == LOCK_SELECTION) newFrame("LMouse");
+      else if (s == ANIMATE) newFrame("Other");
 
       QString name = QString(e.key(i)).replace("_", " ").toLower();
       name[0] = name[0].toUpper();
@@ -120,13 +135,10 @@ BWWindow::BWWindow(const stdfs::path &baseSavePath, uint seed, QWidget *parent)
   layout->addLayout(clayout, N, 0, 1, N, Qt::AlignCenter);
 
   holder->setLayout(layout);
-  splitter->addWidget(holder);
-  splitter->addWidget(_details = new kgd::gui::ES_HyperNEATPanel);
-  setCentralWidget(splitter);
-
-  restoreSettings();
-
-  firstGeneration();
+  _splitter->addWidget(holder);
+  _splitter->addWidget(_details =
+    new kgd::es_hyperneat::gui::ES_HyperNEATPanel);
+  setCentralWidget(_splitter);
 
   _animation.index = -1;
   _animation.step = -1;
@@ -166,13 +178,44 @@ struct GenerationDialog : public QDialog {
   }
 };
 
-void BWWindow::firstGeneration(void) {
+
+#ifdef DEBUG_QUADTREE
+static void quadtreeDebugPrefix (const stdfs::path &base, uint i, uint j) {
+  std::ostringstream oss;
+  oss << "i" << i << "_j" << j << "/quadtrees";
+  stdfs::path prefix = base / oss.str();
+  stdfs::create_directories(prefix.parent_path());
+  quadtree_debug::debugFilePrefix(base / oss.str());
+  std::cerr << "quadtree_debug::debugFilePrefix(): "
+            << quadtree_debug::debugFilePrefix() << std::endl;
+}
+#endif
+
+void BWWindow::firstGeneration(const stdfs::path &baseGenome) {
   _generation = 0;
   updateSavePath();
 
-  for (uint i=0; i<N; i++)
-    for (uint j=0; j<N; j++)
-      setIndividual(simu::Individual::random(_dice), i, j);
+  if (baseGenome.empty()) {
+    for (uint i=0; i<N; i++) {
+      for (uint j=0; j<N; j++) {
+#ifdef DEBUG_QUADTREE
+        quadtreeDebugPrefix(_currentSavePath, i, j);
+#endif
+        setIndividual(simu::Individual::random(_dice), i, j);
+      }
+    }
+
+  } else {
+#ifdef DEBUG_QUADTREE
+    quadtreeDebugPrefix(_currentSavePath, N/2, N/2);
+#endif
+    setIndividual(simu::Individual::fromFile(baseGenome, _dice), N/2, N/2);
+    nextGeneration(N*N/2);
+
+    std::cerr << "Provided primordial:\n"
+              << _individuals[N*N/2]->genome;
+  }
+
   if (setting(LOCK_SELECTION))
         setSelectedIndividual(N*N/2);
   else  showIndividualDetails(N*N/2);
@@ -194,6 +237,11 @@ void BWWindow::nextGeneration(uint index) {
   for (uint i=0; i<N; i++) {
     for (uint j=0; j<N; j++) {
       if (i == mid && j == mid)  continue;
+
+#ifdef DEBUG_QUADTREE
+      quadtreeDebugPrefix(_currentSavePath, i, j);
+#endif
+
       setIndividual(simu::Individual::mutated(*parent, _dice), i, j);
     }
   }
@@ -210,46 +258,50 @@ void BWWindow::updateSavePath(void) {
 }
 
 void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
-  using Config = config::WatchMaker;
-  static constexpr auto C = sound::StaticData::CHANNELS;
-
   const auto ix = j*N+k;
-  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
-  auto &ann = i.ann;
-  auto &notes = i.phenotype;
+  IPtr &i = _individuals[ix] = std::move(in);
 
-  auto v = _visualizers[ix];
+  for (uint n=0; n<sound::StaticData::NOTES; n++)
+    evaluateIndividual(i, n, true);
 
-  auto inputs = ann.inputs();
-  auto outputs = ann.outputs();
+//  const auto ix = j*N+k;
+//  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
+//  auto &ann = i.ann;
+//  auto &notes = i.phenotype;
 
-  std::fill(inputs.begin(), inputs.end(), 0);
-  for (uint n=0; n<sound::StaticData::NOTES; n++) {
-    ann(inputs, outputs, i.genome.substeps);
-    for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
+//  auto v = _visualizers[ix];
 
-    /// TODO Factorise with animateANN
-    switch (Config::audition()) {
-    case Audition::NONE:  break;
-    case Audition::SELF:
-      std::copy(outputs.begin(), outputs.end(), inputs.begin());
-      break;
-    case Audition::COMMUNITY:
-      assert(false);
-      break;
-    }
+//  auto inputs = ann.inputs();
+//  auto outputs = ann.outputs();
 
-    switch (Config::tinput()) {
-    case TemporalInput::NONE: break;
-    case TemporalInput::LINEAR:
-      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
-      break;
-    case TemporalInput::SINUSOIDAL:
-      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
-      break;
-    }
-  }
-  v->setNoteSheet(notes);
+//  std::fill(inputs.begin(), inputs.end(), 0);
+//  for (uint n=0; n<sound::StaticData::NOTES; n++) {
+//    ann(inputs, outputs, i.genome.substeps);
+//    for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
+
+//    /// TODO Factorise with animateANN
+//    switch (Config::audition()) {
+//    case Audition::NONE:  break;
+//    case Audition::SELF:
+//      std::copy(outputs.begin(), outputs.end(), inputs.begin());
+//      break;
+//    case Audition::COMMUNITY:
+//      assert(false);
+//      break;
+//    }
+
+//    switch (Config::tinput()) {
+//    case TemporalInput::NONE: break;
+//    case TemporalInput::LINEAR:
+//      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
+//      break;
+//    case TemporalInput::SINUSOIDAL:
+//      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
+//      break;
+//    }
+//  }
+
+  _visualizers[ix]->setNoteSheet(i->phenotype);
 
 //  using utils::operator<<;
 //  std::cerr << "Note sheet for [" << j << "," << k << "]: " << notes << "\n";
@@ -263,6 +315,49 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
   }
 }
 
+void BWWindow::evaluateIndividual(IPtr &i, uint step, bool setPhenotype) {
+  using Config = config::WatchMaker;
+  static constexpr auto C = sound::StaticData::CHANNELS;
+
+  auto &ann = i->ann;
+  auto &notes = i->phenotype;
+  auto inputs = ann.inputs(), outputs = ann.outputs();
+
+  if (step > 0) {
+    uint off = (step-1)*C;
+
+    switch (Config::audition()) {
+    case Audition::NONE:  break;
+    case Audition::SELF:
+      std::copy(notes.begin()+off, notes.begin()+off+C, inputs.begin());
+      break;
+    case Audition::COMMUNITY:
+      assert(false);
+      break;
+    }
+
+    switch (Config::tinput()) {
+    case TemporalInput::NONE: break;
+    case TemporalInput::LINEAR:
+      inputs.back() = float(step) / (sound::StaticData::NOTES-1);
+      break;
+    case TemporalInput::SINUSOIDAL:
+//      std::cerr << "isin(" << step << ") = "
+//                << std::sin(2 * M_PI * step * sound::StaticData::NOTE_DURATION / 4)
+//                << " = PI * " << step << " * "
+//                << sound::StaticData::NOTE_DURATION << " / 4\n";
+      inputs.back() =
+          std::sin(2 * M_PI * step * sound::StaticData::NOTE_DURATION / 4.);
+      break;
+    }
+  }
+
+  ann(inputs, outputs, i->genome.substeps);
+
+  if (setPhenotype)
+    std::copy(outputs.begin(), outputs.end(), notes.begin()+step*C);
+}
+
 void BWWindow::logIndividual(uint index, const stdfs::path &f,
                              int level) const {
   if (level <= 0) return;
@@ -270,7 +365,7 @@ void BWWindow::logIndividual(uint index, const stdfs::path &f,
 
   /// TODO Also log plain note sheet
 
-  using namespace kgd::gui;
+  using namespace kgd::es_hyperneat::gui;
   const auto &i = *_individuals[index];
   if (level >= 1) i.genome.toFile(f / "genome");
   if (level >= 3) i.genome.cppn.render_gvc_graph(f / "cppn_gvc.png");
@@ -281,10 +376,11 @@ void BWWindow::logIndividual(uint index, const stdfs::path &f,
 
   const auto &v = *_visualizers[index];
   if (level >= 1) v.render(f / "song.png");
+  if (level >= 1) sound::MidiWrapper::writeMidi(i.phenotype, f / "song.mid");
 //  if (level >= 2) v.sound().generateWav(f / "song.wav");
 }
 
-int BWWindow::indexOf (const sound::Visualizer *v) {
+int BWWindow::indexOf (const sound::Visualizer *v) const {
   int index = -1;
   for (uint i=0; i<_visualizers.size() && index < 0; i++)
     if (_visualizers[i] == v)
@@ -438,45 +534,49 @@ void BWWindow::startAnimateShownANN(void) {
 }
 
 void BWWindow::animateShownANN(void) {
-  using Config = config::WatchMaker;
-
   if (!setting(ANIMATE))  return;
 
-  auto &av = *_details->annViewer;
   assert(_animation.index >= 0);
-  simu::Individual &i = *_individuals[_animation.index];
+  assert(_animation.step >= 0);
 
-  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
-  if (_animation.step > 0) {
-    static constexpr auto C = sound::StaticData::CHANNELS;
-    uint off = (_animation.step-1)*C;
+  std::cerr << "animation step " << _animation.step << " of individual "
+            << _animation.index << "\n";
+  evaluateIndividual(_individuals[_animation.index], _animation.step, false);
 
-    /// TODO Factorise with setIndividual
-    switch (Config::audition()) {
-    case Audition::NONE:  break;
-    case Audition::SELF:
-      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
-                inputs.begin());
-      break;
-    case Audition::COMMUNITY:
-      assert(false);
-      break;
-    }
+//  simu::Individual &i = *_individuals[_animation.index];
 
-    switch (Config::tinput()) {
-    case TemporalInput::NONE: break;
-    case TemporalInput::LINEAR:
-      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
-      break;
-    case TemporalInput::SINUSOIDAL:
-      inputs.back() =
-          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
-      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
-      break;
-    }
-  }
-  i.ann(inputs, outputs, i.genome.substeps);
-  av.updateAnimation();
+//  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
+//  if (_animation.step > 0) {
+//    static constexpr auto C = sound::StaticData::CHANNELS;
+//    uint off = (_animation.step-1)*C;
+
+//    /// TODO Factorise with setIndividual
+//    switch (Config::audition()) {
+//    case Audition::NONE:  break;
+//    case Audition::SELF:
+//      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
+//                inputs.begin());
+//      break;
+//    case Audition::COMMUNITY:
+//      assert(false);
+//      break;
+//    }
+
+//    switch (Config::tinput()) {
+//    case TemporalInput::NONE: break;
+//    case TemporalInput::LINEAR:
+//      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
+//      break;
+//    case TemporalInput::SINUSOIDAL:
+//      inputs.back() =
+//          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
+//      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
+//      break;
+//    }
+//  }
+//  i.ann(inputs, outputs, i.genome.substeps);
+
+  _details->annViewer->updateAnimation();
 
   _animation.step = (_animation.step + 1) % sound::StaticData::NOTES;
 }
@@ -495,6 +595,11 @@ void BWWindow::stopAnimateShownANN(void) {
   }
 }
 
+void BWWindow::show(void) {
+  restoreSettings();
+  QMainWindow::show();
+}
+
 bool BWWindow::setting(Setting s) const {
   return _settings.value(s)->isChecked();
 }
@@ -502,23 +607,31 @@ bool BWWindow::setting(Setting s) const {
 void BWWindow::saveSettings(void) const {
   QSettings settings;
   settings.setValue("geom", saveGeometry());
+  settings.setValue("sizes", QVariant::fromValue(_splitter->sizes()));
 
   settings.beginGroup("settings");
   QMetaEnum e = QMetaEnum::fromType<Setting>();
   for (int i=0; i<e.keyCount(); i++)
     settings.setValue(e.key(i), setting(Setting(e.value(i))));
   settings.endGroup();
+
+  settings.setValue("selection", indexOf(_selection));
 }
 
 void BWWindow::restoreSettings(void) {
   QSettings settings;
+  _splitter->setSizes(settings.value("sizes").value<QList<int>>());
   restoreGeometry(settings.value("geom").toByteArray());
 
   settings.beginGroup("settings");
   QMetaEnum e = QMetaEnum::fromType<Setting>();
   for (int i=0; i<e.keyCount(); i++)
-    _settings[Setting(e.value(i))]->setChecked(settings.value(e.key(i)).toBool());
+    _settings[Setting(e.value(i))]->setChecked(settings.value(e.key(i))
+                                                       .toBool());
   settings.endGroup();
+
+  int selection = settings.value("selection").toInt();
+  if (selection >= 0) setSelectedIndividual(selection);
 }
 
 void BWWindow::closeEvent(QCloseEvent *e) {

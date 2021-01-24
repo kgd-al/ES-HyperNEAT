@@ -3,7 +3,7 @@
 #include "node.h"
 #include "edge.h"
 
-namespace kgd::gui::cppn {
+namespace kgd::es_hyperneat::gui::cppn {
 
 Viewer::Viewer (QWidget *parent) : GraphViewer(parent, "CPPN") {}
 
@@ -21,4 +21,4 @@ void Viewer::processGraph (const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   }
 }
 
-} // end of namespace kgd::gui::cppn
+} // end of namespace kgd::es_hyperneat::gui::cppn

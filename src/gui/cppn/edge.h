@@ -5,7 +5,7 @@
 
 #include "../gvcqtinterface.h"
 
-namespace kgd::gui::cppn {
+namespace kgd::es_hyperneat::gui::cppn {
 
 class Edge : public QGraphicsObject {
   Q_OBJECT
@@ -32,6 +32,6 @@ private:
                   QPainterPath &edge, QPainterPath &arrow);
 };
 
-} // end of namespace kgd::gui::cppn
+} // end of namespace kgd::es_hyperneat::gui::cppn
 
 #endif // KGD_CPPN_GRAPHIC_EDGE_H

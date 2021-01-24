@@ -23,7 +23,9 @@ int main (int argc, char **argv) {
   Verbosity verbosity = Verbosity::QUIET;
 
   stdfs::path outputFolder = "";
-  int seed = 4;
+  int seed = -1;
+
+  stdfs::path baseCPPN = "";
 
   cxxopts::Options options("SongMaker (ES-HyperNEAT)",
                            "Test environment for personnal implementation of "
@@ -41,7 +43,11 @@ int main (int argc, char **argv) {
 
     ("s,seed", "Seed value for simulation's RNG", cxxopts::value(seed))
     ("o,out-folder", "Folder under which to store the computational outputs",
-     cxxopts::value(outputFolder));
+     cxxopts::value(outputFolder))
+    ("b,basis", "Basis for initial generation (either full genome or dot "
+                "file describing the cppn)",
+     cxxopts::value(baseCPPN))
+    ;
 
   auto result = options.parse(argc, argv);
 
@@ -64,7 +70,11 @@ int main (int argc, char **argv) {
 
   if (seed < 0) seed = rng::FastDice::currentMilliTime();
 
+  kgd::watchmaker::sound::MidiWrapper::initialize();
+
+
   BWWindow w (outputFolder, seed);
+  w.firstGeneration(baseCPPN);
   w.show();
 
   return app.exec();

@@ -5,7 +5,7 @@
 
 #include "../misc/gvc_wrapper.h"
 
-namespace kgd::gui {
+namespace kgd::es_hyperneat::gui {
 
 class GraphViewer : public QGraphicsView {
 public:
@@ -21,7 +21,7 @@ public:
 
   template <typename Viewer>
   static void render (const gvc::Graph &graph, const std::string &filename) {
-      render<Viewer>(graph, QString::fromStdString(filename));
+    render<Viewer>(graph, QString::fromStdString(filename));
   }
 
   template <typename Viewer>
@@ -39,6 +39,6 @@ private:
                              const gvc::GraphWrapper &gw) = 0;
 };
 
-} // end of namespace kgd::gui
+} // end of namespace kgd::es_hyperneat::gui
 
 #endif // KGD_GRAPHVIEWER_H

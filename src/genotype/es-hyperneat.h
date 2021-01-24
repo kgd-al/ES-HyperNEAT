@@ -87,7 +87,6 @@ public:
     bool isHidden (Node::ID::ut nid) const;
   } cppn;
 
-  float recurrentDY;
   uint substeps;
 
   ES_HyperNEAT(void) {}
@@ -95,9 +94,15 @@ public:
   std::string extension(void) const {
     return ".eshn.json";
   }
+
+  static ES_HyperNEAT fromGenomeFile (const std::string &path);
+  static ES_HyperNEAT fromDotFile (const std::string &path,
+                                   rng::AbstractDice &dice);
+
+private:
+  using genotype::EDNA<ES_HyperNEAT>::fromFile;
 };
 DECLARE_GENOME_FIELD(ES_HyperNEAT, ES_HyperNEAT::CPPN, cppn)
-DECLARE_GENOME_FIELD(ES_HyperNEAT, float, recurrentDY)
 DECLARE_GENOME_FIELD(ES_HyperNEAT, uint, substeps)
 
 } // end of namespace genotype
@@ -129,8 +134,6 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
 
   DECLARE_PARAMETER(MutationRates, cppn_mutationRates)
   DECLARE_PARAMETER(DistanceWeights, cppn_distanceWeights)
-
-  DECLARE_PARAMETER(FBounds, recurrentDYBounds)
 
   using UBounds = Bounds<uint>;
   DECLARE_PARAMETER(UBounds, substepsBounds)

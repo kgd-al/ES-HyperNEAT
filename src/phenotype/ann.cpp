@@ -5,11 +5,21 @@
 /// TODO Find out which LEO implementation is best
 /// TODO No direct input -> output connections (feature?)
 
+#ifdef DEBUG_QUADTREE
+//#define DEBUG_QUADTREE_DIVISION
+//#define DEBUG_QUADTREE_PRUNING
+namespace phenotype::evolvable_substrate { struct QuadTreeNode; }
+namespace quadtree_debug {
+void debugGenerateImages (const phenotype::evolvable_substrate::QuadTreeNode &t,
+                          const phenotype::ANN::Point &p, bool in);
+} // end of namespace quadtree_debug
+#endif
+
 namespace phenotype {
 
 #ifndef NDEBUG
 //#define DEBUG
-//#define DEBUG_COMPUTE 0
+//#define DEBUG_COMPUTE 1
 //#define DEBUG_ES 1
 #endif
 
@@ -40,8 +50,8 @@ struct QuadTreeNode {
   QuadTreeNode (float x, float y, float r, uint l)
     : QuadTreeNode({x,y}, r, l) {}
 
-  /// TODO Is this computed often enough?
   float variance (void) const {
+    if (cs.empty()) return 0;
     float mean = 0;
     for (auto &c: cs) mean += c->weight;
     mean /= cs.size();
@@ -91,6 +101,10 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
     return r;
   };
 
+#ifdef DEBUG_QUADTREE_DIVISION
+  std::cout << "divisionAndInitialisation(" << p << ", " << out << ")\n";
+#endif
+
   while (!q.empty()) {
     QuadTreeNode &n = *q.front();
     q.pop();
@@ -107,12 +121,24 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
     for (auto &c: n.cs)
       c->weight = out ? weight(p, c->center) : weight(c->center, p);
 
+#ifdef DEBUG_QUADTREE_DIVISION
+    std::string indent (2*n.level, ' ');
+    std::cout << indent << n.center << ", r=" << n.radius << ", l=" << n.level
+              << ":";
+    for (auto &c: n.cs) std::cout << " " << c->weight;
+    std::cout << "\n" << indent << "> var = " << n.variance() << "\n";
+#endif
+
     if (n.level < initialDepth || (n.level < maxDepth && n.variance() > divThr))
       for (auto &c: n.cs) q.push(c.get());
   }
 
 #if DEBUG_ES_QUADTREE
   std::cerr << *root;
+#endif
+
+#ifdef DEBUG_QUADTREE
+  quadtree_debug::debugGenerateImages(*root, p, !out);
 #endif
 
   return root;
@@ -145,13 +171,34 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     return (bool)outputs[1];
   };
   static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
-    return (leoMode != LEO::DISCOVER_NODES) || leo(cppn, i, o);
+    return (leoMode != LEO::FILTER) || leo(cppn, i, o);
   };
 
+#ifdef DEBUG_QUADTREE_PRUNING
+  if (t->level == 1)  std::cout << "\n---\n";
+  utils::IndentingOStreambuf indent (std::cout);
+  std::cout << "pruneAndExtract(" << p << ", " << t->center << ", "
+            << t->radius << ", " << t->level << ", " << out << ") {\n";
+#endif
+
   for (auto &c: t->cs) {
-    if (c->variance() >= varThr)
+#ifdef DEBUG_QUADTREE_PRUNING
+    utils::IndentingOStreambuf indent1 (std::cout);
+    std::cout << "processing " << c->center << "\n";
+    utils::IndentingOStreambuf indent2 (std::cout);
+#endif
+
+    if (c->variance() >= varThr) {
+      // More information at lower resolution -> explore
+#ifdef DEBUG_QUADTREE_PRUNING
+      std::cout << "a> " << c->variance() << " >= " << varThr
+                << " >> digging\n";
+#endif
       pruneAndExtract(cppn, p, con, c, out);
-    else {
+
+    } else {
+      // Not enough information at lower resolution -> test if part of band
+
       static auto cppn_inputs = cppn.inputs();
       static auto cppn_outputs = cppn.outputs();
       const auto weight = [&cppn, &p, &c, out] (float x, float y) {
@@ -167,14 +214,32 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
       float dl = weight(cx-r, cy), dr = weight(cx+r, cy),
             dt = weight(cx, cy-r), db = weight(cx, cy+r);
 
+#ifdef DEBUG_QUADTREE_PRUNING
+      std::cout << "b> var = " << c->variance() << ", bnd = "
+                << std::max(std::min(dl, dr), std::min(dt, db))
+                << " = max(min(" << dl << ", " << dr << "), min(" << dt
+                << ", " << db << ")) && leo = "
+                << leoConnection(cppn, out ? p : c->center, out ? c->center : p)
+                << "\n";
+#endif
+
       if (std::max(std::min(dl, dr), std::min(dt, db)) > bndThr
-          && leoConnection(cppn, out ? p : c->center, out ? c->center : p)) {
+          && leoConnection(cppn, out ? p : c->center, out ? c->center : p)
+          && c->weight != 0) {
         con.push_back({
           out ? p : c->center, out ? c->center : p, c->weight
         });
+#ifdef DEBUG_QUADTREE_PRUNING
+        std::cout << " < created " << (out ? p : c->center) << " -> "
+                  << (out ? c->center : p) << " [" << c->weight << "]\n";
+#endif
       }
     }
   }
+
+#ifdef DEBUG_QUADTREE_PRUNING
+  std::cout << "}\n";
+#endif
 }
 
 void removeUnconnectedNeurons (const Coordinates &inputs,
@@ -395,7 +460,8 @@ ANN::Neuron::ptr ANN::addNeuron(void) {
 #endif
   auto n = std::make_shared<Neuron>();
 
-  n->value = (t == Neuron::B) ? 1 : 0;
+  n->input = 0;
+  n->output = (t == Neuron::B) ? 1 : 0;
 
 #ifndef CLUSTER_BUILD
   n->pos = p;
@@ -490,15 +556,20 @@ void ANN::render_gvc_graph(const std::string &path) const {
 #endif
 
 void ANN::reset(void) {
-  for (auto &p: _neurons) if (p.second->type != Neuron::B)  p.second->value = 0;
+  for (auto &p: _neurons) {
+    p.second->input = 0;
+    if (p.second->type != Neuron::B)  p.second->output = 0;
+  }
 }
 
 void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
-  static const auto activation = phenotype::CPPN::functions.at("sigm");
+  static const auto &activation =
+    phenotype::CPPN::functions.at(config::EvolvableSubstrate::activationFunc());
   assert(inputs.size() == _inputs.size());
   assert(outputs.size() == outputs.size());
 
-  for (uint i=0; i<inputs.size(); i++)  _inputs[i]->value = inputs[i];
+  for (uint i=0; i<inputs.size(); i++)
+    _inputs[i]->output = _inputs[i]->input = inputs[i];
 
 #ifdef DEBUG_COMPUTE
   using utils::operator<<;
@@ -506,30 +577,35 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 #endif
 
   for (uint s = 0; s < substeps; s++) {
+#ifdef DEBUG_COMPUTE
+    std::cerr << "#### Substep " << s+1 << " / " << substeps << "\n";
+#endif
+
     for (const auto &p: _neurons) {
       if (p.second->isInput()) continue;
 
-      float v = 0;
+      float &v = p.second->input = 0;
       for (const auto &l: p.second->links) {
 #ifdef DEBUG_COMPUTE
-        std::cerr << "\t\tv = " << v + l.weight * l.in.lock()->value
+        std::cerr << "        i> v = " << v + l.weight * l.in.lock()->output
                   << " = " << v << " + " << l.weight << " * "
-                  << l.in.lock()->value << "\n";
+                  << l.in.lock()->output << "\n";
 #endif
 
-        v += l.weight * l.in.lock()->value;
+        v += l.weight * l.in.lock()->output;
       }
 
-#ifdef DEBUG_COMPUTE
-      std::cerr << "\t" << p.first << ": " << activation(v) << " = sigm(" << v
-                << ")\n";
-#endif
+      p.second->output = activation(v);
 
-      p.second->value = activation(v);
+#ifdef DEBUG_COMPUTE
+      std::cerr << "      <o " << p.first << ": " << p.second->output << " = "
+                << config::EvolvableSubstrate::activationFunc() << "("
+                << p.second->input << ")\n";
+#endif
     }
   }
 
-  for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->value;
+  for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->output;
 
 #ifdef DEBUG_COMPUTE
   std::cerr << "outputs:\t" << outputs << "\n## --\n";
@@ -541,13 +617,83 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 #define CFILE config::EvolvableSubstrate
 
 DEFINE_PARAMETER(uint, initialDepth, 3)
-DEFINE_PARAMETER(uint, maxDepth, 5)
+DEFINE_PARAMETER(uint, maxDepth, 3)
 DEFINE_PARAMETER(uint, iterations, 1)
+
+DEFINE_PARAMETER(float, divThr, .03) // division
 DEFINE_PARAMETER(float, varThr, .03)  // variance
-DEFINE_PARAMETER(float, bndThr, .03)  // band
-DEFINE_PARAMETER(float, bprThr, .3) // band-pruning
-DEFINE_PARAMETER(float, divThr, .5) // division
+DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
 DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
-                 config::EvolvableSubstrateLEO::NONE)
+                 config::EvolvableSubstrateLEO::FILTER)
+
 DEFINE_PARAMETER(float, weightRange, 3)
+DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
+                       activationFunc, "ssgm")
+
+DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
+
 #undef CFILE
+
+
+#ifdef DEBUG_QUADTREE
+namespace quadtree_debug {
+
+const stdfs::path& debugFilePrefix(const stdfs::path &path) {
+  static stdfs::path p;
+  if (!path.empty())  p = path;
+  return p;
+}
+
+float trunc (float x) {
+  return std::round(100 * x) / 100.f;
+}
+
+using QTree = phenotype::evolvable_substrate::QuadTreeNode;
+void debugGenerateImages (const QTree &t,
+                          const phenotype::ANN::Point &p, bool in) {
+  if (debugFilePrefix().empty())
+    throw std::invalid_argument("debug file prefix is empty");
+
+  std::ostringstream oss;
+  oss << debugFilePrefix() << "_" << trunc(p.x()) << "_" << trunc(p.y()) << "_"
+      << (in ? "i" : "o") << ".png";
+  std::string output = oss.str();
+  std::cerr << "Writing quadtree-detected cppn pattern for " << p
+            << " to " << output << "\n";
+
+  oss.str("");
+  oss << "gnuplot -e \"\n"
+      << "  set term pngcairo size 1050,1050 font ',24' "
+        << "transparent;\n"
+      << "  set output '" << output << "';\n"
+      << "  set xrange [-1:1]; set yrange [-1:1];\n"
+//      << "  unset xtics; unset ytics; set margins 0,0,0,0;\n"
+      << "  set palette defined (0 'red', 1 'black', 2 'white');\n"
+      << "  set style rect lc rgb '#0000FF';"
+      << "  unset colorbox;\n"
+      << "\n";
+
+
+  using F = void (*) (std::ostream&, const QTree&);
+  static const F worker = [] (std::ostream &os, const QTree &t) {
+    if (t.cs.empty())
+      os << "  set object rect from " << t.center.x()-t.radius << ","
+         << t.center.y()-t.radius << " to " << t.center.x()+t.radius << ","
+         << t.center.y()+t.radius << " fc palette frac "
+         << (.5*t.weight + .5) << ";\n";
+    else  for (auto &c: t.cs)  worker(os, *c);
+  };
+//  oss << "  set object rect from -1,-1 to 0,0 fc palette frac 0.0;\n";
+//  oss << "  set object rect from 0,0 to 1,1 fc palette frac 0.5;\n";
+//  oss << "  set object rect from -1,0 to 0,1 fc palette frac 1.0;\n";
+  worker(oss, t);
+
+  oss << "  \nplot x linecolor '#FF000000' notitle;\"";
+
+  auto r = system(oss.str().c_str());
+//  std::cerr << "Executed\n" << oss.str() << "\nwith exit code " << r
+//            << std::endl;
+}
+
+} // end of namespace quadtree_debug
+#endif

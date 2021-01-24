@@ -3,16 +3,19 @@
 #include <QPainter>
 
 #include "outputsummary.h"
+#include "../verticalpanel.hpp"
 
-namespace kgd::gui::cppn {
+namespace kgd::es_hyperneat::gui::cppn {
 
 static constexpr int S = 25;
 
 struct OutputViewer : public QWidget {
   QImage image;
+  bool enabled;
 
   OutputViewer (QWidget *parent = nullptr) : QWidget(parent) {
-    image = QImage(S, S, QImage::Format_RGB32);
+    image = QImage(S, S, QImage::Format_ARGB32);
+    enabled = false;
   }
 
   QSize minimumSizeHint(void) const override {
@@ -22,26 +25,23 @@ struct OutputViewer : public QWidget {
   void paintEvent(QPaintEvent *e) override {
     QWidget::paintEvent(e);
     QPainter painter (this);
-    painter.drawImage(rect(), image);
+
+    if (enabled)
+      painter.drawImage(rect(), image.scaled(size(), Qt::KeepAspectRatio));
+
+    else {
+      painter.setRenderHint(QPainter::Antialiasing, true);
+      auto r = rect().adjusted(0, 0, -1, -1);
+      painter.drawRect(r);
+      painter.drawLine(r.topLeft(), r.bottomRight());
+      painter.drawLine(r.bottomLeft(), r.topRight());
+    }
   }
 };
 
-OutputSummary::OutputSummary (QWidget *parent) : QWidget(parent) {
-  auto layout = new QGridLayout;
-  layout->addWidget(_header = new QLabel, 0, 0, 1, 3, Qt::AlignCenter);
-  _header->setAlignment(Qt::AlignCenter);
-  layout->addWidget(keyLabel("in"), 2, 0);
-  layout->addWidget(keyLabel("out"), 3, 0);
-  layout->addWidget(keyLabel("w"), 1, 1);
-  layout->addWidget(keyLabel("l"), 1, 2);
-  for (uint i=0; i<2; i++)
-    for (uint j=0; j<2; j++)
-      layout->addWidget(_viewers[i*2+j] = new OutputViewer, i+2, j+1);
-  setLayout(layout);
-}
-
-QLabel* OutputSummary::keyLabel (const QString &text) {
-  auto *l = new QLabel (text);
+template <typename L = QLabel>
+L* keyLabel (const QString &text) {
+  auto *l = new L (text);
   l->setAlignment(Qt::AlignCenter);
   auto f = l->font();
   f.setItalic(true);
@@ -49,8 +49,28 @@ QLabel* OutputSummary::keyLabel (const QString &text) {
   return l;
 }
 
+OutputSummary::OutputSummary (QWidget *parent) : QWidget(parent) {
+  auto layout = new QGridLayout;
+  QWidget *spacer = new QWidget;
+  layout->addWidget(spacer, 0, 0, 1, 3);
+  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  layout->addWidget(_header = new QLabel, 1, 0, 1, 3, Qt::AlignCenter);
+  _header->setAlignment(Qt::AlignCenter);
+
+  using VLabel = kgd::gui::VLabel;
+  layout->addWidget(keyLabel<VLabel>("a, b, ., ."), 3, 0);
+  layout->addWidget(keyLabel<VLabel>("., ., a, b"), 4, 0);
+  layout->addWidget(keyLabel("w"), 2, 1);
+  layout->addWidget(keyLabel("l"), 2, 2);
+  for (uint i=0; i<2; i++)
+    for (uint j=0; j<2; j++)
+      layout->addWidget(_viewers[i*2+j] = new OutputViewer, i+3, j+1);
+  setLayout(layout);
+}
+
 void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
-                                phenotype::CPPN &cppn, const QPointF &p) {
+                                phenotype::CPPN &cppn, const QPointF &p,
+                                ShowFlags flag) {
   using CPPN = phenotype::CPPN;
   using Range = phenotype::CPPN::Range;
   static const auto &functionRanges = phenotype::CPPN::functionRanges;
@@ -68,6 +88,8 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
         << std::setw(5) << trunc(p.x()) << ", " << std::setw(5) << trunc(p.y());
     _header->setText(QString::fromStdString(oss.str()));
   }
+
+  noPhenotypes();
 
   std::array<CPPN::Inputs, 2> inputs;
   inputs.fill(cppn.inputs());
@@ -96,7 +118,9 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
   for (int r=0; r<S; r++) {
     std::array<QRgb*, 4> bytes;
     for (uint i=0; i<_viewers.size(); i++)
-      bytes[i] = (QRgb*) _viewers[i]->image.scanLine(r);
+      if ((i < 2 && (flag & SHOW_OUTGOING))
+       || (i >= 2 && (flag & SHOW_INCOMING)))
+        bytes[i] = (QRgb*) _viewers[i]->image.scanLine(r);
 
     // Invert y to account for downward y axis windows
     inputs[0][3] = inputs[1][1] = -2.*r/(S-1) + 1;
@@ -105,18 +129,33 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
       inputs[0][2] = inputs[1][0] = 2.*c/(S-1) - 1;
       for (uint i=0; i<2; i++)  cppn(inputs[i], outputs[i]);
 
-      bytes[0][c] = w_color(0, 0);
-      bytes[1][c] = l_color(0, 1);
-      bytes[2][c] = w_color(1, 0);
-      bytes[3][c] = l_color(1, 1);
+      if (flag & SHOW_OUTGOING) {
+        bytes[0][c] = w_color(0, 0);
+        bytes[1][c] = l_color(0, 1);
+      }
+
+      if (flag & SHOW_INCOMING) {
+        bytes[2][c] = w_color(1, 0);
+        bytes[3][c] = l_color(1, 1);
+      }
     }
   }
 
-  for (auto v: _viewers)  v->update();
+  uint px = .5 * (S-1) * (p.x() + 1), py = .5 * (S-1) * (1 - p.y());
+  for (uint i=0; i<_viewers.size(); i++) {
+    auto v = _viewers[i];
+    v->enabled = (i < 2 && (flag & SHOW_OUTGOING))
+              || (i >= 2 && (flag & SHOW_INCOMING));
+
+    if (v->enabled)
+      v->image.setPixel(px, py, QColor(Qt::green).rgb());
+
+    v->update();
+  }
 }
 
 void OutputSummary::noPhenotypes(void) {
-  for (auto v: _viewers)  v->image.fill(Qt::gray);
+  for (auto v: _viewers)  v->image.fill(Qt::transparent);
 }
 
-} // end of namespace kgd::gui::cppn
+} // end of namespace kgd::es_hyperneat::gui::cppn

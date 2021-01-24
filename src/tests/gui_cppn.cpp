@@ -35,8 +35,6 @@ int main (int argc, char **argv) {
 //    2 -> 7 [-1];
 //  )");
 
-  genome.recurrentDY = 2;
-
   phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
 
   phenotype::ANN::Coordinates rnd_hidden;
@@ -51,7 +49,7 @@ int main (int argc, char **argv) {
     genome, cppn
   );
 
-  kgd::gui::ES_HyperNEATPanel p;
+  kgd::es_hyperneat::gui::ES_HyperNEATPanel p;
   p.setData(genome, cppn, ann);
   p.show();
 
