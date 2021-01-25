@@ -639,7 +639,8 @@ void BWWindow::restoreSettings(void) {
   settings.endGroup();
 
   int selection = settings.value("selection").toInt();
-  if (selection >= 0) setSelectedIndividual(selection);
+  if (selection >= 0 && (uint)selection < _individuals.size())
+    setSelectedIndividual(selection);
 }
 
 void BWWindow::closeEvent(QCloseEvent *e) {

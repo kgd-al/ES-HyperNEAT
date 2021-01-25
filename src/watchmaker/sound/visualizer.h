@@ -11,7 +11,6 @@ namespace kgd::watchmaker::sound {
 class Visualizer : public QWidget {
   Q_OBJECT
 
-//  Generator _sound;
   const uchar _channel;
 
   const StaticData::NoteSheet *_notes;
@@ -50,9 +49,6 @@ public:
   void pause (void);
   void resume (void);
   void stop (void);
-//  const Generator& sound (void) const {
-//    return _sound;
-//  }
 
   void setHighlighted (bool s);
 
@@ -70,7 +66,6 @@ private:
   void timeout(void);
   void updateSlider (void);
   void nextNote (bool spontaneous);
-//  void stateChanged (QAudio::State s);
 };
 
 } // end of namespace kgd::watchmaker::sound

@@ -460,8 +460,7 @@ ANN::Neuron::ptr ANN::addNeuron(void) {
 #endif
   auto n = std::make_shared<Neuron>();
 
-  n->input = 0;
-  n->output = (t == Neuron::B) ? 1 : 0;
+  n->value = (t == Neuron::B) ? 1 : 0;
 
 #ifndef CLUSTER_BUILD
   n->pos = p;
@@ -556,10 +555,7 @@ void ANN::render_gvc_graph(const std::string &path) const {
 #endif
 
 void ANN::reset(void) {
-  for (auto &p: _neurons) {
-    p.second->input = 0;
-    if (p.second->type != Neuron::B)  p.second->output = 0;
-  }
+  for (auto &p: _neurons) if (p.second->type != Neuron::B)  p.second->value = 0;
 }
 
 void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
@@ -568,8 +564,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
   assert(inputs.size() == _inputs.size());
   assert(outputs.size() == outputs.size());
 
-  for (uint i=0; i<inputs.size(); i++)
-    _inputs[i]->output = _inputs[i]->input = inputs[i];
+  for (uint i=0; i<inputs.size(); i++) _inputs[i]->value = inputs[i];
 
 #ifdef DEBUG_COMPUTE
   using utils::operator<<;
@@ -584,28 +579,28 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
     for (const auto &p: _neurons) {
       if (p.second->isInput()) continue;
 
-      float &v = p.second->input = 0;
+      float v = 0;
       for (const auto &l: p.second->links) {
 #ifdef DEBUG_COMPUTE
-        std::cerr << "        i> v = " << v + l.weight * l.in.lock()->output
+        std::cerr << "        i> v = " << v + l.weight * l.in.lock()->value
                   << " = " << v << " + " << l.weight << " * "
-                  << l.in.lock()->output << "\n";
+                  << l.in.lock()->value << "\n";
 #endif
 
-        v += l.weight * l.in.lock()->output;
+        v += l.weight * l.in.lock()->value;
       }
 
-      p.second->output = activation(v);
+      p.second->value = activation(v);
 
 #ifdef DEBUG_COMPUTE
-      std::cerr << "      <o " << p.first << ": " << p.second->output << " = "
+      std::cerr << "      <o " << p.first << ": " << p.second->value << " = "
                 << config::EvolvableSubstrate::activationFunc() << "("
-                << p.second->input << ")\n";
+                << v << ")\n";
 #endif
     }
   }
 
-  for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->output;
+  for (uint i=0; i<_outputs.size(); i++)  outputs[i] = _outputs[i]->value;
 
 #ifdef DEBUG_COMPUTE
   std::cerr << "outputs:\t" << outputs << "\n## --\n";

@@ -32,11 +32,12 @@ struct MidiWrapper {
 
   static void sendMessage (const std::vector<uchar> &message);
 
+  static uchar velocity (float volume);
+  static uchar key (int index);
+
   static void setInstrument (uchar channel, uchar i);
   static void noteOn (uchar channel, uchar note, uchar volume);
   static void notesOff (uchar channel);
-
-  static void noteOn (uchar channel, uchar note_index, float volume);
 
   static bool writeMidi (const StaticData::NoteSheet &notes,
                          const std::string &path);

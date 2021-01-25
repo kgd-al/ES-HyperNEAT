@@ -27,7 +27,6 @@ static const bool b = [] {
 
 Visualizer::Visualizer(uchar channel, QWidget *parent)
   : QWidget(parent), _channel(channel) {
-//  setSizePolicy(QSizePolicy::Fixed,QSizePolicy::Fixed);
   QSizePolicy sizePolicy (QSizePolicy::Expanding, QSizePolicy::Preferred );
   sizePolicy.setHeightForWidth(true);
   setSizePolicy(sizePolicy);
@@ -45,17 +44,11 @@ Visualizer::Visualizer(uchar channel, QWidget *parent)
   _sliderPos = 0;
 
   _data = QImage(StaticData::NOTES, StaticData::CHANNELS, QImage::Format_RGB32);
-
-//  _sound.setNotifyPeriod(25);
-//  connect(&_sound, &Generator::notify, this, &Visualizer::updateSlider);
-//  connect(&_sound, &Generator::stateChanged, this, &Visualizer::stateChanged);
-//  connect(&_sound, &Generator::notifyNote, this, &Visualizer::notifyNote);
 }
 
 Visualizer::~Visualizer(void) {}
 
 void Visualizer::setNoteSheet(const StaticData::NoteSheet &notes) {
-//  _sound.setNoteSheet(notes);
   _notes = &notes;
 
   for (uint c=0; c<StaticData::CHANNELS; c++) {
@@ -99,11 +92,9 @@ void Visualizer::resume (void) {
 }
 
 void Visualizer::stop (void) {
-//  _sound.stop();
   MidiWrapper::notesOff(_channel);
   _timer.stop();
   _currentMS = 0;
-//  _sliderPos = 0;
 }
 
 void Visualizer::setHighlighted(bool h) {
@@ -120,16 +111,9 @@ void Visualizer::timeout(void) {
 }
 
 void Visualizer::updateSlider(void) {
-//  _sliderPos = std::fmod(_sound.progress(), 1);
-//  qDebug() << "Underlying sound object has progressed to" << _sliderPos;
   _sliderPos = float(_currentMS) / DURATION_MS;
   update();
 }
-
-//void Visualizer::stateChanged(QAudio::State s) {
-//  _playing = (s == QAudio::ActiveState);
-////  qDebug() << "Underlying sound object changed stated to" << s;
-//}
 
 void Visualizer::nextNote(bool spontaneous) {
   static constexpr auto C = StaticData::CHANNELS;
@@ -155,13 +139,15 @@ void Visualizer::nextNote(bool spontaneous) {
   std::cout << " ]\n";
 
   for (uint i=0; i<C; i++) {
-    float n = (*_notes)[i+C*_currNote];
+    float fn = (*_notes)[i+C*_currNote];
+    uchar cn = MidiWrapper::velocity(fn);
 //    std::cerr << "note[" << i << "] = " << n << ", prev was " << _prevNote;
 //    if (_prevNote >= 0)
 //      std::cerr << ": " << (*_notes)[i+C*_prevNote] << "\n";
-    if (_prevNote <= 0 || (*_notes)[i+C*_prevNote] != n) {
-      MidiWrapper::noteOn(_channel, i, 0.f);
-      MidiWrapper::noteOn(_channel, i, 2*(n-.5f));
+    if (_prevNote <= 0
+        || MidiWrapper::velocity((*_notes)[i+C*_prevNote]) != cn) {
+      MidiWrapper::noteOn(_channel, i, 0);
+      MidiWrapper::noteOn(_channel, i, cn);
     }
   }
 

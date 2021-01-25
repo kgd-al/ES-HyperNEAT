@@ -29,15 +29,17 @@ void NeuronStateViewer::displayState(const Neuron &n) {
   qts.setNumberFlags(QTextStream::ForceSign);
   qts << " input:\n";
 
+  float input = 0;
   for (const phenotype::ANN::Neuron::Link &l: n.links) {
     const Neuron &in = *l.in.lock();
     qts << "[" << in.pos.x() << ", " << in.pos.y() << "] "
-        << in.output * l.weight << " (" << in.output << " * " << l.weight
+        << in.value * l.weight << " (" << in.value << " * " << l.weight
         << ")\n";
+    input += in.value * l.weight;
   }
 
-  qts << "                 = " << n.input << "\n"
-      << "output: " << n.output << " = " << activation << "(" << n.input << ")";
+  qts << "                 = " << input << "\n"
+      << "output: " << n.value << " = " << activation << "(" << input << ")";
   setPlainText(contents);
 }
 

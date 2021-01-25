@@ -30,8 +30,11 @@
 
 namespace kgd::watchmaker::sound {
 
-uchar key (uchar index) {   return StaticData::BASE_A+index;  }
-uchar vel (float volume)  { return std::round(127*std::max(0.f, volume)); }
+uchar MidiWrapper::key (int index) {   return StaticData::BASE_A+index;  }
+uchar MidiWrapper::velocity (float volume) {
+  assert(0 <= volume && volume <= 1);
+  return std::round(127*std::max(0.f, 2*volume-1));
+}
 
 RtMidiOut& MidiWrapper::midiOut (void) {
   static RtMidiOut *o = new RtMidiOut(RtMidi::LINUX_ALSA);
@@ -100,10 +103,6 @@ void MidiWrapper::noteOn(uchar channel, uchar note, uchar volume) {
   sendMessage(buffer);
 }
 
-void MidiWrapper::noteOn(uchar channel, uchar note_index, float volume) {
-  noteOn(channel, key(note_index), vel(volume));
-}
-
 void MidiWrapper::notesOff(uchar channel) {
   static std::vector<uchar> buffer ({0x90, 0x00, 0x00});
   buffer[0] = 0xB0 | (channel & 0x0F);
@@ -118,6 +117,9 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 //  static constexpr auto S = StaticData::STEP;
   static constexpr auto C = StaticData::CHANNELS;
   static constexpr auto T = StaticData::TEMPO;
+  static constexpr auto A = StaticData::BASE_A;
+
+  static std::vector<uchar> notesOff { 0xB0, 0x7B, 0x00 };
 
 //  std::ofstream ofs (path, std::ios::out | std::ios::binary);
 //  if (!ofs) return false;
@@ -136,22 +138,41 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 
   smf::MidiFile midifile;
   midifile.addTempo(0, 0, T);
-  midifile.setTicksPerQuarterNote(96);
+  midifile.setTicksPerQuarterNote(120);
   midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
 
+  std::array<bool, C> on {false};
   int tpq = midifile.getTPQ();
   for (uint n=0; n<N; n++) {
     int t = tpq * n;  /// TODO Debug
 //    std::cerr << "t(" << n << ") = " << t << "\n";
     for (uint c=0; c<C; c++) {
-      float v = 2 * (notes[c+C*n] - .5);
-      if (n < 1 || notes[c+C*(n-1)] != v) {
-        if (n > 0)  midifile.addNoteOff(0, t, 0, 60+c);
-        midifile.addNoteOn(0, t, 0, key(c), vel(v));
+      float fn = notes[c+C*n];
+      uchar cn = velocity(fn);
+      std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
+                << (int)cn << " = " << fn << "\n";
+      if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
+        if (on[c] > 0 && cn > 0) {
+          midifile.addNoteOff(0, t, 0, A+c, 0);
+          on[c] = false;
+        }
+
+        if (cn > 0) {
+          midifile.addNoteOn(0, t, 0, key(c), cn);
+          on[c] = true;
+        }
       }
     }
   }
+
+  for (uint c=0; c<C; c++)
+    if (on[c])
+      midifile.addNoteOff(0, tpq * N, 0, A+c, 0);
+
   midifile.sortTracks();
+
+  midifile.doTimeAnalysis();
+  std::cerr << "total duration: " << midifile.getFileDurationInSeconds() << "\n";
 
   midifile.write(path);
 

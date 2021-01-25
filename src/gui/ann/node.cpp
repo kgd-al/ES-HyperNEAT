@@ -24,7 +24,7 @@ std::ostream& operator<< (std::ostream &os, const Node &n) {
   return os << n._neuron.pos
             << "{" << n.pos() << "}"
             << "@" << &n._neuron
-            << ": " << n._neuron.input << " -> " << n._neuron.output;
+            << ": " << n._neuron.value;
 }
 #endif
 
@@ -84,8 +84,8 @@ static QColor redBlackGradient(float v) {
 
 void Node::updateAnimation (bool running) {
   if (running) {
-    _currentColor = redBlackGradient(_neuron.output);
-    for (Edge *e: out)  e->updateAnimation(_neuron.output);
+    _currentColor = redBlackGradient(_neuron.value);
+    for (Edge *e: out)  e->updateAnimation(_neuron.value);
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
