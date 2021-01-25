@@ -9,7 +9,7 @@ namespace kgd::watchmaker::sound {
 
 struct StaticData {
   static constexpr uint CHANNELS = 4;
-  static constexpr uint TEMPO = 120;  // BPM
+  static constexpr uint TEMPO = 240;  // BPM
   static constexpr uint NOTES = 10;
 
   static constexpr float NOTE_DURATION = 60.f / TEMPO;

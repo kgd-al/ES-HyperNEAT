@@ -114,67 +114,82 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
                             const std::string &path) {
 
   static constexpr auto N = StaticData::NOTES;
-//  static constexpr auto S = StaticData::STEP;
   static constexpr auto C = StaticData::CHANNELS;
   static constexpr auto T = StaticData::TEMPO;
   static constexpr auto A = StaticData::BASE_A;
 
   static std::vector<uchar> notesOff { 0xB0, 0x7B, 0x00 };
 
-//  std::ofstream ofs (path, std::ios::out | std::ios::binary);
-//  if (!ofs) return false;
+  {
+    stdfs::path kgd_path = path;
+    kgd_path.replace_extension(".kgd.mid");
+    std::ofstream ofs (kgd_path, std::ios::out | std::ios::binary);
+    if (!ofs) return false;
 
-////  uint16_t tickdiv = StaticData::STEP;
+  //  uint16_t tickdiv = StaticData::STEP;
 
-//  // header
-//  ofs << "MThd"     // Identifier
-//      << 0x00000006 // Chunklen (fixed to 6)
-//      << 0x0000     // Format 0 -> single track midi
-//      << 0x0001     // 1 track
-//      << 0x0060;    // 96 ppqn (TODO improve)
+    // header
+    ofs << "MThd"     // Identifier
+        << (uint32_t)0x00000006 // Chunklen (fixed to 6)
+        << (uint16_t)0x0000     // Format 0 -> single track midi
+        << (uint16_t)0x0001     // 1 track
+        << (uint16_t)0x0060;    // 96 ppqn (TODO improve)
 
-//  // data
-//  ofs << "MTrk";  // Identifier
+    // data
+    ofs << "MTrk"       // Identifier
+        << 0x00000006;  // Track length (filled in latter)
 
-  smf::MidiFile midifile;
-  midifile.addTempo(0, 0, T);
-  midifile.setTicksPerQuarterNote(120);
-  midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
+    // Set tempo
+    int tempo_us = int(60.f / T * 1000000.f + .5f);
+    ofs << (uint16_t)0xff5103
+        << uchar((tempo_us >> 16) & 0xff)
+        << uchar((tempo_us >>  8) & 0xff)
+        << uchar( tempo_us        & 0xff);
 
-  std::array<bool, C> on {false};
-  int tpq = midifile.getTPQ();
-  for (uint n=0; n<N; n++) {
-    int t = tpq * n;  /// TODO Debug
-//    std::cerr << "t(" << n << ") = " << t << "\n";
-    for (uint c=0; c<C; c++) {
-      float fn = notes[c+C*n];
-      uchar cn = velocity(fn);
-      std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
-                << (int)cn << " = " << fn << "\n";
-      if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
-        if (on[c] > 0 && cn > 0) {
-          midifile.addNoteOff(0, t, 0, A+c, 0);
-          on[c] = false;
-        }
+  }{
+    smf::MidiFile midifile;
+    midifile.addTempo(0, 0, T);
+    midifile.setTicksPerQuarterNote(120);
+    midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
 
-        if (cn > 0) {
-          midifile.addNoteOn(0, t, 0, key(c), cn);
-          on[c] = true;
+    std::array<bool, C> on {false};
+    int tpq = midifile.getTPQ();
+    for (uint n=0; n<N; n++) {
+      int t = tpq * n;  /// TODO Debug
+  //    std::cerr << "t(" << n << ") = " << t << "\n";
+      for (uint c=0; c<C; c++) {
+        float fn = notes[c+C*n];
+        uchar cn = velocity(fn);
+        std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
+                  << (int)cn << " = " << fn << "\n";
+        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
+          if (on[c] > 0 && cn > 0) {
+            midifile.addNoteOff(0, t, 0, A+c, 0);
+            on[c] = false;
+          }
+
+          if (cn > 0) {
+            midifile.addNoteOn(0, t, 0, key(c), cn);
+            on[c] = true;
+          }
         }
       }
     }
+
+  //  for (uint c=0; c<C; c++)
+  //    if (on[c])
+  //      midifile.addNoteOff(0, tpq * N, 0, A+c, 0);
+    midifile.addEvent(0, tpq * N, notesOff);
+
+    midifile.sortTracks();
+
+    midifile.doTimeAnalysis();
+    std::cerr << "total duration: " << midifile.getFileDurationInSeconds() << "\n";
+
+    stdfs::path midifile_path = path;
+    midifile_path.replace_extension(".midifile.mid");
+    midifile.write(midifile_path);
   }
-
-  for (uint c=0; c<C; c++)
-    if (on[c])
-      midifile.addNoteOff(0, tpq * N, 0, A+c, 0);
-
-  midifile.sortTracks();
-
-  midifile.doTimeAnalysis();
-  std::cerr << "total duration: " << midifile.getFileDurationInSeconds() << "\n";
-
-  midifile.write(path);
 
   return true;
 }

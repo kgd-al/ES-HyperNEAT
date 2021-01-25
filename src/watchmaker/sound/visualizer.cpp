@@ -139,6 +139,7 @@ void Visualizer::nextNote(bool spontaneous) {
   std::cout << " ]\n";
 
   for (uint i=0; i<C; i++) {
+    uchar k = MidiWrapper::key(i);
     float fn = (*_notes)[i+C*_currNote];
     uchar cn = MidiWrapper::velocity(fn);
 //    std::cerr << "note[" << i << "] = " << n << ", prev was " << _prevNote;
@@ -146,8 +147,8 @@ void Visualizer::nextNote(bool spontaneous) {
 //      std::cerr << ": " << (*_notes)[i+C*_prevNote] << "\n";
     if (_prevNote <= 0
         || MidiWrapper::velocity((*_notes)[i+C*_prevNote]) != cn) {
-      MidiWrapper::noteOn(_channel, i, 0);
-      MidiWrapper::noteOn(_channel, i, cn);
+      MidiWrapper::noteOn(_channel, k, 0);
+      MidiWrapper::noteOn(_channel, k, cn);
     }
   }
 
