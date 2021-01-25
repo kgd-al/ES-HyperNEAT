@@ -110,6 +110,20 @@ void MidiWrapper::notesOff(uchar channel) {
   sendMessage(buffer);
 }
 
+template <typename T>
+void write (std::ostream &os, T value) {
+  static_assert(std::is_integral<T>::value,
+      "Only integers can be written. Quantize first");
+  static constexpr auto S = sizeof(T);
+  static_assert(S >= 1, "Doesn't make any sense");
+
+  union { std::array<uchar, S> array; T value; } data;
+  data.value = value;
+
+  for (auto it=data.array.rbegin(); it != data.array.rend(); ++it)
+    os << *it;
+}
+
 bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
                             const std::string &path) {
 
@@ -129,9 +143,9 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
   //  uint16_t tickdiv = StaticData::STEP;
 
     // header
-    ofs << "MThd"     // Identifier
-        << (uint32_t)0x00000006 // Chunklen (fixed to 6)
-        << (uint16_t)0x0000     // Format 0 -> single track midi
+    write(ofs, 0x4D546864); // Identifier
+    write(ofs, 0x00000006); // Chunklen (fixed to 6)
+    ofs << (uint16_t)0x0000     // Format 0 -> single track midi
         << (uint16_t)0x0001     // 1 track
         << (uint16_t)0x0060;    // 96 ppqn (TODO improve)
 
