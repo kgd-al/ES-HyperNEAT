@@ -111,13 +111,12 @@ void MidiWrapper::notesOff(uchar channel) {
 }
 
 template <typename T>
-void write (std::ostream &os, T value) {
-  static_assert(std::is_integral<T>::value,
-      "Only integers can be written. Quantize first");
+typename std::enable_if<std::is_integral<T>::value, void>::type
+write (std::ostream &os, T value) {
   static constexpr auto S = sizeof(T);
   static_assert(S >= 1, "Doesn't make any sense");
 
-  union { std::array<uchar, S> array; T value; } data;
+  union { std::array<uint8_t, S> array; T value; } data;
   data.value = value;
 
   for (auto it=data.array.rbegin(); it != data.array.rend(); ++it)
@@ -140,30 +139,28 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
     std::ofstream ofs (kgd_path, std::ios::out | std::ios::binary);
     if (!ofs) return false;
 
-  //  uint16_t tickdiv = StaticData::STEP;
-
     // header
-    write(ofs, 0x4D546864); // Identifier
-    write(ofs, 0x00000006); // Chunklen (fixed to 6)
-    ofs << (uint16_t)0x0000     // Format 0 -> single track midi
-        << (uint16_t)0x0001     // 1 track
-        << (uint16_t)0x0060;    // 96 ppqn (TODO improve)
+    ofs << "MThd";                    // Identifier
+    write<uint32_t>(ofs, 0x00000006); // Chunklen (fixed to 6)
+    write<uint16_t>(ofs, 0x0000);     // Format 0 -> single track midi
+    write<uint16_t>(ofs, 0x0001);     // 1 track
+    write<uint16_t>(ofs, 0x0060);     // 96 ppqn
 
     // data
-    ofs << "MTrk"       // Identifier
-        << 0x00000006;  // Track length (filled in latter)
+    ofs << "MTrk";                    // Identifier
+    write<uint32_t>(ofs, 0x0000000A); // Track length (filled in latter)
 
     // Set tempo
     int tempo_us = int(60.f / T * 1000000.f + .5f);
-    ofs << (uint16_t)0xff5103
-        << uchar((tempo_us >> 16) & 0xff)
-        << uchar((tempo_us >>  8) & 0xff)
-        << uchar( tempo_us        & 0xff);
+    write(ofs, 0xff510300 | (tempo_us >> 16));
+    write<uint16_t>(ofs, tempo_us);
+
+    write<uint16_t>(ofs, 0xC000 | config::WatchMaker::midiInstrument());
 
   }{
     smf::MidiFile midifile;
     midifile.addTempo(0, 0, T);
-    midifile.setTicksPerQuarterNote(120);
+    midifile.setTicksPerQuarterNote(96);
     midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
 
     std::array<bool, C> on {false};
