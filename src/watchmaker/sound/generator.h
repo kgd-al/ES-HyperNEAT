@@ -9,16 +9,17 @@ namespace kgd::watchmaker::sound {
 
 struct StaticData {
   static constexpr uint CHANNELS = 4;
-  static constexpr uint TEMPO = 480;  // BPM
-  static constexpr uint NOTES = 20;
-
-  static constexpr float NOTE_DURATION = 60.f / TEMPO;
-  static constexpr float SONG_DURATION = NOTES * 60.f / TEMPO;
-
-  static constexpr uint BASE_OCTAVE = 3;
-  static constexpr uint BASE_A = 21 + 12 * BASE_OCTAVE;
-
+  static constexpr uint NOTES = 10;
   using NoteSheet = std::array<float, NOTES*CHANNELS>;
+
+  static const uint TEMPO;  // BPM
+
+  static const float NOTE_DURATION;
+  static const float SONG_DURATION;
+
+  static const uint BASE_OCTAVE;
+  static const uint BASE_A;
+
 
   enum PlaybackType {
     LOOP, ONE_PASS, ONE_NOTE

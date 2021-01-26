@@ -20,6 +20,7 @@ DEFINE_CONST_PARAMETER(uint, songDuration, D::SONG_DURATION)
 
 DEFINE_PARAMETER(std::string, midiPort, "Timidity")
 DEFINE_PARAMETER(int, midiInstrument, 0)
+DEFINE_PARAMETER(bool, polyphonic, true)
 
 DEFINE_SUBCONFIG(config::EvolvableSubstrate, configESHN)
 

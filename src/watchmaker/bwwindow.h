@@ -63,7 +63,7 @@ private:
   QSplitter *_splitter;
   kgd::es_hyperneat::gui::ES_HyperNEATPanel *_details;
 
-  static constexpr uint N = 1;
+  static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
 
   using IPtr = simu::Individual::ptr;

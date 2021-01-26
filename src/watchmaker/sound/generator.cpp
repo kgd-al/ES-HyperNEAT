@@ -30,7 +30,16 @@
 
 namespace kgd::watchmaker::sound {
 
-uchar MidiWrapper::key (int index) {   return StaticData::BASE_A+index;  }
+const uint StaticData::TEMPO = 120;  // BPM
+
+const float StaticData::NOTE_DURATION = 60.f / StaticData::TEMPO;
+const float StaticData::SONG_DURATION =
+    StaticData::NOTES * 60.f / StaticData::TEMPO;
+
+const uint StaticData::BASE_OCTAVE = 1;
+const uint StaticData::BASE_A = 21 + 12 * StaticData::BASE_OCTAVE;
+
+uchar MidiWrapper::key (int index) {   return StaticData::BASE_A+12*index;  }
 uchar MidiWrapper::velocity (float volume) {
   assert(0 <= volume && volume <= 1);
   return std::round(127*std::max(0.f, 2*volume-1));

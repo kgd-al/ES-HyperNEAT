@@ -9,9 +9,9 @@
 
 namespace kgd::watchmaker::sound {
 
-static constexpr uint MS_PER_NOTE = StaticData::NOTE_DURATION * 1000.;
-static constexpr uint UPDATE_PERIOD_MS = 1000. / 25;
-static constexpr uint DURATION_MS = StaticData::SONG_DURATION * 1000;
+static const uint MS_PER_NOTE = StaticData::NOTE_DURATION * 1000.;
+static const uint UPDATE_PERIOD_MS = 1000. / 25;
+static const uint DURATION_MS = StaticData::SONG_DURATION * 1000;
 
 static const bool b = [] {
   using D = StaticData;

@@ -29,6 +29,7 @@ struct CONFIG_FILE(WatchMaker) {
 
   DECLARE_PARAMETER(std::string, midiPort)
   DECLARE_PARAMETER(int, midiInstrument)
+  DECLARE_PARAMETER(bool, polyphonic)
 
   DECLARE_PARAMETER(int, dataLogLevel)
 };

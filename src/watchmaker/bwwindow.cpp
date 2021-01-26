@@ -356,8 +356,21 @@ void BWWindow::evaluateIndividual(IPtr &i, uint step, bool setPhenotype) {
 
   ann(inputs, outputs, i->genome.substeps);
 
-  if (setPhenotype)
+  if (setPhenotype) {
+    if (!config::WatchMaker::polyphonic()) {
+      // Only take maximally activated neuron in monophonic mode
+      uint i=0;
+      float max = 0;
+      for (uint c = 0; c<C; c++) {
+        if (max < outputs[c]) {
+          i = c;
+          max = outputs[c];
+        }
+      }
+      for (uint c = 0; c<C; c++)  if (c != i) outputs[c] = 0;
+    }
     std::copy(outputs.begin(), outputs.end(), notes.begin()+step*C);
+  }
 }
 
 void BWWindow::logIndividual(uint index, const stdfs::path &f,
