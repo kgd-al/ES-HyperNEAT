@@ -148,12 +148,12 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 
     // data
     ofs << "MTrk";                    // Identifier
-    write<uint32_t>(ofs, 0x0000000A); // Track length (filled in latter)
+    write<uint32_t>(ofs, 0x00000013); // Track length (filled in latter)
 
     // Set tempo
     int tempo_us = int(60.f / T * 1000000.f + .5f);
-    write(ofs, 0xff510300 | (tempo_us >> 16));
-    write<uint16_t>(ofs, tempo_us);
+    write<uint32_t>(ofs, 0x00ff5103);     // TODO Midifile seems to write two 32-bits value instead of 24
+    write<uint32_t>(ofs, tempo_us <<8);
 
     write<uint16_t>(ofs, 0xC000 | config::WatchMaker::midiInstrument());
 
@@ -173,17 +173,17 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
         uchar cn = velocity(fn);
         std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
                   << (int)cn << " = " << fn << "\n";
-        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
-          if (on[c] > 0 && cn > 0) {
-            midifile.addNoteOff(0, t, 0, A+c, 0);
-            on[c] = false;
-          }
+//        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
+//          if (on[c] > 0 && cn > 0) {
+//            midifile.addNoteOff(0, t, 0, A+c, 0);
+//            on[c] = false;
+//          }
 
-          if (cn > 0) {
-            midifile.addNoteOn(0, t, 0, key(c), cn);
-            on[c] = true;
-          }
-        }
+//          if (cn > 0) {
+//            midifile.addNoteOn(0, t, 0, key(c), cn);
+//            on[c] = true;
+//          }
+//        }
       }
     }
 
@@ -192,7 +192,7 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
   //      midifile.addNoteOff(0, tpq * N, 0, A+c, 0);
     midifile.addEvent(0, tpq * N, notesOff);
 
-    midifile.sortTracks();
+//    midifile.sortTracks();
 
     midifile.doTimeAnalysis();
     std::cerr << "total duration: " << midifile.getFileDurationInSeconds() << "\n";
