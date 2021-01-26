@@ -129,7 +129,8 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
   static constexpr auto N = StaticData::NOTES;
   static constexpr auto C = StaticData::CHANNELS;
   static constexpr auto T = StaticData::TEMPO;
-  static constexpr auto A = StaticData::BASE_A;
+
+  static constexpr auto tpq = 96;
 
   static std::vector<uchar> notesOff { 0xB0, 0x7B, 0x00 };
 
@@ -144,27 +145,98 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
     write<uint32_t>(ofs, 0x00000006); // Chunklen (fixed to 6)
     write<uint16_t>(ofs, 0x0000);     // Format 0 -> single track midi
     write<uint16_t>(ofs, 0x0001);     // 1 track
-    write<uint16_t>(ofs, 0x0060);     // 96 ppqn
+    write<uint16_t>(ofs, tpq);        // ppqn/tpq
 
     // data
     ofs << "MTrk";                    // Identifier
-    write<uint32_t>(ofs, 0x00000013); // Track length (filled in latter)
+    write<uint32_t>(ofs, 0x00000063); // Track length (filled in latter)
 
-    // Set tempo
+    // Set tempo (at time 0)
     int tempo_us = int(60.f / T * 1000000.f + .5f);
-    write<uint32_t>(ofs, 0x00ff5103);     // TODO Midifile seems to write two 32-bits value instead of 24
-    write<uint32_t>(ofs, tempo_us <<8);
+    write<uint32_t>(ofs, 0x00ff5103);
+    write<uint16_t>(ofs, tempo_us >>8);
+    write<uint8_t>(ofs, (uint8_t)(tempo_us & 0xFF));
 
+    write<uint8_t>(ofs, 0x00);  // Instrument change at time 0
     write<uint16_t>(ofs, 0xC000 | config::WatchMaker::midiInstrument());
+
+    uint32_t prev = 0;
+    std::array<bool, C> on {false};
+
+    const auto writeDt = [&ofs, &prev] (uint32_t t) {
+      uint32_t dt = t - prev;
+      prev = t;
+
+      uint8_t bytes [4] {
+        (uint8_t)(((uint32_t)dt >> 21) & 0x7f),  // most significant 7 bits
+        (uint8_t)(((uint32_t)dt >> 14) & 0x7f),
+        (uint8_t)(((uint32_t)dt >> 7)  & 0x7f),
+        (uint8_t)(((uint32_t)dt)       & 0x7f),  // least significant 7 bits
+      };
+
+      int start = 0;
+      while ((start<4) && (bytes[start] == 0))  start++;
+
+      for (int i=start; i<3; i++) {
+        bytes[i] = bytes[i] | 0x80;
+        write(ofs, bytes[i]);
+      }
+      write(ofs, bytes[3]);
+    };
+    const auto noteEvent =
+      [writeDt, &ofs, &prev] (uint t, uint8_t note, uint8_t velocity, bool on) {
+      writeDt(t);
+      write(ofs, uint8_t(on ? 0x90 : 0x80));
+      write(ofs, note);
+      write(ofs, velocity);
+    };
+
+    for (uint n=0; n<N; n++) {
+      int t = tpq * n;
+
+      for (uint c=0; c<C; c++) {
+        float fn = notes[c+C*n];
+        uchar cn = velocity(fn);
+
+        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
+          if (on[c]) {
+            noteEvent(t, key(c), 0, false);
+            on[c] = false;
+          }
+
+          if (cn > 0) {
+            noteEvent(t, key(c), cn, true);
+            on[c] = true;
+          }
+        }
+      }
+    }
+
+    // All notes off
+    writeDt(tpq * N);
+    write<uint16_t>(ofs, 0xB07B);
+    write<uint8_t>(ofs, 0x00);
+
+    // End of track
+    writeDt(tpq * N);
+    write<uint16_t>(ofs, 0xFF2F);
+    write<uint8_t>(ofs, 0x00);
+
+    // Write track size back into header
+    uint32_t size = ofs.tellp();
+    std::cerr << "end of file at pos " << size << "\n";
+    size -= 22;
+    ofs.seekp(18, std::ios::beg);
+    write(ofs, size);
 
   }{
     smf::MidiFile midifile;
+    midifile.setTicksPerQuarterNote(tpq);
+
     midifile.addTempo(0, 0, T);
-    midifile.setTicksPerQuarterNote(96);
     midifile.addTimbre(0, 0, 0, config::WatchMaker::midiInstrument());
 
     std::array<bool, C> on {false};
-    int tpq = midifile.getTPQ();
     for (uint n=0; n<N; n++) {
       int t = tpq * n;  /// TODO Debug
   //    std::cerr << "t(" << n << ") = " << t << "\n";
@@ -173,17 +245,17 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
         uchar cn = velocity(fn);
         std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
                   << (int)cn << " = " << fn << "\n";
-//        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
-//          if (on[c] > 0 && cn > 0) {
-//            midifile.addNoteOff(0, t, 0, A+c, 0);
-//            on[c] = false;
-//          }
+        if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
+          if (on[c] > 0) {
+            midifile.addNoteOff(0, t, 0, key(c), 0);
+            on[c] = false;
+          }
 
-//          if (cn > 0) {
-//            midifile.addNoteOn(0, t, 0, key(c), cn);
-//            on[c] = true;
-//          }
-//        }
+          if (cn > 0) {
+            midifile.addNoteOn(0, t, 0, key(c), cn);
+            on[c] = true;
+          }
+        }
       }
     }
 
