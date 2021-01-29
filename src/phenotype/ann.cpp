@@ -623,7 +623,7 @@ DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
 
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
-                       activationFunc, "ssgm")
+                       activationFunc, "kact")
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 

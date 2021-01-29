@@ -28,6 +28,11 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   F("bsgm", 2.f / (1.f + std::exp(-4.9*x)) - 1.f),
   F( "sin", std::sin(2*x)),
   F("step", x < 0 ? 0 : 1),
+
+  // Custom-made activation function
+  // kact(-inf) = 0, kact(0) = 0, kact(+inf) = 1
+  // kact'(0^-) = kact'(0^+) = 2
+  F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x))
 };
 #undef F
 
@@ -49,6 +54,8 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   F("bsgm", -1, 1),
   F( "sin", -1, 1),
   F("step",  0, 1),
+
+  F("kact", -1, 1), // Not really (min value ~ .278)
 };
 #undef F
 

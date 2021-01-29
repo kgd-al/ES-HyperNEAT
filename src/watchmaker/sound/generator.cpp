@@ -41,8 +41,8 @@ const uint StaticData::BASE_A = 21 + 12 * StaticData::BASE_OCTAVE;
 
 uchar MidiWrapper::key (int index) {   return StaticData::BASE_A+12*index;  }
 uchar MidiWrapper::velocity (float volume) {
-  assert(0 <= volume && volume <= 1);
-  return std::round(127*std::max(0.f, 2*volume-1));
+  assert(-1 <= volume && volume <= 1);
+  return std::round(127*std::max(0.f, volume));
 }
 
 RtMidiOut& MidiWrapper::midiOut (void) {

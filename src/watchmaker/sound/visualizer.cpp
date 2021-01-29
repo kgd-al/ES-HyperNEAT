@@ -55,7 +55,7 @@ void Visualizer::setNoteSheet(const StaticData::NoteSheet &notes) {
     auto b = (QRgb*) _data.scanLine(c);
     for (uint n=0; n<StaticData::NOTES; n++)
       b[n] = QColor::fromHsv(
-        0, 0, 255*2*std::max(0.f, notes[n*StaticData::CHANNELS+c]-.5f)).rgb();
+        0, 0, 255*std::max(0.f, notes[n*StaticData::CHANNELS+c])).rgb();
   }
 
   update();
