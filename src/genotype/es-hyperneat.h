@@ -58,12 +58,11 @@ public:
     uint inputs, outputs;
     Node::ID nextNID;
     Link::ID nextLID;
-    std::array<Node::FuncID, 2> outputFunctions;
 
     CPPN (void) : inputs(0), outputs(0) {}
 
 #ifdef WITH_GVC
-    gvc::GraphWrapper build_gvc_graph (const char *ext = "png") const;
+    gvc::GraphWrapper build_gvc_graph (void) const;
     void render_gvc_graph (const std::string &path) const;
 #endif
 
@@ -108,6 +107,12 @@ DECLARE_GENOME_FIELD(ES_HyperNEAT, uint, substeps)
 } // end of namespace genotype
 
 DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+  config, CPPNInput, X0, Y0, X1, Y1, BIAS)
+
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+    config, CPPNOutput, W, L)
+
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
   config, CPPNInitMethod,
     PERCEPTRON, BIMODAL)
 
@@ -122,15 +127,20 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
   using FBounds = Bounds<float>;
   DECLARE_PARAMETER(FBounds, weightBounds)
 
-  DECLARE_PARAMETER(int, substrateDimension)
-  DECLARE_PARAMETER(bool, withBias)
+  struct InputData {
+    std::string name;
+  };
+  using Inputs = std::array<InputData, EnumUtils<CPPNInput>::size()>;
+  DECLARE_CONST_PARAMETER(Inputs, cppnInputs)
 
-  DECLARE_PARAMETER(bool, withLEO)
+  struct OutputData {
+    std::string name;
+    FuncID function;
+  };
+  using Outputs = std::array<OutputData, EnumUtils<CPPNOutput>::size()>;
+  DECLARE_CONST_PARAMETER(Outputs, cppnOutputs)
 
   DECLARE_PARAMETER(CPPNInitMethod, cppnInit)
-
-  using OFunctions = decltype(genotype::ES_HyperNEAT::CPPN::outputFunctions);
-  DECLARE_PARAMETER(OFunctions, outputFunctions)
 
   DECLARE_PARAMETER(MutationRates, cppn_mutationRates)
   DECLARE_PARAMETER(DistanceWeights, cppn_distanceWeights)

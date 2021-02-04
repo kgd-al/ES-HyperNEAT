@@ -46,7 +46,7 @@ int main (int argc, char **argv) {
     { NAN, NAN},
     { { -1, -1 }, { 0, -1}, { 1, -1 } },
     { { -.5, 1 }, { 0, 1}, { .5, 1 } },
-    genome, cppn
+    cppn
   );
 
   kgd::es_hyperneat::gui::ES_HyperNEATPanel p;

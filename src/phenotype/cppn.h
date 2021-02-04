@@ -57,6 +57,15 @@ public:
   using Inputs = std::vector<float>;
   using Outputs = Inputs;
   void operator() (const Inputs &inputs, Outputs &outputs) const;
+
+  float operator() (const Inputs &inputs, config::CPPNOutput o) const;
+
+  using OutputSubset = std::set<config::CPPNOutput>;
+  void operator() (const Inputs &inputs, Outputs &outputs,
+                   const OutputSubset &oset) const;
+
+private:
+  void pre_evaluation (const Inputs &inputs) const;
 };
 
 } // end of namespace phenotype

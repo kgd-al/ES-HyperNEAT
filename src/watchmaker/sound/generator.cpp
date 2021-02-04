@@ -1,8 +1,5 @@
 #include <cmath>
 
-#include <QBuffer>
-#include <QAudioOutput>
-
 #include <QFile>
 #include <QDataStream>
 
@@ -233,7 +230,6 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 
     // Write track size back into header
     uint32_t size = ofs.tellp();
-    std::cerr << "end of file at pos " << size << "\n";
     size -= 22;
     ofs.seekp(18, std::ios::beg);
     write(ofs, size);
@@ -252,8 +248,6 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
       for (uint c=0; c<C; c++) {
         float fn = notes[c+C*n];
         uchar cn = velocity(fn);
-        std::cerr << "notes[" << n << " " << c << ", " << c+C*n << "] = "
-                  << (int)cn << " = " << fn << "\n";
         if (n == 0 || velocity(notes[c+C*(n-1)]) != cn) {
           if (on[c] > 0) {
             midifile.addNoteOff(0, t, 0, key(c), 0);
@@ -276,7 +270,6 @@ bool MidiWrapper::writeMidi(const StaticData::NoteSheet &notes,
 //    midifile.sortTracks();
 
     midifile.doTimeAnalysis();
-    std::cerr << "total duration: " << midifile.getFileDurationInSeconds() << "\n";
 
     stdfs::path midifile_path = path;
     midifile_path.replace_extension(".midifile.mid");

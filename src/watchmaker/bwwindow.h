@@ -97,7 +97,6 @@ private:
   void individualHoverEnter (uint index);
   void individualHoverLeave (uint index);
   void individualMouseClick (uint index);
-  void individualMouseDoubleClick (uint index);
 
   void showIndividualDetails (int index);
   void setSelectedIndividual (int index);

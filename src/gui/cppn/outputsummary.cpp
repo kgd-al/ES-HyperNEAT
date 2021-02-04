@@ -68,12 +68,13 @@ OutputSummary::OutputSummary (QWidget *parent) : QWidget(parent) {
   setLayout(layout);
 }
 
-void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
-                                phenotype::CPPN &cppn, const QPointF &p,
+void OutputSummary::phenotypes (phenotype::CPPN &cppn, const QPointF &p,
                                 ShowFlags flag) {
   using CPPN = phenotype::CPPN;
   using Range = phenotype::CPPN::Range;
   static const auto &functionRanges = phenotype::CPPN::functionRanges;
+  static const auto &cppnOutputs =
+      genotype::ES_HyperNEAT::config_t::cppnOutputs();
   static const auto scale = [] (const Range &in, const Range &out, float v) {
     return (out.max - out.min) * (v - in.min) / (in.max - in.min) + out.min;
   };
@@ -100,7 +101,7 @@ void OutputSummary::phenotypes (const genotype::ES_HyperNEAT &genome,
   std::vector<phenotype::CPPN::Range> ranges;
   ranges.resize(outputs.size());
   for (uint i=0; i<outputs.size(); i++)
-    ranges[i] = functionRanges.at(genome.cppn.outputFunctions.at(i));
+    ranges[i] = functionRanges.at(cppnOutputs[i].function);
 
   const auto w_color = [&outputs, &ranges] (uint i, uint j) {
     auto o = outputs[i][j];

@@ -11,7 +11,7 @@ id;x
 bsgm;2/(1+e^(-4.9*x))-1
 ssgm;1/(1+e^(-4.9*x))
 sin;sin(deg(2*x*pi))
-step;x<0?0:1"
+step;x<=0?0:1"
 
 for line in $functions
 do

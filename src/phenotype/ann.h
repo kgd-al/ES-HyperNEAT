@@ -121,7 +121,7 @@ public:
   const auto& neurons (void) const {  return _neurons;  }
 
 #ifdef WITH_GVC
-  gvc::GraphWrapper build_gvc_graph (const char *ext = "png") const;
+  gvc::GraphWrapper build_gvc_graph (void) const;
   void render_gvc_graph(const std::string &path) const;
 #endif
 
@@ -137,9 +137,7 @@ public:
 
   using Coordinates = std::vector<Point>;
   static ANN build (const Point &bias, const Coordinates &inputs,
-                    const Coordinates &outputs,
-                    const genotype::ES_HyperNEAT &genome,
-                    const phenotype::CPPN &cppn);
+                    const Coordinates &outputs, const phenotype::CPPN &cppn);
 private:
   using NeuronsMap = std::map<Point, Neuron::ptr, PointCMP>;
   NeuronsMap _neurons;
@@ -158,10 +156,6 @@ private:
 
 } // namespace phenotype
 
-DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
-  config, EvolvableSubstrateLEO,
-    NONE, FILTER, DISCOVER_NODES)
-
 namespace config {
 
 struct CONFIG_FILE(EvolvableSubstrate) {
@@ -172,7 +166,6 @@ struct CONFIG_FILE(EvolvableSubstrate) {
   DECLARE_PARAMETER(float, divThr)  // division
   DECLARE_PARAMETER(float, varThr)  // variance
   DECLARE_PARAMETER(float, bndThr)  // band-pruning
-  DECLARE_PARAMETER(EvolvableSubstrateLEO, leo)
 
   DECLARE_PARAMETER(float, weightRange)
   DECLARE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,

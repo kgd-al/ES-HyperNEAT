@@ -30,7 +30,6 @@ namespace phenotype {
 namespace evolvable_substrate {
 
 using Config = config::EvolvableSubstrate;
-using LEO = config::EvolvableSubstrateLEO;
 
 using Point = ANN::Point;
 using Coordinates = ANN::Coordinates;
@@ -88,17 +87,12 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
   q.push(root.get());
 
   static auto cppn_inputs = cppn.inputs();
-  static auto cppn_outputs = cppn.outputs();
   const auto weight = [&cppn] (const Point &p0, const Point &p1) {
     cppn_inputs[0] = p0.x();
     cppn_inputs[1] = p0.y();
     cppn_inputs[2] = p1.x();
     cppn_inputs[3] = p1.y();
-    cppn(cppn_inputs, cppn_outputs);
-    auto r = cppn_outputs[0];
-    if (Config::leo() == LEO::DISCOVER_NODES && cppn_outputs.size() >= 2)
-      r *= cppn_outputs[1];
-    return r;
+    return cppn(cppn_inputs, config::CPPNOutput::W);
   };
 
 #ifdef DEBUG_QUADTREE_DIVISION
@@ -159,19 +153,16 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
 
   static const auto &varThr = Config::varThr();
   static const auto &bndThr = Config::bndThr();
-  static const auto &leoMode = Config::leo();
   static const auto leo = [] (const auto &cppn, auto i, auto o) {
     static auto inputs = cppn.inputs();
-    static auto outputs = cppn.outputs();
     inputs[0] = i.x();
     inputs[1] = i.y();
     inputs[2] = o.x();
     inputs[3] = o.y();
-    cppn(inputs, outputs);
-    return (bool)outputs[1];
+    return (bool)cppn(inputs, config::CPPNOutput::L);
   };
   static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
-    return (leoMode != LEO::FILTER) || leo(cppn, i, o);
+    return leo(cppn, i, o);
   };
 
 #ifdef DEBUG_QUADTREE_PRUNING
@@ -200,14 +191,12 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
       // Not enough information at lower resolution -> test if part of band
 
       static auto cppn_inputs = cppn.inputs();
-      static auto cppn_outputs = cppn.outputs();
       const auto weight = [&cppn, &p, &c, out] (float x, float y) {
         cppn_inputs[0] = out ? p.x() : x;
         cppn_inputs[1] = out ? p.y() : y;
         cppn_inputs[2] = out ? x : p.x();
         cppn_inputs[3] = out ? y : p.y();
-        cppn(cppn_inputs, cppn_outputs);
-        return std::fabs(c->weight - cppn_outputs[0]);
+        return std::fabs(c->weight - cppn(cppn_inputs, config::CPPNOutput::W));
       };
       float cx = c->center.x(), cy = c->center.y();
       float r = c->radius;
@@ -411,8 +400,7 @@ void connect (const CPPN &cppn,
 ANN::ANN(void){}
 
 ANN ANN::build (const Point &bias, const Coordinates &inputs,
-                const Coordinates &outputs,
-                const genotype::ES_HyperNEAT &genome, const CPPN &cppn) {
+                const Coordinates &outputs, const CPPN &cppn) {
 
   static const auto& weightRange = config::EvolvableSubstrate::weightRange();
 
@@ -473,7 +461,7 @@ ANN::Neuron::ptr ANN::addNeuron(void) {
 }
 
 #ifdef WITH_GVC
-gvc::GraphWrapper ANN::build_gvc_graph (const char *ext) const {
+gvc::GraphWrapper ANN::build_gvc_graph (void) const {
   using namespace gvc;
 
   GraphWrapper g ("ann");
@@ -542,7 +530,7 @@ void ANN::render_gvc_graph(const std::string &path) const {
   auto ext_i = path.find_last_of('.')+1;
   const char *ext = path.data()+ext_i;
 
-  gvc::GraphWrapper g = build_gvc_graph(ext);
+  gvc::GraphWrapper g = build_gvc_graph();
 
   g.layout("nop");
   gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());
@@ -618,8 +606,6 @@ DEFINE_PARAMETER(uint, iterations, 1)
 DEFINE_PARAMETER(float, divThr, .03) // division
 DEFINE_PARAMETER(float, varThr, .03)  // variance
 DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
-DEFINE_PARAMETER(config::EvolvableSubstrateLEO, leo,
-                 config::EvolvableSubstrateLEO::FILTER)
 
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,

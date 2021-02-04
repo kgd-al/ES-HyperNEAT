@@ -7,7 +7,7 @@ namespace kgd::es_hyperneat::gui::cppn {
 
 Viewer::Viewer (QWidget *parent) : GraphViewer(parent, "CPPN") {}
 
-void Viewer::processGraph (const gvc::Graph &g, const gvc::GraphWrapper &gw) {
+void Viewer::processGraph (const gvc::Graph&, const gvc::GraphWrapper &gw) {
   auto scene = this->scene();
   auto gvc = gw.graph;
   qreal s = gvc::get(gvc, "dpi", 96.0) / 72.;

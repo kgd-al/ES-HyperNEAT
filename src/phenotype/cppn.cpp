@@ -27,7 +27,7 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   F("ssgm", 1.f / (1.f + std::exp(-4.9*x))),
   F("bsgm", 2.f / (1.f + std::exp(-4.9*x)) - 1.f),
   F( "sin", std::sin(2*x)),
-  F("step", x < 0 ? 0 : 1),
+  F("step", x <= 0 ? 0 : 1),
 
   // Custom-made activation function
   // kact(-inf) = 0, kact(0) = 0, kact(+inf) = 1
@@ -66,7 +66,9 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   const CPPN_g &cppn_g = es_hyperneat.cppn;
   using NID = CPPN_g::Node::ID;
 
-  const auto &ofuncs = cppn_g.outputFunctions;
+  const auto &ofuncs = [] (uint index) {
+    return genotype::ES_HyperNEAT::config_t::cppnOutputs()[index].function;
+  };
 
   CPPN cppn;
 
@@ -90,7 +92,7 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
     std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
               << ofuncs[i] << std::endl;
 #endif
-    nodes[NID(i+cppn_g.inputs)] = cppn._outputs[i] = fnode(ofuncs[i]);
+    nodes[NID(i+cppn_g.inputs)] = cppn._outputs[i] = fnode(ofuncs(i));
   }
 
   uint i=0;
@@ -147,27 +149,49 @@ std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
   return os << " ]";
 }
 
-void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
+void CPPN::pre_evaluation(const Inputs &inputs) const {
   bool bias = ((_inputs.size() % 2) == 1);
   assert(inputs.size() == _inputs.size()-bias);
-  assert(outputs.size() == _outputs.size());
 
-#ifdef DEBUG
+  #ifdef DEBUG
   utils::IndentingOStreambuf indent (std::cout);
   std::cout << "compute step\n" << inputs << std::endl;
-#endif
+  #endif
 
   for (uint i=0; i<inputs.size(); i++)  _inputs[i]->data = inputs[i];
   if (bias) _inputs.back()->data = 1;
 
   for (auto &n: _hidden)  n->data = NAN;
   for (auto &n: _outputs)  n->data = NAN;
+}
 
+void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
+  assert(outputs.size() == _outputs.size());
+
+  pre_evaluation(inputs);
   for (uint i=0; i<outputs.size(); i++) outputs[i] = _outputs[i]->value();
 
 #ifdef DEBUG
   std::cout << outputs << "\n" << std::endl;
 #endif
+}
+
+void CPPN::operator() (const Inputs &inputs, Outputs &outputs,
+                       const OutputSubset &oset) const {
+  assert(outputs.size() == _outputs.size());
+  assert(oset.size() <= _outputs.size());
+
+  pre_evaluation(inputs);
+  for (auto o: oset) outputs[uint(o)] = _outputs[uint(o)]->value();
+
+#ifdef DEBUG
+  std::cout << outputs << "\n" << std::endl;
+#endif
+}
+
+float CPPN::operator() (const Inputs &inputs, config::CPPNOutput o) const {
+  pre_evaluation(inputs);
+  return _outputs[uint(o)]->value();
 }
 
 } // end of namespace phenotype

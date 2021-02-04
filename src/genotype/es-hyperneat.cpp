@@ -5,32 +5,15 @@ using CPPN = genotype::ES_HyperNEAT::CPPN;
 namespace genotype {
 
 #ifdef WITH_GVC
-gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
+gvc::GraphWrapper CPPN::build_gvc_graph(void) const {
   using namespace gvc;
 
-  static constexpr auto ilabel = [] (uint index, uint total) {
-    if (index == total-1) return std::string("B");
-    else {
-      static constexpr std::array<char, 3> coords { 'x', 'y', 'z' };
-      std::ostringstream oss;
-      auto m = (total-1)/2;
-      oss << coords.at(index%m) << "<sub>" << index/m << "</sub>";
-      return oss.str();
-    }
+  static constexpr auto ilabel = [] (uint index) {
+    return genotype::ES_HyperNEAT::config_t::cppnInputs()[index].name;
   };
-  static constexpr std::array<char, 2> olabels { 'w', 'l' };
-
-  static const auto img_exts = [] (const std::string &e) {
-    static const std::map<std::string, std::string> m {
-      { "png", ".png" },
-      {  "ps", ".eps" }
-    };
-    auto it = m.find(e);
-    if (it != m.end())  return it->second;
-    return std::string(".png");
+  static constexpr auto olabel = [] (uint index) {
+    return genotype::ES_HyperNEAT::config_t::cppnOutputs()[index].name;
   };
-
-  const auto img_ext = img_exts(ext);
 
   using NID = Node::ID;
   GraphWrapper g ("cppn");
@@ -46,7 +29,7 @@ gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
   // input nodes
   for (uint i=0; i<inputs; i++) {
     auto n = ag_nodes[NID(i)] = add_node(g_i, "I", i);
-    set_html(g.graph, n, "label", ilabel(i, inputs));
+    set_html(g.graph, n, "label", ilabel(i));
     set(n, "shape", "plain");
   }
 
@@ -55,13 +38,16 @@ gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
     auto nid = NID(i+inputs);
     auto n = ag_nodes[nid] = add_node(g_o, "O", nid);
     set(n, "label", "");
-    set(n, "kgdfunc", outputFunctions.at(i));
-    set(n, "image", "ps/", outputFunctions.at(i), img_ext);
+
+    const auto &f = config_t::cppnOutputs()[i].function;
+    set(n, "kgdfunc", f);
+    set(n, "image", "ps/", f, ".png");
+
     set(n, "width", "0.5in");
     set(n, "height", "0.5in");
     set(n, "margin", "0");
     set(n, "fixedsize", "shape");
-    set(n, "label", olabels.at(i));
+    set(n, "label", olabel(i));
   }
 
   // internal nodes
@@ -69,7 +55,7 @@ gvc::GraphWrapper CPPN::build_gvc_graph(const char *ext) const {
     auto gn = ag_nodes[n.id] = add_node(g_h, "H", n.id);
     set(gn, "label", "");
     set(gn, "kgdfunc", n.func);
-    set(gn, "image", "ps/", n.func, img_ext);
+    set(gn, "image", "ps/", n.func, ".png");
     set(gn, "width", "0.5in");
     set(gn, "height", "0.5in");
     set(gn, "margin", "0");
@@ -107,7 +93,7 @@ void CPPN::render_gvc_graph(const std::string &path) const {
   auto ext_i = path.find_last_of('.')+1;
   const char *ext = path.data()+ext_i;
 
-  gvc::GraphWrapper g = build_gvc_graph(ext);
+  gvc::GraphWrapper g = build_gvc_graph();
 
   g.layout("dot");
   gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());
@@ -145,8 +131,8 @@ CPPN CPPN::fromDot(const std::string &data) {
       id--; // NID increases id by 1, so decrement first
       auto func = CPPN::Node::FuncID(matches[2]);
       if (cppn.isOutput(id)) {
-        id -= cppn.inputs;
-        cppn.outputFunctions[id] = func;
+        if (func != "")
+          std::cout << "Ignoring provided function " << func << " for output node " << id << "\n";
       } else
         cppn.nodes.emplace(NID(id), func);
 //      std::cout << "\tnode: " << matches[1] << ", f=" << matches[2] << "\n";
@@ -193,12 +179,19 @@ std::ostream& operator<< (std::ostream &os, const CPPN &d) {
 
 void to_json (nlohmann::json &j, const CPPN &d) {
   nlohmann::json jnodes, jlinks;
+
   for (const CPPN::Node &n: d.nodes)
     jnodes.push_back({n.id, n.func});
+
   for (const CPPN::Link &l: d.links)
     jlinks.push_back({ l.id, l.nid_src, l.nid_dst, l.weight });
+
+  std::array<CPPN::Node::FuncID, EnumUtils<config::CPPNOutput>::size()> outputFunctions;
+  for (uint i=0; i<outputFunctions.size(); i++)
+    outputFunctions[i] = ES_HyperNEAT::config_t::cppnOutputs()[i].function;
+
   j = {
-    d.inputs, d.outputs, d.nextNID, d.nextLID, jnodes, jlinks, d.outputFunctions
+    d.inputs, d.outputs, d.nextNID, d.nextLID, jnodes, jlinks, outputFunctions
   };
 }
 
@@ -211,7 +204,24 @@ void from_json (const nlohmann::json &j, CPPN &d) {
   for (const nlohmann::json &jn: j[i++])  d.nodes.emplace(jn[0], jn[1]);
   for (const nlohmann::json &jl: j[i++])
     d.links.emplace(jl[0], jl[1], jl[2], jl[3]);
-  d.outputFunctions = j[i++];
+
+  static constexpr auto isize = EnumUtils<config::CPPNInput>::size();
+  static constexpr auto osize = EnumUtils<config::CPPNOutput>::size();
+  static const auto &outputs = ES_HyperNEAT::config_t::cppnOutputs();
+  std::array<CPPN::Node::FuncID, osize> outputFunctions = j[i++];
+
+  if (d.inputs != isize)
+    utils::doThrow<std::invalid_argument>(
+      "Parsed cppn has wrong input size! Expected ", isize, " got ", d.inputs);
+  if (d.outputs != osize)
+    utils::doThrow<std::invalid_argument>(
+      "Parsed cppn has wrong output size! Expected ", osize, " got ",
+      d.outputs);
+  for (uint i=0; i<osize; i++)
+    if (outputFunctions[i] != outputs[i].function)
+      utils::doThrow<std::invalid_argument>(
+        "Wrong output function for output ", i, "! Expected ",
+        outputs[i].function, " got ", outputFunctions[i]);
 }
 
 bool operator== (const CPPN &lhs, const CPPN &rhs) {
@@ -235,7 +245,6 @@ bool operator== (const CPPN &lhs, const CPPN &rhs) {
     if (lL.nid_dst != lR.nid_dst) return false;
     if (lL.weight != lR.weight) return false;
   }
-  if (lhs.outputFunctions != rhs.outputFunctions) return false;
   return true;
 }
 
@@ -262,7 +271,6 @@ void assertEqual (const CPPN &lhs, const CPPN &rhs,
     assertEqual(lL.nid_dst, lR.nid_dst, deepcopy);
     assertEqual(lL.weight, lR.weight, deepcopy);
   }
-  assertEqual(lhs.outputFunctions, rhs.outputFunctions, deepcopy);
 }
 
 } // end of namespace genotype
@@ -307,11 +315,24 @@ LID addLink (CPPN &data, NID src, NID dst, rng::AbstractDice &dice) {
   return addLink(data, src, dst, dice(wb.rndMin, wb.rndMax));
 }
 
+#define CPPN_HAS(TYPE, VALUE) \
+  namespace genotype::_details { \
+  template <typename T, class = void> \
+  struct cppn_has_##TYPE##_##VALUE : std::false_type {}; \
+     \
+  template <typename T> \
+  struct cppn_has_##TYPE##_##VALUE<T, std::void_t<decltype(T::VALUE)>> : std::true_type {};  \
+  } \
+  static constexpr bool cppn_has_##TYPE##_##VALUE(void) { \
+    return genotype::_details::cppn_has_##TYPE##_##VALUE<config::CPPN##TYPE>::value; \
+  }
+CPPN_HAS(Input, BIAS)
+CPPN_HAS(Output, BIAS)
+
 auto initialCPPN (rng::AbstractDice &dice) {
   CPPN d;
-  d.inputs = Config::substrateDimension() * 2
-           + Config::withBias();
-  d.outputs = 1 + Config::withLEO();
+  d.inputs = Config::cppnInputs().size();
+  d.outputs = Config::cppnOutputs().size();
 
   d.nextNID = NID(d.inputs+d.outputs);
   d.nextLID = LID(0);
@@ -323,7 +344,7 @@ auto initialCPPN (rng::AbstractDice &dice) {
     }
   }
 
-  d.outputFunctions = Config::outputFunctions();
+//  d.outputFunctions = Config::outputFunctions();
   return d;
 }
 
@@ -536,15 +557,52 @@ DEFINE_CONTAINER_PARAMETER(CFILE::FunctionSet, functions, {
 
 DEFINE_PARAMETER(CFILE::Bounds<float>, weightBounds, -3.f, -1.f, 1.f, 3.f)
 
-DEFINE_PARAMETER(int, substrateDimension, 2)
-DEFINE_PARAMETER(bool, withBias, true)
-DEFINE_PARAMETER(bool, withLEO, true)
+//DEFINE_PARAMETER(int, substrateDimension, 2)
+//DEFINE_PARAMETER(bool, withBias, true)
+//DEFINE_PARAMETER(bool, withLEO, true)
+//DEFINE_CONTAINER_PARAMETER(CFILE::OFunctions, outputFunctions, {
+//                            "bsgm", "step" })
+
+namespace config {
+std::ostream& operator<< (std::ostream &os, const CFILE::InputData &d) {
+  return os << d.name;
+}
+
+void from_json (const nlohmann::json &j, CFILE::InputData &d) {
+  d.name = j;
+}
+
+void to_json (nlohmann::json &j, const CFILE::InputData &d) {
+  j = d.name;
+}
+
+std::ostream& operator<< (std::ostream &os, const CFILE::OutputData &d) {
+  return os << "(" << d.name << ", " << d.function << ")";
+}
+
+void from_json (const nlohmann::json &j, CFILE::OutputData &d) {
+  uint i = 0;
+  d.name = j[i++];
+  d.function = j[i++];
+}
+
+void to_json (nlohmann::json &j, const CFILE::OutputData &d) {
+  j = { d.name, d.function };
+}
+} // end of namespace config
+
+DEFINE_CONST_PARAMETER(CFILE::Inputs, cppnInputs, CFILE::Inputs{{
+  {"x_0"}, {"y_0"}, {"x_1"}, {"y_1"}, {"b"}
+}})
+
+DEFINE_CONST_PARAMETER(CFILE::Outputs, cppnOutputs, CFILE::Outputs{{
+  { "w", "bsgm" },
+  { "l", "step" },
+//  { "b", "id"   },
+}})
 
 DEFINE_PARAMETER(config::CPPNInitMethod, cppnInit,
                  config::CPPNInitMethod::BIMODAL)
-
-DEFINE_CONTAINER_PARAMETER(CFILE::OFunctions, outputFunctions, {
-                            "bsgm", "step" })
 
 DEFINE_CONTAINER_PARAMETER(CFILE::MutationRates, cppn_mutationRates,
                            utils::normalizeRates({

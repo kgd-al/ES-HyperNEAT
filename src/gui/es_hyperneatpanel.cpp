@@ -78,7 +78,7 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
   _ann = &ann;
 
   cppnViewer->setGraph(genome.cppn);
-  cppnOViewer->phenotypes(genome, cppn, {0,0}, cppn::OutputSummary::SHOW_ALL);
+  cppnOViewer->phenotypes(cppn, {0,0}, cppn::OutputSummary::SHOW_ALL);
   annViewer->setGraph(ann);
 
   for (const auto &p: otherFields)
@@ -100,9 +100,7 @@ void ES_HyperNEATPanel::neuronHovered(const phenotype::ANN::Neuron &n) {
       (n.type != T::O ? S::SHOW_OUTGOING : S::SHOW_NONE)
     | ((n.type != T::I && n.type != T::B) ? S::SHOW_INCOMING : S::SHOW_NONE)
   );
-  cppnOViewer->phenotypes(*_genome, *_cppn,
-                          QPointF(n.pos.x(), n.pos.y()),
-                          flag);
+  cppnOViewer->phenotypes(*_cppn, QPointF(n.pos.x(), n.pos.y()), flag);
 
   neuronViewer->displayState(n);
 }

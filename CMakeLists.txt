@@ -44,6 +44,8 @@ if (${gvc_FOUND})
     add_definitions(-DWITH_GVC)
     include_directories(${gvc_INCLUDE_DIRS})
     list(APPEND CORE_LIBS ${gvc_LIBRARIES})
+else()
+    message(FATAL_ERROR "gvc is kind of essential. Please try to install it properly")
 endif()
 
 ################################################################################
@@ -172,13 +174,13 @@ endif()
 
 if (NOT CLUSTER_BUILD)
 
-    if (NOT S{NO_MULTIMEDIA})
-        list(APPEND QT_COMPONENTS Multimedia)
-        list(APPEND QT_LIBS Qt5::Multimedia)
-    endif()
+#    if (NOT S{NO_MULTIMEDIA})
+#        list(APPEND QT_COMPONENTS Multimedia)
+#        list(APPEND QT_LIBS Qt5::Multimedia)
+#    endif()
 
-    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
-    message("Qt found at " ${Qt5_DIR} " with components ${QT_COMPONENTS}")
+#    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+#    message("Qt found at " ${Qt5_DIR} " with components ${QT_COMPONENTS}")
 
     ############################################################################
     ## Shut gcc9/Qt deprecated-copy QVariant-related warnings

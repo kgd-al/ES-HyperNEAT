@@ -41,7 +41,7 @@ Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
 
   if (Config::tinput() != TemporalInput::NONE)  inputs.push_back({0,0});
 
-  auto ann = phenotype::ANN::build(bias, inputs, outputs, genome, cppn);
+  auto ann = phenotype::ANN::build(bias, inputs, outputs, cppn);
 
   return ptr(new Individual(genome, cppn, ann));
 }
@@ -427,9 +427,9 @@ bool BWWindow::eventFilter(QObject *watched, QEvent *event) {
   case QEvent::MouseButtonRelease:
     individualMouseClick(index);
     break;
-  case QEvent::MouseButtonDblClick:
-    individualMouseDoubleClick(index);
-    break;
+//  case QEvent::MouseButtonDblClick:
+//    individualMouseDoubleClick(index);
+//    break;
   default:  break;
   }
 
@@ -483,10 +483,6 @@ void BWWindow::individualMouseClick(uint index) {
     startVocalisation(index);
 }
 
-void BWWindow::individualMouseDoubleClick(uint index) {
-//  nextGeneration(index);
-}
-
 void BWWindow::showIndividualDetails(int index) {
   if (_selection)  return;
 
@@ -500,6 +496,10 @@ void BWWindow::showIndividualDetails(int index) {
     _details->setData(i->genome, i->cppn, i->ann);
     _shown = _visualizers[index];
     _shown->setHighlighted(true);
+
+    using utils::operator<<;
+    std::cerr << "Details of individual " << index << ":\n phenotype: "
+              << i->phenotype << "\n";
   }
 }
 
