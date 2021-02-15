@@ -13,7 +13,11 @@ struct NeuronStateViewer : public QTextEdit {
   NeuronStateViewer (void);
 
   void noState (void);
-  void displayState (const Neuron &n);
+  void displayState (const Neuron *n);
+  void updateState (void);
+
+private:
+  const Neuron *_neuron;
 };
 
 struct Viewer : public GraphViewer {

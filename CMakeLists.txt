@@ -22,6 +22,7 @@ if (${CMAKE_INSTALL_PREFIX} MATCHES "^$ENV{HOME}")
     string(APPEND CMAKE_INSTALL_PREFIX "/${BUILD_TYPE}")
     set(CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX})
 endif()
+set(LIB_BASE "${CMAKE_INSTALL_PREFIX}/lib/kgd/eshn")
 message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 
 ################################################################################
@@ -41,11 +42,12 @@ list(APPEND KGD_DEFINITIONS ${APOGeT_KGD_DEFINITIONS})
 find_package(PkgConfig)
 pkg_search_module(gvc libgvc libcgraph libcdt)
 if (${gvc_FOUND})
-    add_definitions(-DWITH_GVC)
+    list(APPEND KGD_DEFINITIONS -DWITH_GVC)
     include_directories(${gvc_INCLUDE_DIRS})
     list(APPEND CORE_LIBS ${gvc_LIBRARIES})
 else()
-    message(FATAL_ERROR "gvc is kind of essential. Please try to install it properly")
+    message(FATAL_ERROR
+            "gvc is kind of essential. Please try to install it properly")
 endif()
 
 ################################################################################
@@ -55,7 +57,7 @@ add_definitions(${KGD_DEFINITIONS})
 message("Using additionnal pre-processor definitions: ${KGD_DEFINITIONS}")
 
 ################################################################################
-## Source files (simulation)
+## Source files (core-library)
 ################################################################################
 
 FUNCTION(PREPEND output prefix)
@@ -79,7 +81,8 @@ set(MISC_SRC
 )
 PREPEND(MISC_SRC "src/misc")
 
-add_library(SIMU_OBJS OBJECT ${CORE_SRC} ${MISC_SRC})
+add_library(eshn-core STATIC ${CORE_SRC} ${MISC_SRC})
+target_link_libraries(eshn-core ${CORE_LIBS})
 
 ################################################################################
 ## Target (cppn test)
@@ -87,100 +90,11 @@ add_library(SIMU_OBJS OBJECT ${CORE_SRC} ${MISC_SRC})
 if (WITH_TESTS)
     add_executable(
       cppn_test
-      $<TARGET_OBJECTS:SIMU_OBJS>
       "src/tests/cppn.cpp")
-    target_link_libraries(cppn_test ${CORE_LIBS})
+  target_link_libraries(cppn_test ${CORE_LIBS} eshn-core)
 endif()
 
-################################################################################
-## Target (evaluation)
-################################################################################
-# add_executable(
-#   evaluator
-#   $<TARGET_OBJECTS:SIMU_OBJS>
-#   "src/evaluator.cpp")
-# target_link_libraries(evaluator ${SIMU_LIBS} ${APOGeT_LIBRARIES})
-
-################################################################################
-## Target (timelines explorer)
-################################################################################
-# find_package(OpenMP)
-# if (OPENMP_FOUND)
-#     message("> OpenMP Found.")
-#     message("  > OpenMP flags are " ${OpenMP_CXX_LIBRARIES})
-#   add_executable(
-#     timelines
-#     $<TARGET_OBJECTS:SIMU_OBJS>
-#     "src/timelines.cpp")
-#   target_link_libraries(timelines ${SIMU_LIBS} ${APOGeT_LIBRARIES}
-#                         OpenMP::OpenMP_CXX)
-# endif()
-
-#add_executable(
-#    pve
-#    $<TARGET_OBJECTS:SIMU_OBJS>
-#    "src/naturalisation/common.h"
-#    "src/naturalisation/common.cpp"
-#    "src/naturalisation/pvesimulation.h"
-#    "src/naturalisation/pvesimulation.cpp"
-#    "src/naturalisation/pve.cpp")
-#target_link_libraries(pve ${APOGeT_LIBRARIES})
-
-#add_executable(
-#    pvp
-#    $<TARGET_OBJECTS:SIMU_OBJS>
-#    "src/naturalisation/common.h"
-#    "src/naturalisation/common.cpp"
-#    "src/naturalisation/pvpsimulation.h"
-#    "src/naturalisation/pvpsimulation.cpp"
-#    "src/naturalisation/pvp.cpp")
-#target_link_libraries(pvp ${APOGeT_LIBRARIES})
-
-################################################################################
-## Targets (other)
-################################################################################
-
-#option(AUTO_CALIBRATION_TOOL "Whether or not to build the (slighlty) automatic calibration tool" OFF)
-#message("> Building automatic calibration tool: " ${AUTO_CALIBRATION_TOOL})
-#if (AUTO_CALIBRATION_TOOL)
-#  add_executable(auto-calibrator
-#                 $<TARGET_OBJECTS:SIMU_OBJS>
-#                 "src/misc/autocalibrator.cpp")
-#  target_link_libraries(auto-calibrator ${APOGeT_LIBRARIES})
-#endif()
-
-#option(ANALYZER_TOOL "Whether or not to build the analyzer tool" OFF)
-#message("> Building analyzer tool: " ${ANALYZER_TOOL})
-#if (ANALYZER_TOOL)
-#  add_executable(analyzer $<TARGET_OBJECTS:SIMU_OBJS> "src/misc/analyzer.cpp")
-#  target_link_libraries(analyzer ${APOGeT_LIBRARIES})
-#endif()
-
-#option(SAVE_EQUAL_ASSERTER "Whether or not to build the tool for save equality assertion" OFF)
-#if (SAVE_EQUAL_ASSERTER)
-#  add_executable(save-equal-assert
-#                 $<TARGET_OBJECTS:SIMU_OBJS>
-#                 "src/misc/saveequalasserter.cpp")
-#  target_link_libraries(save-equal-assert ${APOGeT_LIBRARIES})
-#endif()
-
-#option(BUILD_TESTS "Whether or not to build test tools" OFF)
-#if (BUILD_TESTS)
-#  add_executable(test-cgp
-#                 $<TARGET_OBJECTS:SIMU_OBJS>
-#                 "src/cgp/minicgp_test.cpp")
-#  target_link_libraries(test-cgp ${APOGeT_LIBRARIES})
-#endif()
-
 if (NOT CLUSTER_BUILD)
-
-#    if (NOT S{NO_MULTIMEDIA})
-#        list(APPEND QT_COMPONENTS Multimedia)
-#        list(APPEND QT_LIBS Qt5::Multimedia)
-#    endif()
-
-#    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
-#    message("Qt found at " ${Qt5_DIR} " with components ${QT_COMPONENTS}")
 
     ############################################################################
     ## Shut gcc9/Qt deprecated-copy QVariant-related warnings
@@ -206,14 +120,15 @@ if (NOT CLUSTER_BUILD)
     )
     PREPEND(GUI_SRC "src/gui")
 
-    add_library(GUI_OBJS OBJECT ${GUI_SRC})
-    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
-    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
-#    target_include_directories(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_INCLUDE_DIRECTORIES>)
-#    target_compile_definitions(GUI_OBJS PRIVATE $<TARGET_PROPERTY:Qt5::Multimedia,INTERFACE_COMPILE_DEFINITIONS>)
-    set_property(TARGET GUI_OBJS PROPERTY POSITION_INDEPENDENT_CODE ON)
-    set_property(TARGET GUI_OBJS PROPERTY AUTOMOC ON)
+    add_library(eshn-gui STATIC ${GUI_SRC})
+    target_include_directories(eshn-gui PRIVATE
+        $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(eshn-gui PRIVATE
+        $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
+    set_property(TARGET eshn-gui PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set_property(TARGET eshn-gui PROPERTY AUTOMOC ON)
 
+    set(MAYBE_GUI "eshn-gui")
 
 ##################################################################################
 #### Target (watchmaker)
@@ -243,14 +158,12 @@ if (NOT CLUSTER_BUILD)
 
         add_executable(
           watchmaker
-          $<TARGET_OBJECTS:SIMU_OBJS>
-          $<TARGET_OBJECTS:GUI_OBJS>
           ${WATCHMAKER_SRC}
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-        target_link_libraries(watchmaker ${CORE_LIBS}
-    #                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-                                         ${QT_LIBS})
+        target_link_libraries(watchmaker ${CORE_LIBS} eshn-core
+                                         ${QT_LIBS} eshn-gui)
+
         target_compile_definitions(watchmaker PRIVATE ${MIDI_DEFS})
         target_link_libraries(watchmaker ${MIDI_LIBS})
     endif()
@@ -262,77 +175,19 @@ if (NOT CLUSTER_BUILD)
     if (WITH_TESTS)
         add_executable(
           cppn_gui_test
-          $<TARGET_OBJECTS:SIMU_OBJS>
-          $<TARGET_OBJECTS:GUI_OBJS>
           "src/tests/gui_cppn.cpp"
         )
         set_property(TARGET cppn_gui_test PROPERTY AUTOMOC ON)
-        target_link_libraries(cppn_gui_test ${QT_LIBS} ${CORE_LIBS}
-                                            ${APOGeT_LIBRARIES}
-                                            ${APOGeT_GUI_LIBRARIES})
+        target_link_libraries(cppn_gui_test ${CORE_LIBS} eshn-core
+                                            ${GUI_LIBS} eshn-gui)
     endif()
-
-
-##################################################################################
-#### Targets (Watchmaker)
-##################################################################################
-
-#    add_executable(
-#      watchmaker
-#      $<TARGET_OBJECTS:SIMU_OBJS>
-#      $<TARGET_OBJECTS:VISU_OBJS>
-#      "src/misc/watchmaker_classes.h"
-#      "src/misc/watchmaker_classes.cpp"
-#      "src/watchmaker.cpp"
-#    )
-#    set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-#    target_link_libraries(watchmaker ${SIMU_LIBS}
-#                                     ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-#                                     ${QT_LIBS} ${MultiNEAT_LIBS})
-
-##################################################################################
-#### Targets (Visu tool)
-##################################################################################
-
-#    add_executable(
-#        visu-tool
-#        $<TARGET_OBJECTS:SIMU_OBJS>
-#        $<TARGET_OBJECTS:VISU_OBJS>
-#        "src/visualuator.cpp"
-#    )
-#    set_property(TARGET visu-tool PROPERTY AUTOMOC ON)
-#    target_link_libraries(visu-tool ${SIMU_LIBS}
-#                                    ${APOGeT_LIBRARIES} ${APOGeT_GUI_LIBRARIES}
-#                                    ${QT_LIBS} ${MultiNEAT_LIBS})
 
 endif()
 
-################################################################################
-## Target (tester may be with gui)
-################################################################################
-#if (CLUSTER_BUILD)
-#    add_executable(
-#        tester
-#        $<TARGET_OBJECTS:SIMU_OBJS>
-#        "src/tests/tester.cpp")
-#    target_link_libraries(tester ${SIMU_LIBS} ${APOGeT_LIBRARIES})
-#else()
-#    add_executable(
-#        tester
-#        $<TARGET_OBJECTS:SIMU_OBJS>
-#        $<TARGET_OBJECTS:VISU_OBJS>
-#        "src/tests/tester.cpp")
-#    target_link_libraries(tester ${SIMU_LIBS} ${APOGeT_LIBRARIES}
-#                                 ${APOGeT_GUI_LIBRARIES}
-#                                 ${QT_LIBS} ${MultiNEAT_LIBS})
-#endif()
 
 #################################################################################
 ### Additional flags
 #################################################################################
-
-
-#message("")
 
 
 option(WITH_DEBUG_INFO "Sets whether to maximize debug data collection" OFF)
@@ -379,28 +234,79 @@ message("> SongMaker: " ${WITH_SONGMAKER})
 #message("")
 
 
-####################################################################################################
-## Export configuration
-####################################################################################################
+###################################################################################################
+# Export configuration
+###################################################################################################
 
-#set(DEPENDENCY_GENERATOR ${APOGeT_DIR}/generate_dependency_data.sh)
-#set(DEPENDENCY_FILE "${CMAKE_CURRENT_BINARY_DIR}/reus.dependency")
-#set(DEPENDENCY_DATA ${PROJECT_SOURCE_DIR}/src/config/dependencies_autogenerated.cpp)
-#if (UPDATE_DEPENDENCIES)
-#    add_custom_target(dependencies ALL DEPENDS ${DEPENDENCY_FILE} ${DEPENDENCY_DATA})
-#    add_custom_command(
-#        OUTPUT ${DEPENDENCY_FILE}
-#        COMMAND ${DEPENDENCY_GENERATOR}
-#            ${DEPENDENCY_FILE} ReusWorld ${CMAKE_BUILD_TYPE}
-#        COMMENT "Generating dependency data"
-#        DEPENDS always_check
-#    )
-#    add_custom_command(
-#        OUTPUT ${DEPENDENCY_DATA}
-#        COMMAND ${PROJECT_SOURCE_DIR}/scripts/format_dependencies_data.sh
-#                ${DEPENDENCY_DATA} ${CMAKE_CURRENT_BINARY_DIR} ${APOGeT_DIR}
-#        COMMENT "Formatting dependency data"
-#        DEPENDS always_check
-#    )
-#    add_custom_command(OUTPUT always_check COMMAND cmake -E echo)
-#endif()
+install(TARGETS eshn-core ARCHIVE DESTINATION lib/kgd/eshn)
+if (NOT CLUSTER_BUILD)
+    install(TARGETS eshn-gui ARCHIVE DESTINATION lib/kgd/eshn)
+endif()
+
+install(
+    DIRECTORY "${CMAKE_SOURCE_DIR}/src/"
+    DESTINATION include/kgd/eshn
+    FILES_MATCHING
+        PATTERN "*.h"
+        PERMISSIONS
+            OWNER_EXECUTE OWNER_READ
+            GROUP_EXECUTE GROUP_READ
+        PATTERN "*.hpp"
+        PERMISSIONS
+            OWNER_EXECUTE OWNER_READ
+            GROUP_EXECUTE GROUP_READ
+)
+
+if (GENERATE_HELP)
+    install(
+        DIRECTORY "${CMAKE_SOURCE_DIR}/docs/"
+        DESTINATION docs/apt
+    )
+endif()
+
+set(CONFIG "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
+file(GENERATE
+    OUTPUT ${CONFIG}
+    CONTENT
+"# CMake configuration settings for project ${PROJECT_NAME} (${CMAKE_BUILD_TYPE})
+
+set(${PROJECT_NAME}_INCLUDE_DIRS
+    ${APOGeT_INCLUDE_DIRS}
+    ${CMAKE_INSTALL_PREFIX}/include)
+
+set(${PROJECT_NAME}_LIBRARIES
+    $<JOIN:${CORE_LIBS};${LIB_BASE}/$<TARGET_FILE_NAME:eshn-core>,
+    >)
+
+if(NOT CLUSTER_BUILD)
+    set(${PROJECT_NAME}_GUI_LIBRARIES
+        $<JOIN:${GUI_LIBS};${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>,
+        >)
+
+    set(QT_COMPONENTS ${QT_COMPONENTS})
+    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+    message(\"Qt found at \" ${Qt5_DIR})
+    set(QT_LIBS ${QT_LIBS})
+endif()
+
+set(${PROJECT_NAME}_KGD_DEFINITIONS ${KGD_DEFINITIONS})
+
+set(${PROJECT_NAME}_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+if(NOT \${${PROJECT_NAME}_BUILD_TYPE} STREQUAL \${CMAKE_BUILD_TYPE})
+    message(FATAL_ERROR \"Mismatching build version!
+        Linking against '\${${PROJECT_NAME}_BUILD_TYPE}' while using '\${CMAKE_BUILD_TYPE}'\")
+endif()\n"
+)
+install(FILES ${CONFIG} DESTINATION cmake)
+
+#set(DEPENDENCY_GENERATOR ${tools_DIR}/generate_dependency_data.sh)
+#set(DEPENDENCY_FILE "${CMAKE_CURRENT_BINARY_DIR}/eshn.dependency")
+#add_custom_target(dependencies ALL DEPENDS ${DEPENDENCY_FILE})
+#add_custom_command(
+#    OUTPUT ${DEPENDENCY_FILE} always_check
+#    COMMAND ${DEPENDENCY_GENERATOR}
+#        ${DEPENDENCY_FILE} ESHN ${CMAKE_BUILD_TYPE}
+
+#    COMMENT "Generating dependency data"
+#)
+#install(FILES ${DEPENDENCY_FILE} DESTINATION cmake)

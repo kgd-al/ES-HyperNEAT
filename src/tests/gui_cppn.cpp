@@ -26,7 +26,7 @@ int main (int argc, char **argv) {
     5 -> 7 [-.75]; # Bias to leo
     9 -> 6 [+1]; # G2 to w
     8 -> 7 [+1]; # G1 to leo
-  )");
+  )", dice);
 //  genome.cppn = genotype::ES_HyperNEAT::CPPN::fromDot(R"(
 //  CPPN(5,2)
 //    6 [id]; # weight
@@ -43,7 +43,6 @@ int main (int argc, char **argv) {
 //  rnd_hidden = {{0,0}};
 
   phenotype::ANN ann = phenotype::ANN::build(
-    { NAN, NAN},
     { { -1, -1 }, { 0, -1}, { 1, -1 } },
     { { -.5, 1 }, { 0, 1}, { .5, 1 } },
     cppn

@@ -13,17 +13,17 @@ static const uint MS_PER_NOTE = StaticData::NOTE_DURATION * 1000.;
 static const uint UPDATE_PERIOD_MS = 1000. / 25;
 static const uint DURATION_MS = StaticData::SONG_DURATION * 1000;
 
-static const bool b = [] {
-  using D = StaticData;
-  std::cerr << "           TEMPO: " << D::TEMPO << "\n"
-            << "           NOTES: " << D::NOTES << "\n"
-            << "   NOTE_DURATION: " << D::NOTE_DURATION << "\n"
-            << "   SONG_DURATION: " << D::SONG_DURATION << "\n"
-            << "     MS_PER_NOTE: " << MS_PER_NOTE << "\n"
-            << "UPDATE_PERIOD_MS: " << UPDATE_PERIOD_MS << "\n"
-            << "     DURATION_MS: " << DURATION_MS << "\n";
-  return true;
-}();
+//static const bool b = [] {
+//  using D = StaticData;
+//  std::cerr << "           TEMPO: " << D::TEMPO << "\n"
+//            << "           NOTES: " << D::NOTES << "\n"
+//            << "   NOTE_DURATION: " << D::NOTE_DURATION << "\n"
+//            << "   SONG_DURATION: " << D::SONG_DURATION << "\n"
+//            << "     MS_PER_NOTE: " << MS_PER_NOTE << "\n"
+//            << "UPDATE_PERIOD_MS: " << UPDATE_PERIOD_MS << "\n"
+//            << "     DURATION_MS: " << DURATION_MS << "\n";
+//  return true;
+//}();
 
 Visualizer::Visualizer(uchar channel, QWidget *parent)
   : QWidget(parent), _channel(channel) {

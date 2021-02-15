@@ -4,7 +4,17 @@ using CPPN = genotype::ES_HyperNEAT::CPPN;
 
 namespace genotype {
 
+auto randomNodeFunction (rng::AbstractDice &dice) {
+  return *dice(genotype::ES_HyperNEAT::config_t::functions());
+}
+
+auto randomLinkWeight (rng::AbstractDice &dice) {
+  static const auto &wb = genotype::ES_HyperNEAT::config_t::weightBounds();
+  return dice(wb.rndMin, wb.rndMax);
+}
+
 #ifdef WITH_GVC
+
 gvc::GraphWrapper CPPN::build_gvc_graph(void) const {
   using namespace gvc;
 
@@ -106,51 +116,117 @@ void CPPN::render_gvc_graph(const std::string &path) const {
 
 #endif
 
-CPPN CPPN::fromDot(const std::string &data) {
+template <typename T>
+void parseOrExcept (const std::string &str, T &field,
+                    uint row, const std::string &line) {
+  std::istringstream iss (str);
+  iss >> field;
+  if (!iss)
+    utils::doThrow<std::invalid_argument>(
+      "Could not parse '", str, "' as a value of type ",
+      utils::className<T>(), " in ", line, " (row ", row, ")");
+}
+
+CPPN CPPN::fromDot(const std::string &data, rng::AbstractDice &dice) {
   using NID = CPPN::Node::ID;
   using LID = CPPN::Link::ID;
   static const std::regex header(".*CPPN\\(([0-9]+),([0-9]+)\\).*");
-  static const std::regex node(".*([0-9]+) *\\[([a-z]+)\\].*");
-  static const std::regex link(".*([0-9]+) -> ([0-9]+) *\\[([+-]?[0-9]*.?[0-9]*)\\].*");
+
+  static const std::regex node(
+    " *([0-9]+) *(\\[([a-z]*)\\])?;.*"
+  );
+
+  static const std::regex link(
+    " *([0-9]+) *-> *([0-9]+) *(\\[([+-]?[0-9]*.?[0-9]*)\\])?;.*");
+
+  static const auto &functions = config_t::functions();
+
   CPPN cppn;
   std::istringstream iss (data);
   std::string line;
   std::smatch matches;
+  uint row = 0;
+  const auto parseOrExceptL = [&row, &line] (const std::string &s, auto &v) {
+    parseOrExcept(s, v, row, line);
+  };
+
   while (std::getline(iss, line)) {
 //    std::cout << "line: " << line << "\n";
+
     if (std::regex_match(line, matches, header)/* && matches.size() == 3*/) {
-      std::istringstream (matches[1]) >> cppn.inputs;
-      std::istringstream (matches[2]) >> cppn.outputs;
-//      std::cout << "\tCPPN: i=" << cppn.inputs << ", o=" << cppn.outputs << "\n";
-      cppn.nextNID = NID(cppn.inputs+cppn.outputs);
+      parseOrExceptL(matches[1], cppn.inputs);
+      parseOrExceptL(matches[2], cppn.outputs);
       cppn.nextLID = LID(0);
 
+//      std::cout << "\tCPPN: i=" << cppn.inputs << ", o=" << cppn.outputs
+//                << "\n";
+
+      if (cppn.inputs != config_t::INPUTS_COUNT)
+        utils::doThrow<std::invalid_argument>(
+          "Header declares ", cppn.inputs, " inputs while ",
+          config_t::INPUTS_COUNT, " were expected");
+
+      if (cppn.outputs != config_t::OUTPUTS_COUNT)
+        utils::doThrow<std::invalid_argument>(
+              "Header declares ", cppn.outputs, " outputs while ",
+              config_t::OUTPUTS_COUNT, " were expected");
+
     } else if (std::regex_match(line, matches, node) && matches.size() > 1) {
+      bool funcProvided = (matches.size() == 4 && matches[3].length() > 0);
       uint id;
-      std::istringstream (matches[1]) >> id;
+      parseOrExceptL(matches[1], id);
       id--; // NID increases id by 1, so decrement first
-      auto func = CPPN::Node::FuncID(matches[2]);
-      if (cppn.isOutput(id)) {
-        if (func != "")
-          std::cout << "Ignoring provided function " << func << " for output node " << id << "\n";
-      } else
+
+      if (!cppn.isOutput(id)) {
+
+        CPPN::Node::FuncID func;
+        if (funcProvided) {
+          func = CPPN::Node::FuncID(matches[3]);
+
+          if (functions.find(func) == functions.end())
+            utils::doThrow<std::invalid_argument>(
+              "Function ", func, " is not a member of the current set");
+
+        } else
+          func = randomNodeFunction(dice);
+
         cppn.nodes.emplace(NID(id), func);
-//      std::cout << "\tnode: " << matches[1] << ", f=" << matches[2] << "\n";
+//        std::cout << "\tnode" << NID(id) << ": " << func << "\n";
+
+      } else if (funcProvided)
+          std::cout << "Ignoring provided function '" << matches[3]
+                      << "' for output node " << id+1 << "\n";
 
     } else if (std::regex_match(line, matches, link) && matches.size() > 2) {
+      bool weightProvided = (matches.size() == 5 && matches[4].length() > 0);
+
       uint lid, rid;
       float w;
-      std::istringstream (matches[1]) >> lid;
-      std::istringstream (matches[2]) >> rid;
-      std::istringstream (matches[3]) >> w;
+      parseOrExceptL(matches[1], lid);
+      parseOrExceptL(matches[2], rid);
+
+      if (weightProvided)
+        parseOrExceptL(matches[4], w);
+      else
+        w = randomLinkWeight(dice);
+
       cppn.links.emplace(CPPN::Link::ID::next(cppn.nextLID),
                          NID(lid-1), NID(rid-1), w);
-//      std::cout << "\tlink: " << matches[1] << " to " << matches[2]
-//                << " w=" << matches[3] << "\n";
+
+//      std::cout << "\tlink: " << NID(lid-1) << " to " << NID(rid-1)
+//                << " w=" << w << "\n";
+
     }/* else
       std::cout << "unmatched line '" << line << "'\n";*/
+
+    row++;
   }
+
 //  std::cout << std::endl;
+  cppn.nextNID = NID(cppn.inputs+cppn.outputs+cppn.nodes.size());
+
+//  std::cout << cppn << std::endl;
+
   return cppn;
 }
 
@@ -163,13 +239,15 @@ ES_HyperNEAT ES_HyperNEAT::fromDotFile(const std::string &path,
 
   std::string data = utils::readAll(path);
   ES_HyperNEAT genome = random(dice);
-  genome.cppn = CPPN::fromDot(data);
+  genome.cppn = CPPN::fromDot(data, dice);
   return genome;
 }
 
 std::ostream& operator<< (std::ostream &os, const CPPN &d) {
   os << "CPPN " << d.inputs << ":" << d.nodes.size() << ":" << d.outputs << " ("
      << d.links.size() << ")\n";
+  os << "  nextNID: " << d.nextNID << "\n";
+  os << "  nextLID: " << d.nextLID << "\n";
   for (const CPPN::Node &n: d.nodes)
     os << "\t" << n.id << " " << n.func << "\n";
   for (const CPPN::Link &l: d.links)
@@ -300,7 +378,7 @@ bool CPPN::isHidden(NID nid) const {  return isHidden(nid_ut(nid)); }
 
 NID addNode (CPPN &data, rng::AbstractDice &dice) {
   auto id = NID::next(data.nextNID);
-  data.nodes.emplace(id, *dice(Config::functions()));
+  data.nodes.emplace(id, randomNodeFunction(dice));
   return id;
 }
 
@@ -311,8 +389,7 @@ LID addLink (CPPN &data, NID src, NID dst, float weight) {
 }
 
 LID addLink (CPPN &data, NID src, NID dst, rng::AbstractDice &dice) {
-  static const auto &wb = Config::weightBounds();
-  return addLink(data, src, dst, dice(wb.rndMin, wb.rndMax));
+  return addLink(data, src, dst, randomLinkWeight(dice));
 }
 
 #define CPPN_HAS(TYPE, VALUE) \
@@ -408,7 +485,7 @@ void CPPN_mutate_function (CPPN &d, rng::AbstractDice &dice) {
   auto node = d.nodes.extract(dice(d.nodes));
   CPPN::Node &n = node.value();
   auto f = n.func;
-  while (f == n.func) n.func = *dice(Config::functions());
+  while (f == n.func) n.func = randomNodeFunction(dice);
   d.nodes.insert(std::move(n));
 }
 
@@ -598,7 +675,7 @@ DEFINE_CONST_PARAMETER(CFILE::Inputs, cppnInputs, CFILE::Inputs{{
 DEFINE_CONST_PARAMETER(CFILE::Outputs, cppnOutputs, CFILE::Outputs{{
   { "w", "bsgm" },
   { "l", "step" },
-//  { "b", "id"   },
+  { "b", "id"   },
 }})
 
 DEFINE_PARAMETER(config::CPPNInitMethod, cppnInit,

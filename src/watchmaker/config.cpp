@@ -5,7 +5,6 @@ namespace config {
 #define CFILE WatchMaker
 using namespace kgd::watchmaker;
 
-DEFINE_PARAMETER(bool, withBias, true)
 DEFINE_PARAMETER(TemporalInput, tinput, TemporalInput::NONE)
 DEFINE_PARAMETER(Audition, audition, Audition::SELF)
 

@@ -6,6 +6,13 @@ namespace phenotype {
 //#define DEBUG
 #endif
 
+float ssgn(float x) {
+  static constexpr float a = 1;
+  return x < -a ? std::exp(-(x+a)*(x+a))-1
+                : x > a ? 1 - std::exp(-(x-a)*(x-a))
+                        : 0;
+}
+
 #define F(NAME, BODY) \
  { NAME, [] (float x) -> float { return BODY; } }
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
@@ -32,7 +39,10 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   // Custom-made activation function
   // kact(-inf) = 0, kact(0) = 0, kact(+inf) = 1
   // kact'(0^-) = kact'(0^+) = 2
-  F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x))
+  F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x)),
+
+  // Another custom-made activation function
+  F("ssgn", ssgn(x))
 };
 #undef F
 
@@ -150,6 +160,7 @@ std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
 }
 
 void CPPN::pre_evaluation(const Inputs &inputs) const {
+  /// TODO Should replace this test by a constexpr enum check
   bool bias = ((_inputs.size() % 2) == 1);
   assert(inputs.size() == _inputs.size()-bias);
 

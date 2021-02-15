@@ -79,7 +79,7 @@ bool MidiWrapper::initialize (std::string preferredPort) {
   }
 
   std::cout << "Using port #" << index+1 << ": " << midi.getPortName(index)
-            << "\n";
+            << std::endl;
   midi.openPort(index);
 
   return true;

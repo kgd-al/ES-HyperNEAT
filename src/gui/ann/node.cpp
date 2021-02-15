@@ -77,8 +77,9 @@ static QColor redBlackGradient(float v) {
   static constexpr float minAlpha = 0;
 
   QColor c = QColor(v < 0 ? Qt::red : Qt::black);
-  c.setAlphaF(minAlpha + (1.f-minAlpha)*std::fabs(v));
-  assert(0 <= c.alphaF() && c.alphaF() <= 1);
+  float a = minAlpha + (1.f-minAlpha)*std::fabs(v);
+  assert(0 <= a && a <= 1);
+  c.setAlphaF(a);
   return c;
 }
 

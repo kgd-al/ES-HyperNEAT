@@ -69,6 +69,20 @@ public:
     }
     return is;
   }
+
+  friend void to_json (nlohmann::json &j, const Point_t &p) {
+    j = { p._data };
+  }
+
+  friend void from_json (const nlohmann::json &j, Point_t &p) {
+    p._data = j;
+  }
+
+  friend void assertEqual (const Point_t &lhs, const Point_t &rhs,
+                           bool deepcopy) {
+    using utils::assertEqual;
+    assertEqual(lhs._data, rhs._data, deepcopy);
+  }
 };
 
 class ANN : public gvc::Graph {
@@ -96,13 +110,21 @@ private:
 
 public:
   struct Neuron {
-#ifndef CLUSTER_BUILD
-    Point pos;
-#endif
-    enum Type { B, I, O, H };
-    Type type;
+    const Point pos;
+    enum Type { I, O, H };
+    const Type type;
 
+    const float bias;
     float value;
+
+    Neuron (const Point &p, Type t, float b)
+      : pos(p), type(t), bias(b), value(0) {}
+
+    bool isInput (void) const {   return type == I;  }
+    bool isOutput (void) const {  return type == O; }
+    bool isHidden (void) const {  return type == H; }
+
+    void reset (void) { value = 0;  }
 
     using ptr = std::shared_ptr<Neuron>;
     using wptr = std::weak_ptr<Neuron>;
@@ -111,12 +133,20 @@ public:
       wptr in;
     };
     using Links = std::vector<Link>;
-    Links links;
 
-    bool isInput (void) const {   return type == B || type == I;  }
-    bool isOutput (void) const {  return type == O; }
-    bool isHidden (void) const {  return type == H; }
+    const Links& links (void) const {   return _links;            }
+    void addLink (float w, wptr n) {    _links.push_back({w,n});  }
+
+    friend void assertEqual (const Neuron &lhs, const Neuron &rhs,
+                             bool deepcopy);
+
+    friend void assertEqual (const Link &lhs, const Link &rhs, bool deepcopy);
+
+  private:
+    Links _links;
   };
+
+  ANN(void) = default;
 
   const auto& neurons (void) const {  return _neurons;  }
 
@@ -135,23 +165,24 @@ public:
 
   void operator() (const Inputs &inputs, Outputs &outputs, uint substeps);
 
+  bool empty (void) const;
+
   using Coordinates = std::vector<Point>;
-  static ANN build (const Point &bias, const Coordinates &inputs,
+  static ANN build (const Coordinates &inputs,
                     const Coordinates &outputs, const phenotype::CPPN &cppn);
+
+  friend void to_json (nlohmann::json &j, const ANN &ann);
+  friend void from_json (const nlohmann::json &j, ANN &ann);
+
+  friend void assertEqual (const ANN &lhs, const ANN &rhs, bool deepcopy);
+
 private:
   using NeuronsMap = std::map<Point, Neuron::ptr, PointCMP>;
   NeuronsMap _neurons;
 
   std::vector<Neuron::ptr> _inputs, _outputs;
-  bool _hasBias;
 
-  ANN(void);
-
-#if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
-  Neuron::ptr addNeuron (const Point &p, Neuron::Type t);
-#else
-  Neuron::ptr addNeuron (void);
-#endif
+  Neuron::ptr addNeuron (const Point &p, Neuron::Type t, float bias);
 };
 
 } // namespace phenotype

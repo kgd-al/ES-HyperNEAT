@@ -92,7 +92,7 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
     cppn_inputs[1] = p0.y();
     cppn_inputs[2] = p1.x();
     cppn_inputs[3] = p1.y();
-    return cppn(cppn_inputs, config::CPPNOutput::W);
+    return cppn(cppn_inputs, config::CPPNOutput::WEIGHT);
   };
 
 #ifdef DEBUG_QUADTREE_DIVISION
@@ -159,7 +159,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     inputs[1] = i.y();
     inputs[2] = o.x();
     inputs[3] = o.y();
-    return (bool)cppn(inputs, config::CPPNOutput::L);
+    return (bool)cppn(inputs, config::CPPNOutput::LEO);
   };
   static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
     return leo(cppn, i, o);
@@ -196,7 +196,8 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
         cppn_inputs[1] = out ? p.y() : y;
         cppn_inputs[2] = out ? x : p.x();
         cppn_inputs[3] = out ? y : p.y();
-        return std::fabs(c->weight - cppn(cppn_inputs, config::CPPNOutput::W));
+        return std::fabs(c->weight
+                         - cppn(cppn_inputs, config::CPPNOutput::WEIGHT));
       };
       float cx = c->center.x(), cy = c->center.y();
       float r = c->radius;
@@ -396,26 +397,33 @@ void connect (const CPPN &cppn,
 
 } // end of namespace evolvable substrate
 
+bool ANN::empty(void) const {
+  for (const auto &p: _neurons)
+    if (!p.second->links().empty())
+      return false;
+  return true;
+}
 
-ANN::ANN(void){}
-
-ANN ANN::build (const Point &bias, const Coordinates &inputs,
+ANN ANN::build (const Coordinates &inputs,
                 const Coordinates &outputs, const CPPN &cppn) {
 
   static const auto& weightRange = config::EvolvableSubstrate::weightRange();
 
   ANN ann;
-  ann._hasBias = (!std::isnan(bias.x()) && !std::isnan(bias.y()));
 
   NeuronsMap &neurons = ann._neurons;
 
-#if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
-  const auto add = [&ann] (auto p, auto t) { return ann.addNeuron(p, t); };
-#else
-  const auto add = [&ann] (auto, auto) { return ann.addNeuron(); };
-#endif
-
-  if (ann._hasBias) neurons[bias] = add(bias, Neuron::B);
+  const auto add = [&cppn, &ann] (auto p, auto t) {
+    static auto inputs = cppn.inputs();
+    float bias = 0;
+    if (t != Neuron::I) {
+      inputs[0] = p.x();
+      inputs[1] = p.y();
+      inputs[2] = inputs[3] = 0;
+      bias = cppn(inputs, config::CPPNOutput::BIAS);
+    }
+    return ann.addNeuron(p, t, bias);
+  };
 
   uint i = 0;
   ann._inputs.resize(inputs.size());
@@ -427,37 +435,18 @@ ANN ANN::build (const Point &bias, const Coordinates &inputs,
 
   Coordinates hidden;
   evolvable_substrate::Connections connections;
-  auto inputsWithBias = inputs;
-  if (ann._hasBias) inputsWithBias.push_back(bias);
-  evolvable_substrate::connect(cppn, inputsWithBias, outputs, hidden,
+  evolvable_substrate::connect(cppn, inputs, outputs, hidden,
                                connections);
 
   for (auto &p: hidden) neurons[p] = add(p, Neuron::H);
-  for (auto &c: connections) {
-    auto &src = neurons.at(c.from), &dst = neurons.at(c.to);
-    dst->links.push_back({c.weight * weightRange, src});
-  }
+  for (auto &c: connections)
+    neurons.at(c.to)->addLink(c.weight * weightRange, neurons.at(c.from));
 
   return ann;
 }
 
-#if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
-ANN::Neuron::ptr ANN::addNeuron(const Point &p, Neuron::Type t) {
-#else
-ANN::Neuron::ptr ANN::addNeuron(void) {
-#endif
-  auto n = std::make_shared<Neuron>();
-
-  n->value = (t == Neuron::B) ? 1 : 0;
-
-#ifndef CLUSTER_BUILD
-  n->pos = p;
-#endif
-#if defined(WITH_GVC) || !defined(CLUSTER_BUILD)
-  n->type = t;
-#endif
-
-  return n;
+ANN::Neuron::ptr ANN::addNeuron(const Point &p, Neuron::Type t, float bias) {
+  return std::make_shared<Neuron>(p, t, bias);
 }
 
 #ifdef WITH_GVC
@@ -500,7 +489,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
     set(n, "spos", p.first);
 
     bool selfRecurrent = false;
-    for (const auto &l: neuron->links) {
+    for (const auto &l: neuron->links()) {
       links.push_back({ neuron.get(), l });
       selfRecurrent |= (l.in.lock() == neuron);
     }
@@ -543,7 +532,7 @@ void ANN::render_gvc_graph(const std::string &path) const {
 #endif
 
 void ANN::reset(void) {
-  for (auto &p: _neurons) if (p.second->type != Neuron::B)  p.second->value = 0;
+  for (auto &p: _neurons) p.second->reset();
 }
 
 void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
@@ -567,8 +556,8 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
     for (const auto &p: _neurons) {
       if (p.second->isInput()) continue;
 
-      float v = 0;
-      for (const auto &l: p.second->links) {
+      float v = p.second->bias;
+      for (const auto &l: p.second->links()) {
 #ifdef DEBUG_COMPUTE
         std::cerr << "        i> v = " << v + l.weight * l.in.lock()->value
                   << " = " << v << " + " << l.weight << " * "
@@ -579,6 +568,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
       }
 
       p.second->value = activation(v);
+      assert(-1 <= p.second->value && p.second->value <= 1);
 
 #ifdef DEBUG_COMPUTE
       std::cerr << "      <o " << p.first << ": " << p.second->value << " = "
@@ -595,6 +585,52 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 #endif
 }
 
+void to_json (nlohmann::json &j, const ANN &ann) {
+  assert(false);
+//  nlohmann::json jn, ji, jo;
+//  jn = ann._neurons;
+//  for (const auto &i: ann._inputs)  ji.push_back(i->pos);
+//  for (const auto &o: ann._outputs) jo.push_back(o->pos);
+//  j = { jn, ji, jo };
+}
+
+void from_json (const nlohmann::json &j, ANN &ann) {
+  assert(false);
+//  ann = ANN();
+
+//  uint i = 0;
+//  ann._neurons = j[i++];
+//  ann._inputs = j[i++];
+//  ann._outputs = j[i++];
+}
+
+#define ASRT(X) assertEqual(lhs.X, rhs.X, deepcopy)
+void assertEqual (const ANN::Neuron &lhs, const ANN::Neuron &rhs,
+                  bool deepcopy) {
+
+  using utils::assertEqual;
+  ASRT(pos);
+  ASRT(type);
+  ASRT(bias);
+  ASRT(value);
+  ASRT(_links);
+}
+
+void assertEqual (const ANN::Neuron::Link &lhs, const ANN::Neuron::Link &rhs,
+                  bool deepcopy) {
+  using utils::assertEqual;
+  ASRT(weight);
+  ASRT(in.lock()->pos);
+}
+
+void assertEqual (const ANN &lhs, const ANN &rhs, bool deepcopy) {
+  using utils::assertEqual;
+  ASRT(_neurons);
+  ASRT(_inputs);
+  ASRT(_outputs);
+}
+#undef ASRT
+
 } // end of namespace phenotype
 
 #define CFILE config::EvolvableSubstrate
@@ -609,7 +645,7 @@ DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
 
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
-                       activationFunc, "kact")
+                       activationFunc, "ssgn")
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 

@@ -11,23 +11,27 @@ struct OutputViewer;
 
 struct OutputSummary : public QWidget {
   enum ShowFlags {
-    SHOW_OUTGOING = 0x1,
-    SHOW_INCOMING = 0x2,
+    NEURAL   = 0x1,
+    OUTGOING = 0x2,
+    INCOMING = 0x4,
 
-    SHOW_NONE = 0, SHOW_ALL = SHOW_OUTGOING | SHOW_INCOMING
+    NONE = 0,
+    CONNECTIONS = OUTGOING | INCOMING,
+    ALL = NEURAL | CONNECTIONS
   };
 
   OutputSummary (QWidget *parent = nullptr);
 
-  void phenotypes (phenotype::CPPN &cppn, const QPointF &p, ShowFlags f);
-  void noPhenotypes (void);
+  void phenotypes (const phenotype::CPPN &cppn, const QPointF &p, ShowFlags f);
+  void noPhenotypes (ShowFlags f = ALL);
 
 public slots:
   void phenotypeAt(const QPointF &p);
 
 private:
-  std::array<OutputViewer*, 4> _viewers;
-  QLabel *_header;
+  std::array<OutputViewer*, 1> _nviewers;
+  std::array<OutputViewer*, 4> _cviewers;
+  QLabel *_cheader;
 };
 
 } // end of namespace kgd::es_hyperneat::gui::cppn

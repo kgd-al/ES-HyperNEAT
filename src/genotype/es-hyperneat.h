@@ -70,7 +70,7 @@ public:
     bool isOutput (Node::ID nid) const;
     bool isHidden (Node::ID nid) const;
 
-    static CPPN fromDot (const std::string &data);
+    static CPPN fromDot (const std::string &data, rng::AbstractDice &dice);
 
     friend std::ostream& operator<< (std::ostream &os, const CPPN &d);
 
@@ -110,7 +110,7 @@ DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
   config, CPPNInput, X0, Y0, X1, Y1, BIAS)
 
 DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
-    config, CPPNOutput, W, L)
+    config, CPPNOutput, WEIGHT, LEO, BIAS)
 
 DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
   config, CPPNInitMethod,
@@ -127,17 +127,19 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
   using FBounds = Bounds<float>;
   DECLARE_PARAMETER(FBounds, weightBounds)
 
+  static constexpr auto INPUTS_COUNT = EnumUtils<CPPNInput>::size();
   struct InputData {
     std::string name;
   };
-  using Inputs = std::array<InputData, EnumUtils<CPPNInput>::size()>;
+  using Inputs = std::array<InputData, INPUTS_COUNT>;
   DECLARE_CONST_PARAMETER(Inputs, cppnInputs)
 
+  static constexpr auto OUTPUTS_COUNT = EnumUtils<CPPNOutput>::size();
   struct OutputData {
     std::string name;
     FuncID function;
   };
-  using Outputs = std::array<OutputData, EnumUtils<CPPNOutput>::size()>;
+  using Outputs = std::array<OutputData, OUTPUTS_COUNT>;
   DECLARE_CONST_PARAMETER(Outputs, cppnOutputs)
 
   DECLARE_PARAMETER(CPPNInitMethod, cppnInit)

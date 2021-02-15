@@ -1,4 +1,6 @@
 #include <QApplication>
+#include <QProcess>
+#include <QDebug>
 
 #include "kgd/external/cxxopts.hpp"
 
@@ -26,6 +28,7 @@ int main (int argc, char **argv) {
   int seed = -1;
 
   stdfs::path baseCPPN = "";
+  bool withSequencer = false;
 
   cxxopts::Options options("SongMaker (ES-HyperNEAT)",
                            "Test environment for personnal implementation of "
@@ -47,6 +50,8 @@ int main (int argc, char **argv) {
     ("b,basis", "Basis for initial generation (either full genome or dot "
                 "file describing the cppn)",
      cxxopts::value(baseCPPN))
+    ("sequencer", "Launch independant sequencer (timidity)",
+     cxxopts::value(withSequencer))
     ;
 
   auto result = options.parse(argc, argv);
@@ -70,12 +75,45 @@ int main (int argc, char **argv) {
 
   if (seed < 0) seed = rng::FastDice::currentMilliTime();
 
-  kgd::watchmaker::sound::MidiWrapper::initialize();
 
+  QProcess *sequencer = nullptr;
+
+  if (withSequencer) {
+    sequencer = new QProcess(&app);
+    QObject::connect(sequencer, &QProcess::started, [] {
+      qDebug() << "Timidity sequencer started";
+    });
+    QObject::connect(sequencer, &QProcess::errorOccurred,
+                     [] (QProcess::ProcessError e){
+      qDebug() << "Timidity sequencer got an error:" << e;
+    });
+    QObject::connect(sequencer,
+                     QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                     [] (int c, QProcess::ExitStatus s){
+      qDebug() << "Timidity sequencer finished:" << c << s;
+    });
+    QObject::connect(sequencer, &QProcess::stateChanged,
+                     [] (QProcess::ProcessState s){
+      qDebug() << "Timidity sequencer changed state:" << s;
+    });
+
+    sequencer->start("timidity", QStringList() << "-iA");
+    bool s = sequencer->waitForStarted();
+    qDebug() << "Timidity sequencer started:" << s;
+
+    QTimer::singleShot(50, [] {
+      qDebug() << "Initializing";
+      kgd::watchmaker::sound::MidiWrapper::initialize();
+    });
+  }
 
   BWWindow w (outputFolder, seed);
   w.firstGeneration(baseCPPN);
   w.show();
 
-  return app.exec();
+  int r = app.exec();
+
+  if (sequencer)  sequencer->close();
+
+  return r;
 }

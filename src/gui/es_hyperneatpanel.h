@@ -29,13 +29,14 @@ struct ES_HyperNEATPanel : public QWidget {
   std::map<std::string, QLabel*> otherFields;
 
   ES_HyperNEATPanel (QWidget *parent = nullptr);
-  void setData (const genotype::ES_HyperNEAT &genome, phenotype::CPPN &cppn,
-                phenotype::ANN &ann);
+  void setData (const genotype::ES_HyperNEAT &genome,
+                const phenotype::CPPN &cppn,
+                const phenotype::ANN &ann);
   void noData (void);
 
 private:
   const genotype::ES_HyperNEAT *_genome;
-  phenotype::CPPN *_cppn;
+  const phenotype::CPPN *_cppn;
   const phenotype::ANN *_ann;
   QSplitter *_mainSplitter, *_cppnSplitter, *_annSplitter;
 

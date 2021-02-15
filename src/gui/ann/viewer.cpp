@@ -14,32 +14,54 @@ NeuronStateViewer::NeuronStateViewer (void) {
 }
 
 void NeuronStateViewer::noState(void) {
-  setPlainText("N/A");
+  _neuron = nullptr;
+  updateState();
 }
 
-void NeuronStateViewer::displayState(const Neuron &n) {
+void NeuronStateViewer::displayState(const Neuron *n) {
+  _neuron = n;
+  updateState();
+}
+
+void NeuronStateViewer::updateState(void) {
   static const auto activation =
     QString::fromStdString(
       (std::string)config::EvolvableSubstrate::activationFunc());
+
+  if (_neuron == nullptr) {
+    setPlainText("N/A");
+    return;
+  }
 
   QString contents;
   QTextStream qts (&contents);
   qts.setRealNumberNotation(QTextStream::FixedNotation);
   qts.setRealNumberPrecision(3);
   qts.setNumberFlags(QTextStream::ForceSign);
-  qts << " input:\n";
 
-  float input = 0;
-  for (const phenotype::ANN::Neuron::Link &l: n.links) {
-    const Neuron &in = *l.in.lock();
-    qts << "[" << in.pos.x() << ", " << in.pos.y() << "] "
-        << in.value * l.weight << " (" << in.value << " * " << l.weight
-        << ")\n";
-    input += in.value * l.weight;
-  }
+  const Neuron &n = *_neuron;
+  float input = n.bias;
+  if (!n.isInput()) {
+    qts << " input:\n";
 
-  qts << "                 = " << input << "\n"
-      << "output: " << n.value << " = " << activation << "(" << input << ")";
+    qts << "             [B] " << n.bias << "\n";
+    for (const phenotype::ANN::Neuron::Link &l: n.links()) {
+      const Neuron &in = *l.in.lock();
+      qts << "[" << in.pos.x() << ", " << in.pos.y() << "] "
+          << in.value * l.weight << " (" << in.value << " * " << l.weight
+          << ")\n";
+      input += in.value * l.weight;
+    }
+
+    qts << "                 = " << input << "\n";
+
+  } else
+    qts << "\n\n\n";
+
+  qts << "output: " << n.value;
+
+  if (!n.isInput()) qts << " = " << activation << "(" << input << ")";
+
   setPlainText(contents);
 }
 

@@ -39,6 +39,7 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
   _cppnSplitter->setObjectName("eshn::splitters::cppn");
   _cppnSplitter->addWidget(cppnViewer = new cppn::Viewer);
   _cppnSplitter->addWidget(cppnOViewer = new cppn::OutputSummary);
+  _cppnSplitter->setStretchFactor(0, 1);
   _mainSplitter->addWidget(row("CPPN", _cppnSplitter));
 
   _annSplitter = new QSplitter;
@@ -71,14 +72,14 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
 }
 
 void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
-                                 phenotype::CPPN &cppn,
-                                 phenotype::ANN &ann) {
+                                 const phenotype::CPPN &cppn,
+                                 const phenotype::ANN &ann) {
   _genome = &genome;
   _cppn = &cppn;
   _ann = &ann;
 
   cppnViewer->setGraph(genome.cppn);
-  cppnOViewer->phenotypes(cppn, {0,0}, cppn::OutputSummary::SHOW_ALL);
+  cppnOViewer->phenotypes(cppn, {0,0}, cppn::OutputSummary::ALL);
   annViewer->setGraph(ann);
 
   for (const auto &p: otherFields)
@@ -97,12 +98,12 @@ void ES_HyperNEATPanel::neuronHovered(const phenotype::ANN::Neuron &n) {
   using T = phenotype::ANN::Neuron::Type;
   using S = cppn::OutputSummary::ShowFlags;
   S flag = S(
-      (n.type != T::O ? S::SHOW_OUTGOING : S::SHOW_NONE)
-    | ((n.type != T::I && n.type != T::B) ? S::SHOW_INCOMING : S::SHOW_NONE)
+      (n.type != T::O ? S::OUTGOING : S::NONE)
+    | ((n.type != T::I) ? S::INCOMING : S::NONE)
   );
   cppnOViewer->phenotypes(*_cppn, QPointF(n.pos.x(), n.pos.y()), flag);
 
-  neuronViewer->displayState(n);
+  neuronViewer->displayState(&n);
 }
 
 void ES_HyperNEATPanel::showEvent(QShowEvent *e) {

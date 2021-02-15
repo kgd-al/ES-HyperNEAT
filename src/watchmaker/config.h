@@ -17,7 +17,6 @@ namespace config {
 struct CONFIG_FILE(WatchMaker) {
   DECLARE_SUBCONFIG(config::EvolvableSubstrate, configESHN)
 
-  DECLARE_PARAMETER(bool, withBias)
   DECLARE_PARAMETER(kgd::watchmaker::TemporalInput, tinput)
   DECLARE_PARAMETER(kgd::watchmaker::Audition, audition)
 

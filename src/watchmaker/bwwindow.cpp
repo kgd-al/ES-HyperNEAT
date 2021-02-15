@@ -28,9 +28,6 @@ Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
 
   auto cppn = phenotype::CPPN::fromGenotype(genome);
 
-  phenotype::ANN::Point bias { NAN, NAN };
-  if (Config::withBias()) bias = {0,-.9};
-
   phenotype::ANN::Coordinates inputs, outputs;
   static constexpr auto C = sound::StaticData::CHANNELS;
   for (uint i=0; i<C; i++) {
@@ -39,9 +36,9 @@ Individual::ptr Individual::fromGenome (const genotype::ES_HyperNEAT &genome) {
     outputs.push_back({ 2*float(i) / (C-1) - 1.f, +1 });
   }
 
-  if (Config::tinput() != TemporalInput::NONE)  inputs.push_back({0,0});
+  if (Config::tinput() != TemporalInput::NONE)  inputs.push_back({0, -.5});
 
-  auto ann = phenotype::ANN::build(bias, inputs, outputs, cppn);
+  auto ann = phenotype::ANN::build(inputs, outputs, cppn);
 
   return ptr(new Individual(genome, cppn, ann));
 }
@@ -211,12 +208,20 @@ void BWWindow::firstGeneration(const stdfs::path &baseGenome) {
 #ifdef DEBUG_QUADTREE
     quadtreeDebugPrefix(_currentSavePath, N/2, N/2);
 #endif
-    setIndividual(simu::Individual::fromFile(baseGenome, _dice), N/2, N/2);
-    nextGeneration(N*N/2);
-
-    std::cerr << "Provided primordial:\n"
-              << _individuals[N*N/2]->genome;
+    for (uint i=0; i<N; i++) {
+      for (uint j=0; j<N; j++) {
+#ifdef DEBUG_QUADTREE
+        quadtreeDebugPrefix(_currentSavePath, i, j);
+#endif
+        setIndividual(simu::Individual::fromFile(baseGenome, _dice), i, j);
+      }
+    }
   }
+
+  uint empty = 0;
+  for (const auto &i: _individuals) if (i->ann.empty()) empty++;
+  std::cout << "Empty phenotypes: " << empty << " / " << (N*N) << " ("
+            << 100. * empty / (N*N) << "%)" << std::endl;
 
   if (setting(LOCK_SELECTION))
         setSelectedIndividual(N*N/2);
@@ -265,43 +270,6 @@ void BWWindow::setIndividual(IPtr &&in, uint j, uint k) {
 
   for (uint n=0; n<sound::StaticData::NOTES; n++)
     evaluateIndividual(i, n, true);
-
-//  const auto ix = j*N+k;
-//  simu::Individual &i = *(_individuals[ix] = std::move(in)).get();
-//  auto &ann = i.ann;
-//  auto &notes = i.phenotype;
-
-//  auto v = _visualizers[ix];
-
-//  auto inputs = ann.inputs();
-//  auto outputs = ann.outputs();
-
-//  std::fill(inputs.begin(), inputs.end(), 0);
-//  for (uint n=0; n<sound::StaticData::NOTES; n++) {
-//    ann(inputs, outputs, i.genome.substeps);
-//    for (uint c=0; c<C; c++)  notes[n*C+c] = outputs[c];
-
-//    /// TODO Factorise with animateANN
-//    switch (Config::audition()) {
-//    case Audition::NONE:  break;
-//    case Audition::SELF:
-//      std::copy(outputs.begin(), outputs.end(), inputs.begin());
-//      break;
-//    case Audition::COMMUNITY:
-//      assert(false);
-//      break;
-//    }
-
-//    switch (Config::tinput()) {
-//    case TemporalInput::NONE: break;
-//    case TemporalInput::LINEAR:
-//      inputs.back() = float(n) / (sound::StaticData::NOTES-1);
-//      break;
-//    case TemporalInput::SINUSOIDAL:
-//      inputs.back() = std::sin(2 * M_PI * n * sound::StaticData::STEP);
-//      break;
-//    }
-//  }
 
   _visualizers[ix]->setNoteSheet(i->phenotype);
 
@@ -497,9 +465,10 @@ void BWWindow::showIndividualDetails(int index) {
     _shown = _visualizers[index];
     _shown->setHighlighted(true);
 
-    using utils::operator<<;
-    std::cerr << "Details of individual " << index << ":\n phenotype: "
-              << i->phenotype << "\n";
+//    using utils::operator<<;
+//    std::cerr << "Details of individual " << index << ":\n"
+//              << " cppn: " << i->genome.cppn << "\n"
+//              << " phenotype: " << i->phenotype << "\n";
   }
 }
 
@@ -562,40 +531,8 @@ void BWWindow::animateShownANN(void) {
             << _animation.index << "\n";
   evaluateIndividual(_individuals[_animation.index], _animation.step, false);
 
-//  simu::Individual &i = *_individuals[_animation.index];
-
-//  auto inputs = i.ann.inputs(), outputs = i.ann.outputs();
-//  if (_animation.step > 0) {
-//    static constexpr auto C = sound::StaticData::CHANNELS;
-//    uint off = (_animation.step-1)*C;
-
-//    /// TODO Factorise with setIndividual
-//    switch (Config::audition()) {
-//    case Audition::NONE:  break;
-//    case Audition::SELF:
-//      std::copy(i.phenotype.begin()+off, i.phenotype.begin()+off+C,
-//                inputs.begin());
-//      break;
-//    case Audition::COMMUNITY:
-//      assert(false);
-//      break;
-//    }
-
-//    switch (Config::tinput()) {
-//    case TemporalInput::NONE: break;
-//    case TemporalInput::LINEAR:
-//      inputs.back() = float(_animation.step) / (sound::StaticData::NOTES-1);
-//      break;
-//    case TemporalInput::SINUSOIDAL:
-//      inputs.back() =
-//          std::sin(2 * M_PI * _animation.step * sound::StaticData::STEP);
-//      std::cerr << _animation.step << ": " << inputs.back() << std::endl;
-//      break;
-//    }
-//  }
-//  i.ann(inputs, outputs, i.genome.substeps);
-
   _details->annViewer->updateAnimation();
+  _details->neuronViewer->updateState();
 
   _animation.step = (_animation.step + 1) % sound::StaticData::NOTES;
 }

@@ -56,7 +56,7 @@ int main (void) {
     5 -> 7 [-1];
     9 -> 6 [+1];
     8 -> 7 [+1];
-  )");
+  )", dice);
   manual_cppn.render_gvc_graph("manual.ps");
 
   return 0;
