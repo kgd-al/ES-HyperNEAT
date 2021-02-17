@@ -4,8 +4,9 @@ cmake_minimum_required(VERSION 3.4)
 ## General settings
 ################################################################################
 
-
 project("ES-HyperNEAT")
+message("\n####################################################################"
+    "############\n## CMakeFile for ${PROJECT_NAME}")
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -pedantic")#"-ftime-report")
 
@@ -128,8 +129,6 @@ if (NOT CLUSTER_BUILD)
     set_property(TARGET eshn-gui PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET eshn-gui PROPERTY AUTOMOC ON)
 
-    set(MAYBE_GUI "eshn-gui")
-
 ##################################################################################
 #### Target (watchmaker)
 ##################################################################################
@@ -161,11 +160,12 @@ if (NOT CLUSTER_BUILD)
           ${WATCHMAKER_SRC}
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-        target_link_libraries(watchmaker ${CORE_LIBS} eshn-core
-                                         ${QT_LIBS} eshn-gui)
+        message("watchmaker links: ${CORE_LIBS} ${GUI_LIBS}
+            eshn-core eshn-gui ${MIDI_LIBS}")
+        target_link_libraries(watchmaker eshn-core eshn-gui
+                                         ${CORE_LIBS} ${GUI_LIBS} ${MIDI_LIBS})
 
         target_compile_definitions(watchmaker PRIVATE ${MIDI_DEFS})
-        target_link_libraries(watchmaker ${MIDI_LIBS})
     endif()
 
 
@@ -275,12 +275,12 @@ set(${PROJECT_NAME}_INCLUDE_DIRS
     ${CMAKE_INSTALL_PREFIX}/include)
 
 set(${PROJECT_NAME}_LIBRARIES
-    $<JOIN:${CORE_LIBS};${LIB_BASE}/$<TARGET_FILE_NAME:eshn-core>,
+    $<JOIN:${LIB_BASE}/$<TARGET_FILE_NAME:eshn-core>;${CORE_LIBS},
     >)
 
 if(NOT CLUSTER_BUILD)
     set(${PROJECT_NAME}_GUI_LIBRARIES
-        $<JOIN:${GUI_LIBS};${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>,
+        $<JOIN:${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>;${GUI_LIBS},
         >)
 
     set(QT_COMPONENTS ${QT_COMPONENTS})
