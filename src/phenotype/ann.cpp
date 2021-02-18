@@ -585,13 +585,27 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 #endif
 }
 
+// =============================================================================
+
+void to_json (nlohmann::json &j, const ANN::Neuron::ptr &n) {
+  nlohmann::json jl;
+  for (const ANN::Neuron::Link &l: n->links())
+    jl.push_back({l.weight, l.in.lock()->pos});
+  j = { n->pos, n->type, n->bias, n->value, jl };
+}
+
 void to_json (nlohmann::json &j, const ANN &ann) {
-  assert(false);
-//  nlohmann::json jn, ji, jo;
-//  jn = ann._neurons;
-//  for (const auto &i: ann._inputs)  ji.push_back(i->pos);
-//  for (const auto &o: ann._outputs) jo.push_back(o->pos);
-//  j = { jn, ji, jo };
+  nlohmann::json jn, ji, jo;
+  jn = ann._neurons;
+  for (const auto &i: ann._inputs)  ji.push_back(i->pos);
+  for (const auto &o: ann._outputs) jo.push_back(o->pos);
+  j = { jn, ji, jo };
+}
+
+// =============================================================================
+
+void from_json (const nlohmann::json &j, ANN::Neuron::ptr &n) {
+
 }
 
 void from_json (const nlohmann::json &j, ANN &ann) {
@@ -600,9 +614,13 @@ void from_json (const nlohmann::json &j, ANN &ann) {
 
 //  uint i = 0;
 //  ann._neurons = j[i++];
-//  ann._inputs = j[i++];
-//  ann._outputs = j[i++];
+//  for (const ANN::Point &p: j[i++])
+//    ann._inputs.push_back(ann._neurons.at(p));
+//  for (const ANN::Point &p: j[i++])
+//    ann._outputs.push_back(ann._neurons.at(p));
 }
+
+// =============================================================================
 
 #define ASRT(X) assertEqual(lhs.X, rhs.X, deepcopy)
 void assertEqual (const ANN::Neuron &lhs, const ANN::Neuron &rhs,
