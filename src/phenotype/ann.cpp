@@ -20,7 +20,7 @@ namespace phenotype {
 #ifndef NDEBUG
 //#define DEBUG
 //#define DEBUG_COMPUTE 1
-//#define DEBUG_ES 1
+//#define DEBUG_ES 3
 #endif
 
 #if DEBUG_ES
@@ -190,8 +190,8 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     } else {
       // Not enough information at lower resolution -> test if part of band
 
-      static auto cppn_inputs = cppn.inputs();
       const auto weight = [&cppn, &p, &c, out] (float x, float y) {
+        auto cppn_inputs = cppn.inputs();
         cppn_inputs[0] = out ? p.x() : x;
         cppn_inputs[1] = out ? p.y() : y;
         cppn_inputs[2] = out ? x : p.x();
@@ -278,10 +278,17 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
     o->i.push_back({i,c.weight});
   }
 
-  std::set<N*> iseen, oseen;
+#if DEBUG_ES >= 2
+  std::cerr << "\ninodes:\n";
+  for (const auto &n: inodes) std::cerr << "\t" << n->p << "\n";
+  std::cerr << "\nonodes:\n";
+  for (const auto &n: onodes) std::cerr << "\t" << n->p << "\n";
+  std::cerr << "\n";
+#endif
+
   std::queue<N*> q;
   const auto breathFirstSearch =
-      [&q] (const auto &src, std::set<N*> &set, auto field) {
+      [&q] (const auto &src, auto &set, auto field) {
     for (const auto &n: src)  q.push(n);
     while (!q.empty()) {
       N *n = q.front();
@@ -291,15 +298,28 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
       for (auto &l: n->*field) if (set.find(l.n) == set.end()) q.push(l.n);
     }
   };
+  std::set<N*, CMP> iseen, oseen;
   breathFirstSearch(inodes, iseen, &N::o);
   breathFirstSearch(onodes, oseen, &N::i);
 
+#if DEBUG_ES >= 2
+  std::cerr << "hidden nodes:\n\tiseen:\n";
+  for (const auto *n: iseen)  std::cerr << "\t\t" << n->p << "\n";
+  std::cerr << "\n\toseen:\n";
+  for (const auto *n: oseen)  std::cerr << "\t\t" << n->p << "\n";
+  std::cerr << "\n";
+#endif
+
+  CMP cmp;
   std::vector<N*> hiddenNodes;
   std::set_intersection(iseen.begin(), iseen.end(), oseen.begin(), oseen.end(),
-                        std::back_inserter(hiddenNodes));
+                        std::back_inserter(hiddenNodes), cmp);
 
   connections.clear();
   for (const N *n: hiddenNodes) {
+#if DEBUG_ES >= 3
+    std::cerr << "\t" << n->p << "\n";
+#endif
     shidden.insert(n->p);
     for (const L &l: n->i)  connections.push_back({l.n->p, n->p, l.w});
     for (const L &l: n->o)
@@ -313,6 +333,7 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   }
 }
 
+std::mutex _mutex;
 void connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
@@ -321,9 +342,12 @@ void connect (const CPPN &cppn,
 
 #if DEBUG_ES
   using utils::operator<<;
-  std::cerr << "\n## --\nStarting evolvable substrate instantiation\n";
+  std::ostringstream oss;
+  oss << "\n## --\nStarting evolvable substrate instantiation\n";
 #endif
 
+
+  std::lock_guard guard(_mutex);
   std::set<Point> shidden;
   Connections tmpConnections;
   for (const Point &p: inputs) {
@@ -333,10 +357,10 @@ void connect (const CPPN &cppn,
   }
 
 #if DEBUG_ES
-  std::cerr << "[I -> H] found " << shidden.size() << " hidden neurons\n\t"
-            << shidden << "\n"
-            << " and " << tmpConnections.size() << " connections\n\t"
-            << tmpConnections << "\n";
+  oss << "[I -> H] found " << shidden.size() << " hidden neurons\n\t"
+      << shidden << "\n"
+      << " and " << tmpConnections.size() << " connections\n\t"
+      << tmpConnections << "\n";
 #endif
 
   connections.insert(connections.end(),
@@ -358,10 +382,10 @@ void connect (const CPPN &cppn,
     unexploredHidden = tmpHidden;
 
 #if DEBUG_ES
-  std::cerr << "[H -> H] found " << unexploredHidden.size()
-            << " hidden neurons\n\t" << unexploredHidden << "\n"
-            << " and " << tmpConnections.size() << " connections\n\t"
-            << tmpConnections << "\n";
+  oss << "[H -> H] found " << unexploredHidden.size()
+      << " hidden neurons\n\t" << unexploredHidden << "\n"
+      << " and " << tmpConnections.size() << " connections\n\t"
+      << tmpConnections << "\n";
 #endif
 
     connections.insert(connections.end(),
@@ -375,8 +399,8 @@ void connect (const CPPN &cppn,
   }
 
 #if DEBUG_ES
-  std::cerr << "[H -> O] found " << tmpConnections.size() << " connections\n\t"
-            << tmpConnections << "\n";
+  oss << "[H -> O] found " << tmpConnections.size() << " connections\n\t"
+      << tmpConnections << "\n";
 #endif
 
   connections.insert(connections.end(),
@@ -386,13 +410,17 @@ void connect (const CPPN &cppn,
   removeUnconnectedNeurons(inputs, outputs, shidden2, connections);
 
 #if DEBUG_ES
-  std::cerr << "[Filtrd] total " << shidden2.size()
-            << " hidden neurons\n\t" << shidden2 << "\n"
-            << " and " << connections.size() << " connections\n\t"
-            << connections << "\n";
+  oss << "[Filtrd] total " << shidden2.size()
+      << " hidden neurons\n\t" << shidden2 << "\n"
+      << " and " << connections.size() << " connections\n\t"
+      << connections << "\n";
 #endif
 
   std::copy(shidden2.begin(), shidden2.end(), std::back_inserter(hidden));
+
+#if DEBUG_ES
+  std::cerr << oss.rdbuf() << std::endl;;
+#endif
 }
 
 } // end of namespace evolvable substrate
