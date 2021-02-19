@@ -86,8 +86,8 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
   std::queue<QuadTreeNode*> q;
   q.push(root.get());
 
-  static auto cppn_inputs = cppn.inputs();
   const auto weight = [&cppn] (const Point &p0, const Point &p1) {
+    auto cppn_inputs = cppn.inputs();
     cppn_inputs[0] = p0.x();
     cppn_inputs[1] = p0.y();
     cppn_inputs[2] = p1.x();
@@ -154,7 +154,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
   static const auto &varThr = Config::varThr();
   static const auto &bndThr = Config::bndThr();
   static const auto leo = [] (const auto &cppn, auto i, auto o) {
-    static auto inputs = cppn.inputs();
+    auto inputs = cppn.inputs();
     inputs[0] = i.x();
     inputs[1] = i.y();
     inputs[2] = o.x();
@@ -333,7 +333,6 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   }
 }
 
-std::mutex _mutex;
 void connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
@@ -346,8 +345,6 @@ void connect (const CPPN &cppn,
   oss << "\n## --\nStarting evolvable substrate instantiation\n";
 #endif
 
-
-  std::lock_guard guard(_mutex);
   std::set<Point> shidden;
   Connections tmpConnections;
   for (const Point &p: inputs) {
@@ -442,7 +439,7 @@ ANN ANN::build (const Coordinates &inputs,
   NeuronsMap &neurons = ann._neurons;
 
   const auto add = [&cppn, &ann] (auto p, auto t) {
-    static auto inputs = cppn.inputs();
+    auto inputs = cppn.inputs();
     float bias = 0;
     if (t != Neuron::I) {
       inputs[0] = p.x();
