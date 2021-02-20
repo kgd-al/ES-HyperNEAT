@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#ifdef WITH_GVC
 namespace gvc {
 
 GVC_t* context(void) {
@@ -35,3 +36,4 @@ void GraphWrapper::freeLayout(void) {
 }
 
 } // end of namespace gvc
+#endif

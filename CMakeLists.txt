@@ -46,9 +46,9 @@ if (${gvc_FOUND})
     list(APPEND KGD_DEFINITIONS -DWITH_GVC)
     include_directories(${gvc_INCLUDE_DIRS})
     list(APPEND CORE_LIBS ${gvc_LIBRARIES})
-else()
+elseif(NOT ${CLUSTER_BUILD})
     message(FATAL_ERROR
-            "gvc is kind of essential. Please try to install it properly")
+            "gvc is essential in graphic mode. Please install it properly")
 endif()
 
 ################################################################################
@@ -287,21 +287,18 @@ set(${PROJECT_NAME}_GUI_LIBRARIES
     >)
 >
 
-set(${PROJECT_NAME}_KGD_DEFINITIONS ${KGD_DEFINITIONS})
-set(DEPENDENCY_GENERATOR
-    ${CMAKE_INSTALL_PREFIX}/cmake/generate_dependency_data.sh)
-
 set(${PROJECT_NAME}_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 if(NOT \${${PROJECT_NAME}_BUILD_TYPE} STREQUAL \${CMAKE_BUILD_TYPE})
     message(FATAL_ERROR \"Mismatching build version!
-        Linking against '\${${PROJECT_NAME}_BUILD_TYPE}' while using '\${CMAKE_BUILD_TYPE}'\")
+        Linking against '\${${PROJECT_NAME}_BUILD_TYPE}' while using
+        '\${CMAKE_BUILD_TYPE}'\")
 endif()
 
 set(${PROJECT_NAME}_CLUSTER_BUILD ${CLUSTER_BUILD})
-if (NOT \${${PROJECT_NAME}_CLUSTER_BUILD} STREQUAL \${CLUSTER_BUILD})
+if (\${${PROJECT_NAME}_CLUSTER_BUILD} STREQUAL ON
+    AND \${CLUSTER_BUILD} STREQUAL OFF)
     message(FATAL_ERROR \"Mismatching cluster build values!
-        Linking against '\${${PROJECT_NAME}_CLUSTER_BUILD}' while using
-        '\${CLUSTER_BUILD}'\")
+        ${PROJECT_NAME} was built in cluster mode\")
 endif()
 ")
 install(FILES ${CONFIG} DESTINATION cmake)
