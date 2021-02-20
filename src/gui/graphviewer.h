@@ -18,6 +18,7 @@ public:
   void resizeEvent(QResizeEvent *e);
 
   void render (const QString &filename);
+  using QGraphicsView::render;
 
   template <typename Viewer>
   static void render (const gvc::Graph &graph, const std::string &filename) {
