@@ -113,6 +113,14 @@ struct Graph {
 };
 
 } // end of namespace gvc
+
+#else
+
+namespace gvc {
+struct GraphWrapper {};
+struct Graph {};
+} // end of namespace gvc (fallback)
+
 #endif
 
 #endif // KGD_GVC_WRAPPER_HPP

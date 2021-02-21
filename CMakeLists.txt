@@ -23,7 +23,7 @@ if (${CMAKE_INSTALL_PREFIX} MATCHES "^$ENV{HOME}")
     string(APPEND CMAKE_INSTALL_PREFIX "/${BUILD_TYPE}")
     set(CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX})
 endif()
-set(LIB_BASE "${CMAKE_INSTALL_PREFIX}/lib/kgd/eshn")
+set(LIB_BASE "${CMAKE_INSTALL_PREFIX}/lib/kgd")
 message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 
 ################################################################################
@@ -33,10 +33,10 @@ message("> Install path is ${CMAKE_INSTALL_PREFIX}/")
 find_package(APOGeT REQUIRED)
 include_directories(${APOGeT_INCLUDE_DIRS})
 message("> APOGeT found at " ${APOGeT_DIR})
-message("  > Core libraries " "${APOGeT_LIBRARIES}")
 list(APPEND CORE_LIBS ${APOGeT_LIBRARIES})
-message("  > Gui libraries " "${APOGeT_GUI_LIBRARIES}")
+message("  > Core libraries " "${CORE_LIBS}")
 list(APPEND GUI_LIBS ${APOGeT_GUI_LIBRARIES})
+message("  > Gui libraries " "${GUI_LIBS}")
 
 list(APPEND KGD_DEFINITIONS ${APOGeT_KGD_DEFINITIONS})
 
@@ -46,9 +46,9 @@ if (${gvc_FOUND})
     list(APPEND KGD_DEFINITIONS -DWITH_GVC)
     include_directories(${gvc_INCLUDE_DIRS})
     list(APPEND CORE_LIBS ${gvc_LIBRARIES})
-else()
+elseif(NOT ${CLUSTER_BUILD})
     message(FATAL_ERROR
-            "gvc is kind of essential. Please try to install it properly")
+            "gvc is essential in graphic mode. Please install it properly")
 endif()
 
 ################################################################################
@@ -84,6 +84,7 @@ PREPEND(MISC_SRC "src/misc")
 
 add_library(eshn-core STATIC ${CORE_SRC} ${MISC_SRC})
 target_link_libraries(eshn-core ${CORE_LIBS})
+list(APPEND NEW_CORE_LIBS ${LIB_BASE}/$<TARGET_FILE_NAME:eshn-core>)
 
 ################################################################################
 ## Target (cppn test)
@@ -128,6 +129,7 @@ if (NOT CLUSTER_BUILD)
         $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_COMPILE_DEFINITIONS>)
     set_property(TARGET eshn-gui PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET eshn-gui PROPERTY AUTOMOC ON)
+    list(APPEND NEW_GUI_LIBS ${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>)
 
 ##################################################################################
 #### Target (watchmaker)
@@ -160,8 +162,6 @@ if (NOT CLUSTER_BUILD)
           ${WATCHMAKER_SRC}
         )
         set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-        message("watchmaker links: ${CORE_LIBS} ${GUI_LIBS}
-            eshn-core eshn-gui ${MIDI_LIBS}")
         target_link_libraries(watchmaker eshn-core eshn-gui
                                          ${CORE_LIBS} ${GUI_LIBS} ${MIDI_LIBS})
 
@@ -238,9 +238,9 @@ message("> SongMaker: " ${WITH_SONGMAKER})
 # Export configuration
 ###################################################################################################
 
-install(TARGETS eshn-core ARCHIVE DESTINATION lib/kgd/eshn)
+install(TARGETS eshn-core ARCHIVE DESTINATION lib/kgd)
 if (NOT CLUSTER_BUILD)
-    install(TARGETS eshn-gui ARCHIVE DESTINATION lib/kgd/eshn)
+    install(TARGETS eshn-gui ARCHIVE DESTINATION lib/kgd)
 endif()
 
 install(
@@ -271,42 +271,45 @@ file(GENERATE
 "# CMake configuration settings for project ${PROJECT_NAME} (${CMAKE_BUILD_TYPE})
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
-    ${APOGeT_INCLUDE_DIRS}
     ${CMAKE_INSTALL_PREFIX}/include)
 
 set(${PROJECT_NAME}_LIBRARIES
-    $<JOIN:${LIB_BASE}/$<TARGET_FILE_NAME:eshn-core>;${CORE_LIBS},
+    $<JOIN:${NEW_CORE_LIBS};${CORE_LIBS},
     >)
 
-if(NOT CLUSTER_BUILD)
-    set(${PROJECT_NAME}_GUI_LIBRARIES
-        $<JOIN:${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>;${GUI_LIBS},
-        >)
+$<$<NOT:$<BOOL:${CLUSTER_BUILD}>>:
+set(QT_COMPONENTS ${QT_COMPONENTS})
+find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+message(\"Qt found at \" ${Qt5_DIR})
 
-    set(QT_COMPONENTS ${QT_COMPONENTS})
-    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
-    message(\"Qt found at \" ${Qt5_DIR})
-    set(QT_LIBS ${QT_LIBS})
-endif()
-
-set(${PROJECT_NAME}_KGD_DEFINITIONS ${KGD_DEFINITIONS})
+set(${PROJECT_NAME}_GUI_LIBRARIES
+    $<JOIN:${NEW_GUI_LIBS};${GUI_LIBS},
+    >)
+>
 
 set(${PROJECT_NAME}_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 if(NOT \${${PROJECT_NAME}_BUILD_TYPE} STREQUAL \${CMAKE_BUILD_TYPE})
     message(FATAL_ERROR \"Mismatching build version!
-        Linking against '\${${PROJECT_NAME}_BUILD_TYPE}' while using '\${CMAKE_BUILD_TYPE}'\")
-endif()\n"
-)
+        Linking against '\${${PROJECT_NAME}_BUILD_TYPE}' while using
+        '\${CMAKE_BUILD_TYPE}'\")
+endif()
+
+set(${PROJECT_NAME}_CLUSTER_BUILD ${CLUSTER_BUILD})
+if (\${${PROJECT_NAME}_CLUSTER_BUILD} STREQUAL ON
+    AND \${CLUSTER_BUILD} STREQUAL OFF)
+    message(FATAL_ERROR \"Mismatching cluster build values!
+        ${PROJECT_NAME} was built in cluster mode\")
+endif()
+")
 install(FILES ${CONFIG} DESTINATION cmake)
 
-#set(DEPENDENCY_GENERATOR ${tools_DIR}/generate_dependency_data.sh)
-#set(DEPENDENCY_FILE "${CMAKE_CURRENT_BINARY_DIR}/eshn.dependency")
-#add_custom_target(dependencies ALL DEPENDS ${DEPENDENCY_FILE})
-#add_custom_command(
-#    OUTPUT ${DEPENDENCY_FILE} always_check
-#    COMMAND ${DEPENDENCY_GENERATOR}
-#        ${DEPENDENCY_FILE} ESHN ${CMAKE_BUILD_TYPE}
+set(DEPENDENCY_FILE "${CMAKE_CURRENT_BINARY_DIR}/eshn.dependency")
+add_custom_target(dependencies ALL DEPENDS ${DEPENDENCY_FILE})
+add_custom_command(
+    OUTPUT ${DEPENDENCY_FILE} always_check
+    COMMAND ${DEPENDENCY_GENERATOR}
+        ${DEPENDENCY_FILE} ESHN ${CMAKE_BUILD_TYPE}
 
-#    COMMENT "Generating dependency data"
-#)
-#install(FILES ${DEPENDENCY_FILE} DESTINATION cmake)
+    COMMENT "Generating dependency data"
+)
+install(FILES ${DEPENDENCY_FILE} DESTINATION cmake)
