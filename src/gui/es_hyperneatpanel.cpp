@@ -130,8 +130,13 @@ namespace kgd::gui {
 void save (QSettings &settings, const QSplitter *splitter) {
   Q_ASSERT(!splitter->objectName().isEmpty());
   QVariantList l;
-  for (int s: splitter->sizes())  l.append(s);
-  settings.setValue(splitter->objectName(), l);
+  bool allNull = true;
+  for (int s: splitter->sizes()) {
+    l.append(s);
+    allNull &= (s == 0);
+  }
+
+  if (!allNull)  settings.setValue(splitter->objectName(), l);
 }
 
 void restore (const QSettings &settings, QSplitter *splitter) {

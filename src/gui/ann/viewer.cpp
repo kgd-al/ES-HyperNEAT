@@ -5,8 +5,6 @@
 #include "node.h"
 #include "edge.h"
 
-#include <QDebug>
-
 namespace kgd::es_hyperneat::gui::ann {
 
 NeuronStateViewer::NeuronStateViewer (void) {
