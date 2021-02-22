@@ -5,6 +5,8 @@
 #include "es_hyperneatpanel.h"
 #include "verticalpanel.hpp"
 
+#include <QDebug>
+
 namespace kgd::es_hyperneat::gui {
 
 auto row (const QString &label, QWidget *contents) {

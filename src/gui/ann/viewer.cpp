@@ -1,4 +1,5 @@
 #include <QtPrintSupport/QPrinter>
+#include <QTextStream>
 
 #include "viewer.h"
 
