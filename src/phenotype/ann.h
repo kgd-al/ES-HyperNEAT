@@ -135,6 +135,8 @@ public:
     using Links = std::vector<Link>;
 
     const Links& links (void) const {   return _links;            }
+    Links& links (void) {   return _links;            }
+
     void addLink (float w, wptr n) {    _links.push_back({w,n});  }
 
     friend void assertEqual (const Neuron &lhs, const Neuron &rhs,
@@ -149,6 +151,7 @@ public:
   ANN(void) = default;
 
   const auto& neurons (void) const {  return _neurons;  }
+  auto& neurons (void) {  return _neurons;  }
 
 #ifdef WITH_GVC
   gvc::GraphWrapper build_gvc_graph (void) const;

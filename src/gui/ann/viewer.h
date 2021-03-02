@@ -5,6 +5,7 @@
 
 #include "../../phenotype/ann.h"
 #include "../graphviewer.h"
+#include "node.h"
 
 namespace kgd::es_hyperneat::gui::ann {
 
@@ -33,6 +34,10 @@ public:
   bool isAnimating (void) const {
     return _animating;
   }
+
+  using CustomNodeColors = std::map<Node::Point, Node::CustomColors>;
+  void setCustomColors (const CustomNodeColors &colors);
+  void clearCustomColors (void);
 
 signals:
   void neuronHovered (const phenotype::ANN::Neuron &n);

@@ -3,8 +3,9 @@
 
 #include "viewer.h"
 
-#include "node.h"
 #include "edge.h"
+
+#include <QDebug>
 
 namespace kgd::es_hyperneat::gui::ann {
 
@@ -110,18 +111,22 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   auto gvc = gw.graph;
   qreal s = gvc::get(gvc, "dpi", 96.0) / 72.;
 
-  const auto getOrNew = [&edges, &scene, s] (Agedge_t *e) {
+  const auto getOrNew = [&edges, &scene, s] (Agedge_t *e, Node *i, Node *o) {
     auto ename = std::string(agnameof(e));
     auto it = edges.find(ename);
 
+    Edge *qe = nullptr;
     if (it != edges.end())
-      return it->second;
+      qe = it->second;
     else {
-      auto qe = new Edge(e, s);
+      qe = new Edge(e, s);
       scene->addItem(qe);
       edges[ename] = qe;
-      return qe;
     }
+
+    assert(qe);
+    qe->updateIO(i, o);
+    return qe;
   };
 
   const auto &ann = dynamic_cast<const phenotype::ANN&>(g);
@@ -152,10 +157,10 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
       qt_bounds.setTop(qn_b.y()), sb_bounds.setTop(sb_p.y());
 
     for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
-      qn->out.push_back(getOrNew(e));
+      qn->out.push_back(getOrNew(e, qn, nullptr));
 
     for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e))
-      qn->in.push_back(getOrNew(e));
+      qn->in.push_back(getOrNew(e, nullptr, qn));
   }
 
   QPointF qc = qt_bounds.center();
@@ -184,5 +189,68 @@ void Viewer::stopAnimation(void) {
   for (QGraphicsItem *i: _neurons)
     dynamic_cast<Node*>(i)->updateAnimation(false);
 }
+
+void Viewer::setCustomColors (const CustomNodeColors &colors) {
+  using Neuron = Node::Neuron;
+  static const auto hasType = [] (const Node *n, Neuron::Type t) {
+    return n->neuron().type == t;
+  };
+  static const auto hasCC = [] (const Node *n) {
+    return !n->customColors().empty();
+  };
+
+  std::vector<Edge*> edges;
+  for (QGraphicsItem *i: _neurons) {
+    auto *n = dynamic_cast<Node*>(i);
+    auto it = colors.find(n->substratePosition());
+    if (it != colors.end())
+      n->setCustomColors(it->second);
+    else
+      n->setCustomColors({});
+    edges.insert(edges.end(), n->out.begin(), n->out.end());
+  }
+
+  for (Edge *e: edges) {
+    e->updateAnimation(0);
+
+    auto i = e->input(), o = e->output();
+    if (!hasCC(i) && !hasType(i, Neuron::I))  continue;
+    if (!hasCC(o) && !hasType(o, Neuron::O))  continue;
+
+    Node::CustomColors ec;
+    if (hasType(i, Neuron::I)) {
+      ec = o->customColors();
+//      qDebug() << "I -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
+//               << "}: " << ec;
+
+    } else if (hasType(o, Neuron::O)) {
+      ec = i->customColors();
+//      qDebug() << "{" << i->neuron().pos.x() << ","
+//               << i->neuron().pos.y() << "} -> H: " << ec;
+
+    } else {
+      if (!hasCC(i) || !hasCC(o)) throw std::logic_error("NOOOOOO");
+      QSet<QRgb> lhs, rhs;
+      for (const QColor &c: i->customColors())  lhs.insert(c.rgba());
+      for (const QColor &c: o->customColors())  rhs.insert(c.rgba());
+      for (QRgb c: lhs.intersect(rhs)) ec.append(QColor(c));
+
+//      qDebug() << "{" << i->neuron().pos.x() << "," << i->neuron().pos.y()
+//               << "} -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
+//               << "}: " << i->customColors() << "*"
+//               << o->customColors() << "=" << ec;
+    }
+
+    e->setCustomColors(ec);
+  }
+}
+
+void Viewer::clearCustomColors (void) {
+  for (QGraphicsItem *i: _neurons) {
+    auto n = dynamic_cast<Node*>(i);
+    for (Edge *e: n->out) e->clearCustomColors();
+  }
+}
+
 
 } // end of namespace kgd::es_hyperneat::gui::ann

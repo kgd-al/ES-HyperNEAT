@@ -12,11 +12,13 @@ std::ostream& operator<< (std::ostream &os, const QPointF &p);
 std::ostream& operator<< (std::ostream &os, const QColor &c);
 #endif
 
+struct Node;
 class Edge : public QGraphicsObject {
   Q_OBJECT
 
 public:
   Edge (Agedge_t *edge, qreal scale);
+  void updateIO (Node *i, Node *o);
 
   QRectF boundingRect(void) const override {    return _bounds; }
 
@@ -25,6 +27,12 @@ public:
 
   void updateAnimation (float v);
   void setHovered (bool h);
+
+  void setCustomColors (const QVector<QColor> &colors);
+  void clearCustomColors (void);
+
+  const Node* input (void) const {  return in;  }
+  const Node* output (void) const { return out; }
 
 #ifndef NDEBUG
   friend std::ostream& operator<< (std::ostream &os, const Edge &e);
@@ -35,10 +43,13 @@ private:
   QString _name;
 #endif
 
+  Node *in, *out;
+
   QRectF _bounds;
   QPainterPath _edge, _arrow;
   float _width;
   QColor _color, _currentColor;
+  QVector<QColor> _customColors;
 
   const float _weight;  /// TODO Change when implementing learning
   bool _hovered;

@@ -7,8 +7,6 @@
 #include "edge.h"
 #include "../../phenotype/cppn.h"
 
-#include <QDebug>
-
 namespace kgd::es_hyperneat::gui::ann {
 
 const QTextOption TextAspect = QTextOption(Qt::AlignCenter);
@@ -96,6 +94,14 @@ void Node::updateAnimation (bool running) {
   update();
 }
 
+void Node::setCustomColors(const CustomColors &c) {
+  _customColors = c;
+}
+
+void Node::clearCustomColors(void) {
+  _customColors.clear();
+}
+
 void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
 
@@ -104,7 +110,26 @@ void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
       painter->setPen(scene()->palette().color(QPalette::Highlight));
     else if (_currentColor.isValid())
       painter->setPen(_currentColor);
-    painter->setBrush(_currentColor.isValid() ? _currentColor : _fill);
+
+    if (_customColors.empty())
+      painter->setBrush(_currentColor.isValid() ? _currentColor : _fill);
+    else {
+      painter->save();
+      if (_customColors.size() > 1) {
+          QPen pen = painter->pen();
+          pen.setWidthF(.5 * pen.widthF());
+          painter->setPen(pen);
+        } else
+          painter->setPen(Qt::NoPen);
+
+        float a = 16 * 360 / _customColors.size();
+        for (int i=0; i<_customColors.size(); i++) {
+          painter->setBrush(_customColors[i]);
+          painter->drawPie(_shape, i*a, a);
+        }
+      painter->restore();
+    }
+
     painter->drawEllipse(_shape);
 
     if (_srecurrent) {

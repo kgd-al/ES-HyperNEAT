@@ -15,6 +15,7 @@ class Node : public QGraphicsObject {
 public:
   using Point = phenotype::ANN::Point;
   using Neuron = phenotype::ANN::Neuron;
+  using CustomColors = QVector<QColor>;
 
   Node (Agnode_t *node, const Neuron &neuron, qreal scale);
 
@@ -26,9 +27,16 @@ public:
   friend std::ostream& operator<< (std::ostream &os, const Node &n);
 #endif
 
+  const Neuron& neuron (void) const { return _neuron; }
   const Point& substratePosition (void) const { return _neuron.pos; }
 
   void updateAnimation (bool running);
+
+  void setCustomColors (const CustomColors &c);
+  void clearCustomColors (void);
+  const auto& customColors (void) const {
+    return _customColors;
+  }
 
   void paint (QPainter *painter,
               const QStyleOptionGraphicsItem*, QWidget*) override;
@@ -57,6 +65,7 @@ private:
   bool _srecurrent;
 
   QColor _currentColor;
+  CustomColors _customColors;
 
   void drawRichText(QPainter *painter);
 };

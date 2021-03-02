@@ -5,12 +5,27 @@
 #include "edge.h"
 #include "../../phenotype/ann.h"
 
+#include "node.h"
 #include <iostream>
 #include <QDebug>
 
 namespace kgd::es_hyperneat::gui::ann {
 
 #ifndef NDEBUG
+std::ostream& operator<<(std::ostream &os, const Edge &e) {
+  os << e._name.toStdString() << ": ";
+  if (auto i = e.input())
+    os << i->substratePosition().x() << " " << i->substratePosition().y();
+  else
+    os << "null";
+  os << " -> ";
+  if (auto o = e.output())
+    os << o->substratePosition().x() << " " << o->substratePosition().y();
+  else
+    os << "null";
+  return os;
+}
+
 std::ostream& operator<< (std::ostream &os, const QPointF &p) {
   return os << "{" << p.x() << ", " << p.y() << "}";
 }
@@ -20,15 +35,15 @@ std::ostream& operator<< (std::ostream &os, const QColor &c) {
             << ", " << c.alphaF() << ")";
 }
 
-std::ostream& operator<< (std::ostream &os, const Edge &e) {
-  return os << "[" << e._name.toStdString() << "] " << e._edge.pointAtPercent(0)
-            << "->" << e._edge.pointAtPercent(1) << " " << e._color << " "
-            << e._currentColor << " " << e._width;
-}
+//std::ostream& operator<< (std::ostream &os, const Edge &e) {
+//  return os << "[" << e._name.toStdString() << "] " << e._edge.pointAtPercent(0)
+//            << "->" << e._edge.pointAtPercent(1) << " " << e._color << " "
+//            << e._currentColor << " " << e._width;
+//}
 #endif
 
 Edge::Edge (Agedge_t *edge, qreal scale)
-  : _weight(gvc::get(edge, "w", 0.f)) {
+  : in(nullptr), out(nullptr), _weight(gvc::get(edge, "w", 0.f)) {
 #ifndef NDEBUG
   _name = QString(agnameof(edge));
 #endif
@@ -41,9 +56,15 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   _bounds.translate(-_bounds.center());
 
   drawShape(spl, scale, pos(), _edge, _arrow);
-  _width = gvc::get(edge, "penwidth", 0.f);
+  _width = .25*gvc::get(edge, "penwidth", 0.f);
   _currentColor = _color =
       QColor(gvc::get(edge, "color", std::string()).c_str());
+}
+
+void Edge::updateIO(Node *i, Node *o) {
+  if (i)  in = i;
+  if (o)  out = o;
+//  std::cerr << *this << std::endl;
 }
 
 static QColor redBlackGradient(float v) {
@@ -65,6 +86,14 @@ void Edge::updateAnimation(float v) {
   update();
 }
 
+void Edge::setCustomColors(const QVector<QColor> &colors) {
+  _customColors = colors;
+}
+
+void Edge::clearCustomColors(void) {
+  _customColors.clear();
+}
+
 void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
 
@@ -75,18 +104,23 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
     else
       painter->setPen(_currentColor);
 
-    QPen p = painter->pen();
-    p.setWidthF(_width * p.widthF());
-    p.setCapStyle(Qt::FlatCap);
-    painter->setPen(p);
-    painter->drawPath(_edge);
+    if (!_customColors.empty())
+      painter->setPen(_customColors.front());
 
-    p.setJoinStyle(Qt::MiterJoin);
-    painter->setPen(p);
-    if constexpr (false)
-      painter->drawPath(_arrow);
-    else
-      painter->fillPath(_arrow, p.brush());
+    if (painter->pen().color().alphaF() != 0) {
+      QPen p = painter->pen();
+      p.setWidthF(_width * p.widthF());
+      p.setCapStyle(Qt::FlatCap);
+      painter->setPen(p);
+      painter->drawPath(_edge);
+
+      p.setJoinStyle(Qt::MiterJoin);
+      painter->setPen(p);
+      if constexpr (false)
+        painter->drawPath(_arrow);
+      else
+        painter->fillPath(_arrow, p.brush());
+    }
   painter->restore();
 }
 
