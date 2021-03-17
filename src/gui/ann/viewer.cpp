@@ -104,6 +104,39 @@ Viewer::Viewer(QWidget *parent) : GraphViewer(parent, "ANN") {
   _animating = false;
 }
 
+void Viewer::setGraph(const phenotype::ANN &ann) {
+  GraphViewer::setGraph(ann);
+}
+
+void Viewer::setGraph(const phenotype::ModularANN &ann) {
+  GraphViewer::setGraph(ann);
+}
+
+struct NeuronData : public NeuralData {
+  const Neuron &_neuron;
+  NeuronData (const Neuron &n) : _neuron(n) {}
+  const Neuron* neuron (void) const override {  return &_neuron;      }
+  const Point& pos (void) const override {      return _neuron.pos;   }
+  Neuron::Type type (void) const override {     return _neuron.type;  }
+  Neuron::Flags_t flags (void) const override { return _neuron.flags; }
+  float value (void) const override {           return _neuron.value; }
+};
+
+struct ModuleData : public NeuralData {
+  using Module = phenotype::ModularANN::Module;
+  const Module &_module;
+  ModuleData (const Module &m) : _module(m) {}
+  const Neuron* neuron (void) const override {  return nullptr;         }
+  const Point& pos (void) const override {      return _module.center;  }
+  Neuron::Type type (void) const override {     return _module.type();  }
+  Neuron::Flags_t flags (void) const override { return _module.flags;   }
+  float value (void) const override {
+    return _module.value().mean;
+  }
+};
+
+const char* Viewer::gvc_layout (void) const { return "nop"; }
+
 void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   std::map<std::string, Edge*> edges;
 
@@ -129,20 +162,32 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
     return qe;
   };
 
-  const auto &ann = dynamic_cast<const phenotype::ANN&>(g);
-  const auto &neurons = ann.neurons();
+  std::function<NeuralData*(const phenotype::ANN::Point&)> neuralData;
+  if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
+    neuralData = [ann] (auto p) {
+      return new NeuronData (*ann->neurons().at(p));
+    };
+
+  else if (auto *mann = dynamic_cast<const phenotype::ModularANN*>(&g))
+    neuralData = [mann] (auto p) {
+      return new ModuleData (*mann->module(p));
+    };
+
+  else
+    throw std::invalid_argument(
+      "Provided graph is of wrong derived type. How did you do that?");
 
   QRectF qt_bounds (.5*INT_MAX, -.5*INT_MAX, -INT_MAX, INT_MAX), sb_bounds;
 
-  _neurons.clear();
+  _nodes.clear();
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
     phenotype::ANN::Point p;
     auto spos_str = gvc::get(n, "spos", std::string());
     std::istringstream (spos_str) >> p;
 
-    auto qn = new Node(n, *neurons.at(p), s);
+    auto qn = new Node(n, neuralData(p), s);
     scene->addItem(qn);
-    _neurons.append(qn);
+    _nodes.append(qn);
     connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
 
     auto qn_b = qn->boundingRect().translated(qn->pos()).center();
@@ -175,82 +220,37 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
 
 void Viewer::startAnimation(void) {
   _animating = true;
-  for (QGraphicsItem *i: _neurons)
+  for (QGraphicsItem *i: _nodes)
     dynamic_cast<Node*>(i)->updateAnimation(true);
 }
 
 void Viewer::updateAnimation(void) {
-  for (QGraphicsItem *i: _neurons)
+  for (QGraphicsItem *i: _nodes)
     dynamic_cast<Node*>(i)->updateAnimation(true);
 }
 
 void Viewer::stopAnimation(void) {
   _animating = false;
-  for (QGraphicsItem *i: _neurons)
+  for (QGraphicsItem *i: _nodes)
     dynamic_cast<Node*>(i)->updateAnimation(false);
 }
 
-void Viewer::setCustomColors (const CustomNodeColors &colors) {
-  using Neuron = Node::Neuron;
-  static const auto hasType = [] (const Node *n, Neuron::Type t) {
-    return n->neuron().type == t;
-  };
-  static const auto hasCC = [] (const Node *n) {
-    return !n->customColors().empty();
-  };
-
+void Viewer::updateCustomColors(void) {
   std::vector<Edge*> edges;
-  for (QGraphicsItem *i: _neurons) {
+  for (QGraphicsItem *i: _nodes) {
     auto *n = dynamic_cast<Node*>(i);
-    auto it = colors.find(n->substratePosition());
-    if (it != colors.end())
-      n->setCustomColors(it->second);
-    else
-      n->setCustomColors({});
+    n->updateCustomColors();
     edges.insert(edges.end(), n->out.begin(), n->out.end());
   }
 
-  for (Edge *e: edges) {
-    e->updateAnimation(0);
-
-    auto i = e->input(), o = e->output();
-    if (!hasCC(i) && !hasType(i, Neuron::I))  continue;
-    if (!hasCC(o) && !hasType(o, Neuron::O))  continue;
-
-    Node::CustomColors ec;
-    if (hasType(i, Neuron::I)) {
-      ec = o->customColors();
-//      qDebug() << "I -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
-//               << "}: " << ec;
-
-    } else if (hasType(o, Neuron::O)) {
-      ec = i->customColors();
-//      qDebug() << "{" << i->neuron().pos.x() << ","
-//               << i->neuron().pos.y() << "} -> H: " << ec;
-
-    } else {
-      if (!hasCC(i) || !hasCC(o)) throw std::logic_error("NOOOOOO");
-      QSet<QRgb> lhs, rhs;
-      for (const QColor &c: i->customColors())  lhs.insert(c.rgba());
-      for (const QColor &c: o->customColors())  rhs.insert(c.rgba());
-      for (QRgb c: lhs.intersect(rhs)) ec.append(QColor(c));
-
-//      qDebug() << "{" << i->neuron().pos.x() << "," << i->neuron().pos.y()
-//               << "} -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
-//               << "}: " << i->customColors() << "*"
-//               << o->customColors() << "=" << ec;
-    }
-
-    e->setCustomColors(ec);
-  }
+  for (Edge *e: edges)  e->updateCustomColor();
 }
 
 void Viewer::clearCustomColors (void) {
-  for (QGraphicsItem *i: _neurons) {
+  for (QGraphicsItem *i: _nodes) {
     auto n = dynamic_cast<Node*>(i);
-    for (Edge *e: n->out) e->clearCustomColors();
+    for (Edge *e: n->out) e->clearCustomColor();
   }
 }
-
 
 } // end of namespace kgd::es_hyperneat::gui::ann

@@ -96,16 +96,16 @@ void ES_HyperNEATPanel::noData(void) {
   for (const auto &p: otherFields) p.second->setText("N/A");
 }
 
-void ES_HyperNEATPanel::neuronHovered(const phenotype::ANN::Neuron &n) {
+void ES_HyperNEATPanel::neuronHovered(const phenotype::ANN::Neuron *n) {
   using T = phenotype::ANN::Neuron::Type;
   using S = cppn::OutputSummary::ShowFlags;
   S flag = S(
-      (n.type != T::O ? S::OUTGOING : S::NONE)
-    | ((n.type != T::I) ? S::INCOMING : S::NONE)
+      (n->type != T::O ? S::OUTGOING : S::NONE)
+    | ((n->type != T::I) ? S::INCOMING : S::NONE)
   );
-  cppnOViewer->phenotypes(*_cppn, QPointF(n.pos.x(), n.pos.y()), flag);
+  cppnOViewer->phenotypes(*_cppn, QPointF(n->pos.x(), n->pos.y()), flag);
 
-  neuronViewer->displayState(&n);
+  neuronViewer->displayState(n);
 }
 
 void ES_HyperNEATPanel::showEvent(QShowEvent *e) {

@@ -11,6 +11,8 @@ struct Viewer : public GraphViewer {
 
   Viewer (QWidget *parent = nullptr);
 
+  void setGraph (const Graph_t &cppn);
+
 private:
   const char* gvc_layout (void) const override { return "dot"; }
   void processGraph (const gvc::Graph &g,

@@ -25,14 +25,6 @@ class Point_t {
   static constexpr int RATIO = std::pow(10, DECIMALS);
   std::array<int, DIMENSIONS> _data;
 
-  float get (uint i) const {
-    return _data[i] / float(RATIO);
-  }
-
-  void set (uint i, float v) {
-    _data[i] = std::round(RATIO * v);
-  }
-
 public:
   Point_t(std::initializer_list<float> &&flist) {
     uint i=0;
@@ -47,9 +39,44 @@ public:
     return get(1);
   }
 
+  float get (uint i) const {
+    return _data[i] / float(RATIO);
+  }
+
+  void set (uint i, float v) {
+    _data[i] = std::round(RATIO * v);
+  }
+
+  Point_t& operator+= (const Point_t &that) {
+    for (uint i=0; i<DIMENSIONS; i++)
+      set(i, get(i) + that.get(i));
+    return *this;
+  }
+
+  Point_t& operator/= (float v) {
+    for (uint i=0; i<DIMENSIONS; i++)
+      set(i, get(i) / v);
+    return *this;
+  }
+
+  friend Point_t operator- (const Point_t &lhs, const Point_t &rhs) {
+    Point_t res;
+    for (uint i=0; i<DIMENSIONS; i++)
+      res.set(i, lhs.get(i) - rhs.get(i));
+    return res;
+  }
+
   friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
     if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
     return lhs.x() < rhs.x();
+  }
+
+  friend bool operator== (const Point_t &lhs, const Point_t &rhs) {
+    return lhs.x() == rhs.x() && lhs.y() == rhs.y();
+  }
+
+  friend bool operator!= (const Point_t &lhs, const Point_t &rhs) {
+    return lhs.x() != rhs.x() || lhs.y() != rhs.y();
   }
 
   friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
@@ -117,8 +144,12 @@ public:
     const float bias;
     float value;
 
+    // For clustering purposes (bitwise mask)
+    using Flags_t = uint;
+    Flags_t flags;
+
     Neuron (const Point &p, Type t, float b)
-      : pos(p), type(t), bias(b), value(0) {}
+      : pos(p), type(t), bias(b), value(0), flags(0) {}
 
     bool isInput (void) const {   return type == I;  }
     bool isOutput (void) const {  return type == O; }
@@ -186,6 +217,66 @@ private:
   std::vector<Neuron::ptr> _inputs, _outputs;
 
   Neuron::ptr addNeuron (const Point &p, Neuron::Type t, float bias);
+};
+
+struct ModularANN : public gvc::Graph {
+  using Point = ANN::Point;
+  using Neuron = ANN::Neuron;
+  struct Module {
+    Point center, bl, ur;
+    struct Size { float w, h; } size;
+    std::vector<std::reference_wrapper<const Neuron>> neurons;
+    bool recurrent;
+
+    struct Link {
+      float weight;
+      Module *in;
+    };
+
+    struct Value {
+      float mean, stddev;
+    } valueCache;
+
+    using Links = std::vector<Link>;
+    Links links;
+
+    Neuron::Flags_t flags;
+
+    Module (Neuron::Flags_t f) : recurrent(false), flags(f) {}
+
+    bool isModule (void) const {
+      return neurons.size() > 1;
+    }
+
+    Neuron::Type type (void) const {
+      return neurons.front().get().type;
+    }
+
+    Value value (void) const {
+      return valueCache;
+    }
+
+    void update (void);
+  };
+
+  ModularANN (const ANN &ann, bool withDepth = false);
+  ~ModularANN (void);
+
+  Module* module (const Point &p) { return _components.at(p); }
+  const Module* module (const Point &p) const { return _components.at(p); }
+
+  const auto& modules (void) const {
+    return _components;
+  }
+
+#ifdef WITH_GVC
+  gvc::GraphWrapper build_gvc_graph (void) const;
+  void render_gvc_graph(const std::string &path) const;
+#endif
+
+private:
+  const ANN &_ann;
+  std::map<Point, Module*> _components;
 };
 
 } // namespace phenotype

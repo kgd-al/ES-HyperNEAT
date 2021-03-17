@@ -11,7 +11,10 @@ class GraphViewer : public QGraphicsView {
 public:
   GraphViewer(QWidget *parent, const QString &type);
 
+protected:
   void setGraph (const gvc::Graph &graph);
+
+public:
   void clearGraph (void);
 
   void ensureFit (void);

@@ -21,6 +21,7 @@ private:
     virtual float value (void) = 0;
   };
   using Node_ptr = std::shared_ptr<Node_base>;
+  using Node_wptr = std::weak_ptr<Node_base>;
 
   struct INode : public Node_base {
     float value (void) override;
@@ -28,7 +29,7 @@ private:
 
   struct Link {
     float weight;
-    Node_ptr node;
+    Node_wptr node;
   };
 
   struct FNode : public Node_base {

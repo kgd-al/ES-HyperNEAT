@@ -119,6 +119,7 @@ if (NOT CLUSTER_BUILD)
         "ann/edge.cpp"
         "ann/viewer.cpp"
         "es_hyperneatpanel.cpp"
+        "config.cpp"
     )
     PREPEND(GUI_SRC "src/gui")
 

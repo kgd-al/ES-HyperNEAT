@@ -56,7 +56,7 @@ Edge::Edge (Agedge_t *edge, qreal scale)
   _bounds.translate(-_bounds.center());
 
   drawShape(spl, scale, pos(), _edge, _arrow);
-  _width = .25*gvc::get(edge, "penwidth", 0.f);
+  _width = gvc::get(edge, "penwidth", 0.f);
   _currentColor = _color =
       QColor(gvc::get(edge, "color", std::string()).c_str());
 }
@@ -86,16 +86,54 @@ void Edge::updateAnimation(float v) {
   update();
 }
 
-void Edge::setCustomColors(const QVector<QColor> &colors) {
-  _customColors = colors;
+void Edge::updateCustomColor (void) {
+  using Neuron = Node::Neuron;
+  static const auto hasType = [] (const Node *n, Neuron::Type t) {
+    return n->ntype() == t;
+  };
+  static const auto hasCC = [] (const Node *n) {
+    return n->flags() != 0;
+  };
+
+  updateAnimation(0);
+  setZValue(-5);
+
+  auto i = input(), o = output();
+//  if (!hasCC(i) && !hasType(i, Neuron::I))  return;
+//  if (!hasCC(o) && !hasType(o, Neuron::O))  return;
+
+  decltype(phenotype::ANN::Neuron::flags) flag;
+  if (hasType(i, Neuron::I)) {
+    flag = o->flags();
+//      qDebug() << "I -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
+//               << "}: " << ec;
+
+  } else if (hasType(o, Neuron::O)) {
+    flag = i->flags();
+//      qDebug() << "{" << i->neuron().pos.x() << ","
+//               << i->neuron().pos.y() << "} -> H: " << ec;
+
+  } else {
+    flag = i->flags() & o->flags();
+//      qDebug() << "{" << i->neuron().pos.x() << "," << i->neuron().pos.y()
+//               << "} -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
+//               << "}: " << i->customColors() << "*"
+//               << o->customColors() << "=" << ec;
+  }
+
+  _customColors = config::ESHNGui::colorsForFlag (flag);
+  setZValue(std::min(-1., zValue()+_customColors.size()));
+  if (_customColors.isEmpty())  _customColors.push_back(QColor());
 }
 
-void Edge::clearCustomColors(void) {
+void Edge::clearCustomColor(void) {
   _customColors.clear();
 }
 
 void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
                       QWidget*) {
+
+  static constexpr auto dl = 2;
 
   painter->save();
 
@@ -104,15 +142,37 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
     else
       painter->setPen(_currentColor);
 
-    if (!_customColors.empty())
-      painter->setPen(_customColors.front());
+    if (!_customColors.empty()) {
+      if (_customColors.size() == 1) {
+        if (_customColors.front().isValid())
+          painter->setPen(_customColors.front());
+        else
+          painter->setPen(Qt::gray);
+
+      } else {
+        QPen p = painter->pen();
+        p.setDashPattern({dl, dl*(_customColors.size()-1.)});
+        p.setColor(_customColors.front());
+        painter->setPen(p);
+      }
+    }
 
     if (painter->pen().color().alphaF() != 0) {
       QPen p = painter->pen();
       p.setWidthF(_width * p.widthF());
       p.setCapStyle(Qt::FlatCap);
-      painter->setPen(p);
-      painter->drawPath(_edge);
+
+      if (_customColors.size() < 2) {
+        painter->setPen(p);
+        painter->drawPath(_edge);
+      } else {
+        for (int i=0; i<_customColors.size(); i++) {
+          p.setDashOffset(i*dl);
+          p.setColor(_customColors[i]);
+          painter->setPen(p);
+          painter->drawPath(_edge);
+        }
+      }
 
       p.setJoinStyle(Qt::MiterJoin);
       painter->setPen(p);

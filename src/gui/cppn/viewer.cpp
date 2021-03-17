@@ -7,6 +7,10 @@ namespace kgd::es_hyperneat::gui::cppn {
 
 Viewer::Viewer (QWidget *parent) : GraphViewer(parent, "CPPN") {}
 
+void Viewer::setGraph (const Graph_t &cppn) {
+  GraphViewer::setGraph(cppn);
+}
+
 void Viewer::processGraph (const gvc::Graph&, const gvc::GraphWrapper &gw) {
   auto scene = this->scene();
   auto gvc = gw.graph;

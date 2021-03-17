@@ -4,6 +4,7 @@
 #include <QGraphicsObject>
 
 #include "../gvcqtinterface.h"
+#include "../config.h"
 
 namespace kgd::es_hyperneat::gui::ann {
 
@@ -28,8 +29,8 @@ public:
   void updateAnimation (float v);
   void setHovered (bool h);
 
-  void setCustomColors (const QVector<QColor> &colors);
-  void clearCustomColors (void);
+  void updateCustomColor (void);
+  void clearCustomColor (void);
 
   const Node* input (void) const {  return in;  }
   const Node* output (void) const { return out; }
@@ -49,7 +50,7 @@ private:
   QPainterPath _edge, _arrow;
   float _width;
   QColor _color, _currentColor;
-  QVector<QColor> _customColors;
+  config::ESHNGui::CustomColors _customColors;
 
   const float _weight;  /// TODO Change when implementing learning
   bool _hovered;

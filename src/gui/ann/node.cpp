@@ -17,17 +17,8 @@ const QFont EdgeFont { BaseFont.family(), int(BaseFont.pointSize() * .8)};
 
 static constexpr int MARGIN = 1;
 
-#ifndef NDEBUG
-std::ostream& operator<< (std::ostream &os, const Node &n) {
-  return os << n._neuron.pos
-            << "{" << n.pos() << "}"
-            << "@" << &n._neuron
-            << ": " << n._neuron.value;
-}
-#endif
-
-Node::Node (Agnode_t *node, const Neuron &neuron, qreal scale)
-  : _neuron(neuron) {
+Node::Node (Agnode_t *node, NeuralData *ndata, qreal scale)
+  : _ndata(Data_ptr(ndata)) {
   setAcceptHoverEvents(true);
   _hovered = false;
 
@@ -83,8 +74,9 @@ static QColor redBlackGradient(float v) {
 
 void Node::updateAnimation (bool running) {
   if (running) {
-    _currentColor = redBlackGradient(_neuron.value);
-    for (Edge *e: out)  e->updateAnimation(_neuron.value);
+    float v = _ndata->value();
+    _currentColor = redBlackGradient(v);
+    for (Edge *e: out)  e->updateAnimation(v);
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
@@ -94,12 +86,8 @@ void Node::updateAnimation (bool running) {
   update();
 }
 
-void Node::setCustomColors(const CustomColors &c) {
-  _customColors = c;
-}
-
-void Node::clearCustomColors(void) {
-  _customColors.clear();
+void Node::updateCustomColors(void) {
+  _customColors = config::ESHNGui::colorsForFlag(_ndata->flags());
 }
 
 void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
@@ -182,7 +170,8 @@ void Node::drawRichText(QPainter *painter) {
 }
 
 void Node::hoverEnterEvent(QGraphicsSceneHoverEvent *e) {
-  emit hovered(_neuron);
+  if (!neuron())  return;
+  emit hovered(_ndata->neuron());
   _hovered = true;
   for (auto e: in)  e->setHovered(true);
   for (auto e: out)  e->setHovered(true);
@@ -190,6 +179,7 @@ void Node::hoverEnterEvent(QGraphicsSceneHoverEvent *e) {
 }
 
 void Node::hoverLeaveEvent(QGraphicsSceneHoverEvent *e) {
+  if (!neuron())  return;
   _hovered = false;
   for (auto e: in)  e->setHovered(false);
   for (auto e: out)  e->setHovered(false);

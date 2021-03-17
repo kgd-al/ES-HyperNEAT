@@ -138,7 +138,7 @@ float CPPN::FNode::value (void) {
   if (std::isnan(data)) {
     data = 0;
     for (Link &l: links)
-      data += l.weight * l.node->value();
+      data += l.weight * l.node.lock()->value();
 #ifdef DEBUG
     std::cout << func(data) << " = func(" << data << ")\n";
 #endif

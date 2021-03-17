@@ -27,6 +27,9 @@ struct Viewer : public GraphViewer {
 public:
   Viewer (QWidget *parent = nullptr);
 
+  void setGraph (const phenotype::ANN &ann);
+  void setGraph (const phenotype::ModularANN &ann);
+
   void startAnimation (void);
   void updateAnimation (void);
   void stopAnimation (void);
@@ -35,18 +38,17 @@ public:
     return _animating;
   }
 
-  using CustomNodeColors = std::map<Node::Point, Node::CustomColors>;
-  void setCustomColors (const CustomNodeColors &colors);
+  void updateCustomColors (void);
   void clearCustomColors (void);
 
 signals:
-  void neuronHovered (const phenotype::ANN::Neuron &n);
+  void neuronHovered (const phenotype::ANN::Neuron *n);
 
 private:
-  QVector<QGraphicsItem*> _neurons;
+  QVector<QGraphicsItem*> _nodes;
   bool _animating;
 
-  const char* gvc_layout (void) const override { return "nop"; }
+  const char* gvc_layout (void) const override;
   void processGraph (const gvc::Graph &g,
                      const gvc::GraphWrapper &gw) override;
 };

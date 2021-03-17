@@ -42,7 +42,7 @@ private:
 
   bool _settingsLoaded;
 
-  void neuronHovered(const phenotype::ANN::Neuron &n);
+  void neuronHovered(const phenotype::ANN::Neuron *n);
 
   void showEvent(QShowEvent *e) override;
   void hideEvent(QHideEvent *e) override;

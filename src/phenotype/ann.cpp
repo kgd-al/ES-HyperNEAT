@@ -2,6 +2,8 @@
 
 #include "ann.h"
 
+#include "kgd/utils/indentingostream.h" /// TODO REMOVE
+
 /// TODO Find out which LEO implementation is best
 /// TODO No direct input -> output connections (feature?)
 
@@ -484,15 +486,6 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
   std::map<Neuron*, Agnode_t*> gvnodes;
   std::vector<std::pair<Neuron*, Neuron::Link>> links;
 
-  /*
-   * In non-debug builds (otherwise everything is fine)
-   *      default -> ok
-   *   false/line -> ok
-   * true/splines -> segfault
-   *     polyline -> segfault
-   *       curved -> ok
-   *        ortho -> ok
-   */
   set(g.graph, "splines", "line");
 
   // Dot only -> useless here
@@ -533,7 +526,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
     auto w = p.second.weight;
     set(e, "color", w < 0 ? "red" : "black");
     auto sw = std::fabs(w);// / config_t::weightBounds().max;
-    set(e, "penwidth", .875*sw+.125);
+    set(e, "penwidth", .15*sw+.05);
     set(e, "w", w);
   }
 
@@ -673,6 +666,305 @@ void assertEqual (const ANN &lhs, const ANN &rhs, bool deepcopy) {
   ASRT(_outputs);
 }
 #undef ASRT
+
+// =============================================================================
+
+struct AggregationCriterion {
+  decltype(ModularANN::Neuron::flags) flags;
+  uint depth;
+
+  AggregationCriterion (const ModularANN::Neuron &n, uint d)
+    : flags(n.flags), depth(d) {}
+
+  friend bool operator< (const AggregationCriterion &lhs,
+                         const AggregationCriterion &rhs) {
+    if (lhs.depth != rhs.depth) return lhs.depth < rhs.depth;
+    return lhs.flags < rhs.flags;
+  }
+};
+
+template <typename T> using ModulePtrMap = std::map<ModularANN::Module*, T>;
+
+static constexpr bool debugAgg = false;
+
+uint computeDepths (std::map<ANN::Neuron*, uint> &depths, ANN::Neuron *n) {
+//  utils::IndentingOStreambuf indent (std::cerr);
+//  std::cerr << "> Computing depth(" << n->pos << ", " << n->type << ")\n";
+  uint d = UINT_MAX;
+  if (n->type == ANN::Neuron::I)
+    d = 0;
+
+  else {
+    auto it = depths.find(n);
+    if (it == depths.end()) {
+      depths[n] = UINT_MAX;
+      for (const auto &l: n->links()) {
+        d = std::min(computeDepths(depths, l.in.lock().get()), d);
+//        if (d == 0) break;
+      }
+      d++;
+      depths[n] = d;
+
+    } else
+      d = it->second;
+  }
+
+//  std::cerr << "< depth(" << n->pos << ", " << n->type << ") = " << d << "\n";
+  return d;
+}
+
+ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
+  std::map<AggregationCriterion, Module*> moduleMap;
+  std::map<Neuron*, Module*> neuronToModuleMap;
+
+  // Compute depths
+  std::map<Neuron*, uint> depths;
+  if (withDepth)
+    for (auto &p: ann.neurons())
+      if (p.second->type == Neuron::O)
+        computeDepths(depths, p.second.get());
+
+  // First create all modules
+  {
+    std::vector<Module*> components;
+    for (const auto &p: ann.neurons()) {
+      const Neuron &n = *p.second;
+
+      Module *m = nullptr;
+
+      if (n.type != Neuron::H && n.flags == 0) {
+        m = components.emplace_back(new Module(n.flags));
+
+      } else {
+        uint depth = 0;
+        if (withDepth && n.type != ANN::Neuron::I)
+          depth = depths.at(p.second.get());
+        AggregationCriterion key (n, depth);
+        auto it = moduleMap.find(key);
+        if (it == moduleMap.end()) {
+          m = components.emplace_back(new Module(n.flags));
+          moduleMap.emplace(key, m);
+        } else
+          m = it->second;
+      }
+
+      assert(m);
+      m->center += n.pos;
+      m->neurons.push_back(std::ref(n));
+      neuronToModuleMap.emplace(p.second.get(), m);
+
+      if (debugAgg)
+        std::cerr << "\t" << n.pos << " (f=" << n.flags
+                  << ") -> " << m << "\n";
+    }
+
+    // Update module's position and size
+    float hSize = neuronToModuleMap.size();
+    for (Module *mptr: components) {
+      Module &m = *mptr;
+      auto size = m.neurons.size();
+      assert(size > 0);
+
+      m.center /= size;
+      m.bl = m.ur = m.neurons.front().get().pos;
+      for (uint i=1; i<m.neurons.size(); i++) {
+        auto p = m.neurons[i].get().pos;
+        for (uint j=0; j<2; j++) {
+          if (p.get(j) < m.bl.get(j)) m.bl.set(j, p.get(j));
+          if (m.ur.get(j) < p.get(j)) m.ur.set(j, p.get(j));
+        }
+      }
+      if (size == 1)  m.size = {1,1};
+      else {
+        Module::Size s { m.ur.x() - m.bl.x(), m.ur.y() - m.bl.y() };
+        float aratio = 1;// std::max(.5f, std::min(s.w / s.h, 2.f));
+        float r = (1+5*size/hSize);
+        m.size = { std::max(1.f, r * aratio), std::max(1.f, r / aratio) };
+      }
+
+      auto it = _components.find(mptr->center);
+      while (it != _components.end()) {
+        if (debugAgg)
+          std::cerr << "/!\\Position " << mptr->center << " is already taken!"
+                    << " Applying small shi(f)t\n";
+        static constexpr auto M = .05f;
+        mptr->center += {
+         utils::sgn(mptr->center.x()) * M, utils::sgn(mptr->center.y()) * M,
+        };
+        it = _components.find(mptr->center);
+      }
+      _components[mptr->center] = mptr;
+
+
+      if (debugAgg) {
+        std::cerr << "Processed module " << m.center << "@" << mptr << " ("
+                  << m.neurons.size() << " neurons):";
+        for (const auto &n: m.neurons)
+          std::cerr << " " << n.get().pos;
+        std::cerr << "\n";
+      }
+    }
+  }
+
+  // Next (filter and) generate links using module coordinates
+  ModulePtrMap<ModulePtrMap<float>> uniqueLinks;
+  for (const auto &p: ann.neurons()) {
+    const Neuron &n = *p.second;
+    if (n.type == Neuron::I)  continue;
+
+    Module *dst = neuronToModuleMap.at(p.second.get());
+    auto &mlist = uniqueLinks[dst];
+
+    if (debugAgg)
+      std::cerr << "Links for " << n.pos << " (module " << dst->center << ")\n";
+
+    for (const Neuron::Link &l: n.links()) {
+      Module* src = neuronToModuleMap.at(l.in.lock().get());
+      if (dst == src) {
+        if (debugAgg)
+          std::cerr << "\tSkipping " << l.in.lock()->pos << " -> " << n.pos
+                    << " (" << dst->center << " == " << src->center << ")\n";
+
+        dst->recurrent = true;
+        continue;
+      }
+
+      if (debugAgg)
+        std::cerr << "\tnl: " << l.in.lock()->pos << " -> " << dst->center
+                  << " [" << l.weight << "]\n";
+
+      auto it = mlist.find(src);
+      if (it == mlist.end())  it = mlist.emplace(src, 0).first;
+      it->second += std::fabs(l.weight);
+    }
+  }
+
+  float nSize = ann.neurons().size();
+  for (auto &pm: uniqueLinks) {
+    Module *dst = pm.first;
+    for (auto &pw: pm.second) {
+      if (debugAgg)
+        std::cerr << "\tul: " << pw.first->center << " -> "
+                  << dst->center << " [" << pw.second << "]\n";
+
+      Module *in = _components.at(pw.first->center);
+      dst->links.push_back({ 5*pw.second / nSize, in });
+    }
+
+    if (debugAgg) {
+      std::cerr << "\t--\n";
+      for (const Module::Link &l: dst->links)
+        std::cerr << "\t\tml: " << l.in->center << " -> "
+                  << dst->center << " [" << l.weight << "]\n";
+      std::cerr << "----\n\n";
+    }
+  }
+
+  // Modules are ready!
+  for (const auto &p: _components)
+    for (const Module::Link &l: p.second->links)
+      assert(l.in);
+}
+
+ModularANN::~ModularANN (void) {
+  for (auto &p: _components)  delete p.second;
+}
+
+void ModularANN::Module::update (void) {
+  assert(neurons.size() > 0);
+  if (neurons.size() == 1)
+    valueCache = { std::fabs(neurons.front().get().value), 0 };
+  else {
+    valueCache.mean = 0;
+    for (const auto &n: neurons)
+      valueCache.mean += std::fabs(n.get().value);
+    valueCache.mean /= neurons.size();
+    valueCache.stddev = 0;
+    for (const auto &n: neurons) {
+      float v = valueCache.mean - n.get().value;
+      valueCache.stddev += v*v;
+    }
+    valueCache.stddev = std::sqrt(valueCache.stddev / neurons.size());
+  }
+}
+
+#ifdef WITH_GVC
+gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
+  using namespace gvc;
+
+  GraphWrapper g ("mann");
+
+  uint i = 0;
+  std::map<const Module*, Agnode_t*> gvnodes;
+  std::vector<std::pair<Module*, Module::Link>> links;
+
+  set(g.graph, "splines", "false");
+
+  // Dot only -> useless here (and crashes in debug mode)
+//  set(g.graph, "concentrate", "true");
+
+  for (const auto &p: _components) {
+    Module &m = *p.second;
+    Point pos = m.center;
+    auto n = gvnodes[p.second] = add_node(g.graph, "N", i++);
+    set(n, "label", "");
+
+    set(n, "pos", scale*pos.x(), ",", scale*pos.y());
+
+    set(n, "width", .1 * m.size.w);
+    set(n, "height", .1 * m.size.h);
+    set(n, "style", "filled");
+    set(n, "fillcolor", (m.type() != Neuron::H) ? "black" : "gray");
+    set(n, "spos", pos);
+    set(n, "shape", "ellipse");//m.shape());
+    set(n, "srecurrent", m.recurrent);
+
+    for (const auto &l: m.links) {
+      assert(p.second);
+      assert(l.in);
+      links.push_back({ p.second, l });
+    }
+  }
+
+  for (const auto &p: links) {
+    const Module *out = p.first;
+    const Module *in = p.second.in;
+
+    // Self-recurrent edges should not be possible
+    assert(out != in);
+    if (out == in) continue;
+
+    auto e = add_edge(g.graph,
+                      gvnodes.at(in), gvnodes.at(out),
+                      "E", i++);
+    auto w = p.second.weight;
+    set(e, "color", w < 0 ? "red" : "black");
+    auto sw = std::fabs(w);// / config_t::weightBounds().max;
+    set(e, "penwidth", .9*sw+.1);
+    set(e, "w", w);
+  }
+
+  return g;
+}
+
+void ModularANN::render_gvc_graph(const std::string &path) const {
+  static constexpr auto engine = "nop";
+  auto ext_i = path.find_last_of('.')+1;
+  const char *ext = path.data()+ext_i;
+
+  gvc::GraphWrapper g = build_gvc_graph();
+
+  g.layout(engine);
+  gvRenderFilename(gvc::context(), g.graph, ext, path.c_str());
+//  gvRender(gvc::context(), g.graph, "dot", stdout);
+
+  auto dpath = path;
+  dpath.replace(ext_i, 3, engine);
+  gvRenderFilename(gvc::context(), g.graph, "dot", dpath.c_str());
+}
+#endif
+
+// =============================================================================
 
 } // end of namespace phenotype
 
