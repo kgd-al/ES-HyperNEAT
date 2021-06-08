@@ -33,11 +33,12 @@ namespace evolvable_substrate {
 
 using Config = config::EvolvableSubstrate;
 
-using Point = ANN::Point;
 using Coordinates = ANN::Coordinates;
+using Coordinates_s = std::set<Coordinates::value_type>;
 
 struct QuadTreeNode {
   Point center;
+  static_assert(SUBSTRATE_DIMENSION == 2, "OctoTree not implemented");
   float radius;
   uint level;
   float weight;
@@ -89,12 +90,7 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
   q.push(root.get());
 
   const auto weight = [&cppn] (const Point &p0, const Point &p1) {
-    auto cppn_inputs = cppn.inputs();
-    cppn_inputs[0] = p0.x();
-    cppn_inputs[1] = p0.y();
-    cppn_inputs[2] = p1.x();
-    cppn_inputs[3] = p1.y();
-    return cppn(cppn_inputs, config::CPPNOutput::WEIGHT);
+    return cppn(p0, p1, genotype::cppn::Output::WEIGHT);
   };
 
 #ifdef DEBUG_QUADTREE_DIVISION
@@ -156,15 +152,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
   static const auto &varThr = Config::varThr();
   static const auto &bndThr = Config::bndThr();
   static const auto leo = [] (const auto &cppn, auto i, auto o) {
-    auto inputs = cppn.inputs();
-    inputs[0] = i.x();
-    inputs[1] = i.y();
-    inputs[2] = o.x();
-    inputs[3] = o.y();
-    return (bool)cppn(inputs, config::CPPNOutput::LEO);
-  };
-  static const auto leoConnection = [] (const auto &cppn, auto i, auto o) {
-    return leo(cppn, i, o);
+    return (bool)cppn(i, o, genotype::cppn::Output::LEO);
   };
 
 #ifdef DEBUG_QUADTREE_PRUNING
@@ -192,19 +180,16 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     } else {
       // Not enough information at lower resolution -> test if part of band
 
-      const auto weight = [&cppn, &p, &c, out] (float x, float y) {
-        auto cppn_inputs = cppn.inputs();
-        cppn_inputs[0] = out ? p.x() : x;
-        cppn_inputs[1] = out ? p.y() : y;
-        cppn_inputs[2] = out ? x : p.x();
-        cppn_inputs[3] = out ? y : p.y();
+      const auto dweight = [&cppn, &p, &c, out] (float x, float y) {
+        Point src = out ? Point{p.x(), p.y()} : Point{x,y},
+              dst = out ? Point{x,y} : Point{p.x(), p.y()};
         return std::fabs(c->weight
-                         - cppn(cppn_inputs, config::CPPNOutput::WEIGHT));
+                         - cppn(src, dst, genotype::cppn::Output::WEIGHT));
       };
       float cx = c->center.x(), cy = c->center.y();
       float r = c->radius;
-      float dl = weight(cx-r, cy), dr = weight(cx+r, cy),
-            dt = weight(cx, cy-r), db = weight(cx, cy+r);
+      float dl = dweight(cx-r, cy), dr = dweight(cx+r, cy),
+            dt = dweight(cx, cy-r), db = dweight(cx, cy+r);
 
 #ifdef DEBUG_QUADTREE_PRUNING
       std::cout << "b> var = " << c->variance() << ", bnd = "
@@ -216,7 +201,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
 #endif
 
       if (std::max(std::min(dl, dr), std::min(dt, db)) > bndThr
-          && leoConnection(cppn, out ? p : c->center, out ? c->center : p)
+          && leo(cppn, out ? p : c->center, out ? c->center : p)
           && c->weight != 0) {
         con.push_back({
           out ? p : c->center, out ? c->center : p, c->weight
@@ -236,7 +221,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
 
 void removeUnconnectedNeurons (const Coordinates &inputs,
                                const Coordinates &outputs,
-                               std::set<Point> &shidden,
+                               Coordinates_s &shidden,
                                Connections &connections) {
   using Type = ANN::Neuron::Type;
   struct L;
@@ -285,6 +270,9 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   for (const auto &n: inodes) std::cerr << "\t" << n->p << "\n";
   std::cerr << "\nonodes:\n";
   for (const auto &n: onodes) std::cerr << "\t" << n->p << "\n";
+  std::cerr << "\nconnections:\n";
+  for (const auto &c: connections)
+    std::cerr << "\t" << c.from << " -> " << c.to << "\n";
   std::cerr << "\n";
 #endif
 
@@ -335,11 +323,30 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   }
 }
 
+/// Collect new hidden nodes IFF they do not appear in provided coordinates
+/// otherwise ignore them and remove their connection
+void collectIfDiscovered (Connections &connections,
+                          const Coordinates_s &io,
+                          Coordinates_s &h) {
+  for (auto it = connections.begin(); it != connections.end(); ) {
+    auto c = *it;
+    if (io.find(c.to) == io.end()) {
+      h.insert(c.to);
+      it++;
+    } else
+      it = connections.erase(it);
+  }
+}
+
 void connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
 
   static const auto &iterations = Config::iterations();
+
+  Coordinates_s sio;  // All fixed positions
+  for (Point p: inputs) sio.insert(p);
+  for (Point p: outputs) sio.insert(p);
 
 #if DEBUG_ES
   using utils::operator<<;
@@ -347,12 +354,12 @@ void connect (const CPPN &cppn,
   oss << "\n## --\nStarting evolvable substrate instantiation\n";
 #endif
 
-  std::set<Point> shidden;
+  Coordinates_s shidden;
   Connections tmpConnections;
   for (const Point &p: inputs) {
     auto t = divisionAndInitialisation(cppn, p, true);
     pruneAndExtract(cppn, p, tmpConnections, t, true);
-    for (auto c: tmpConnections)  shidden.insert(c.to);
+    collectIfDiscovered(tmpConnections, sio, shidden);
   }
 
 #if DEBUG_ES
@@ -366,15 +373,15 @@ void connect (const CPPN &cppn,
                      tmpConnections.begin(), tmpConnections.end());
   tmpConnections.clear();
 
-  std::set<Point> unexploredHidden = shidden;
+  Coordinates_s unexploredHidden = shidden;
   for (uint i=0; i<iterations; i++) {
     for (const Point &p: unexploredHidden) {
       auto t = divisionAndInitialisation(cppn, p, true);
       pruneAndExtract(cppn, p, tmpConnections, t, true);
-      for (auto c: tmpConnections)  shidden.insert(c.to);
+      collectIfDiscovered(tmpConnections, sio, shidden);
     }
 
-    std::set<Point> tmpHidden;
+    Coordinates_s tmpHidden;
     std::set_difference(shidden.begin(), shidden.end(),
                         unexploredHidden.begin(), unexploredHidden.end(),
                         std::inserter(tmpHidden, tmpHidden.end()));
@@ -400,12 +407,13 @@ void connect (const CPPN &cppn,
 #if DEBUG_ES
   oss << "[H -> O] found " << tmpConnections.size() << " connections\n\t"
       << tmpConnections << "\n";
+  std::cerr << oss.str() << std::endl;
 #endif
 
   connections.insert(connections.end(),
                      tmpConnections.begin(), tmpConnections.end());
 
-  std::set<Point> shidden2;
+  Coordinates_s shidden2;
   removeUnconnectedNeurons(inputs, outputs, shidden2, connections);
 
 #if DEBUG_ES
@@ -418,7 +426,7 @@ void connect (const CPPN &cppn,
   std::copy(shidden2.begin(), shidden2.end(), std::back_inserter(hidden));
 
 #if DEBUG_ES
-  std::cerr << oss.rdbuf() << std::endl;;
+  std::cerr << oss.rdbuf() << std::endl;
 #endif
 }
 
@@ -441,14 +449,9 @@ ANN ANN::build (const Coordinates &inputs,
   NeuronsMap &neurons = ann._neurons;
 
   const auto add = [&cppn, &ann] (auto p, auto t) {
-    auto inputs = cppn.inputs();
     float bias = 0;
-    if (t != Neuron::I) {
-      inputs[0] = p.x();
-      inputs[1] = p.y();
-      inputs[2] = inputs[3] = 0;
-      bias = cppn(inputs, config::CPPNOutput::BIAS);
-    }
+    if (t != Neuron::I)
+      bias = cppn(p, {0,0}, genotype::cppn::Output::BIAS);
     return ann.addNeuron(p, t, bias);
   };
 
@@ -486,7 +489,9 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
   std::map<Neuron*, Agnode_t*> gvnodes;
   std::vector<std::pair<Neuron*, Neuron::Link>> links;
 
-  set(g.graph, "splines", "line");
+  set(g.graph, "splines", "true");
+  set(g.graph, "margin", "0,0");
+  set(g.graph, "notranslate", "true");
 
   // Dot only -> useless here
 //  set(g.graph, "concentrate", "true");
@@ -502,6 +507,8 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
     set(n, "pos", scale*pos.x(), ",", scale*pos.y());
     set(n, "width", ".1");
     set(n, "height", ".1");
+    set(n, "margin", "0.01");
+    set(n, "fixedsize", "true");
     set(n, "style", "filled");
     set(n, "fillcolor", (neuron->type != Neuron::H) ? "black" : "gray");
     set(n, "spos", p.first);
@@ -776,7 +783,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       }
       if (size == 1)  m.size = {1,1};
       else {
-        Module::Size s { m.ur.x() - m.bl.x(), m.ur.y() - m.bl.y() };
+//        Module::Size s { m.ur.x() - m.bl.x(), m.ur.y() - m.bl.y() };
         float aratio = 1;// std::max(.5f, std::min(s.w / s.h, 2.f));
         float r = (1+5*size/hSize);
         m.size = { std::max(1.f, r * aratio), std::max(1.f, r / aratio) };
@@ -899,6 +906,7 @@ gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
   std::vector<std::pair<Module*, Module::Link>> links;
 
   set(g.graph, "splines", "false");
+  set(g.graph, "notranslate", "true");
 
   // Dot only -> useless here (and crashes in debug mode)
 //  set(g.graph, "concentrate", "true");

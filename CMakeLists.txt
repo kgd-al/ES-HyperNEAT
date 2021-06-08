@@ -105,6 +105,19 @@ if (NOT CLUSTER_BUILD)
     endif()
 
     ############################################################################
+    ## Qt library (additional dependencies)
+    ############################################################################
+
+    list(APPEND QT_COMPONENTS 3DCore 3DRender 3DInput 3DExtras)
+    list(APPEND QT_LIBS Qt5::3DCore Qt5::3DRender Qt5::3DInput Qt5::3DExtras)
+
+    find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+    message("Qt found at " ${Qt5_DIR})
+    message("  Components > " ${QT_COMPONENTS})
+    list(APPEND GUI_LIBS ${QT_LIBS})
+    message("        Libs > " ${GUI_LIBS})
+
+    ############################################################################
     ## Sources files (visualizer)
     ############################################################################
 
@@ -115,15 +128,22 @@ if (NOT CLUSTER_BUILD)
         "cppn/edge.cpp"
         "cppn/viewer.cpp"
         "cppn/outputsummary.cpp"
-        "ann/node.cpp"
-        "ann/edge.cpp"
-        "ann/viewer.cpp"
+
+        "ann/2d/node.cpp"
+        "ann/2d/edge.cpp"
+        "ann/2d/viewer.cpp"
+
+        "ann/3d/node.cpp"
+        "ann/3d/edge.cpp"
+        "ann/3d/viewer.cpp"
+
         "es_hyperneatpanel.cpp"
         "config.cpp"
     )
     PREPEND(GUI_SRC "src/gui")
 
     add_library(eshn-gui STATIC ${GUI_SRC})
+    target_link_libraries(eshn-gui eshn-core ${CORE_LIBS} ${GUI_LIBS})
     target_include_directories(eshn-gui PRIVATE
         $<TARGET_PROPERTY:Qt5::Widgets,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_definitions(eshn-gui PRIVATE
@@ -218,6 +238,25 @@ message("> Building tests: " ${WITH_TESTS})
 option(WITH_SONGMAKER "Whether or not to build songmaker" OFF)
 message("> SongMaker: " ${WITH_SONGMAKER})
 
+option(CPPN_WITH_DISTANCE "Whether CPPN inputs include connection length" OFF)
+message("> CPPN distance: ${CPPN_WITH_DISTANCE}")
+if (CPPN_WITH_DISTANCE)
+    add_definitions(-DCPPN_WITH_DISTANCE)
+    list(APPEND KGD_DEFINITIONS -DCPPN_WITH_DISTANCE)
+endif()
+
+set(SUBSTRATE_DIMENSION "2" CACHE STRING "Dimension of the ANN substrate (2,3)")
+set_property(CACHE SUBSTRATE_DIMENSION PROPERTY STRINGS 2 3)
+message("> Substrate dimension: ${SUBSTRATE_DIMENSION}")
+add_definitions(-DSUBSTRATE_DIMENSION=${SUBSTRATE_DIMENSION})
+list(APPEND KGD_DEFINITIONS -DSUBSTRATE_DIMENSION=${SUBSTRATE_DIMENSION})
+
+set(ANN_TYPE "Float" CACHE STRING "Neuron implementation")
+set_property(CACHE SUBSTRATE_DIMENSION PROPERTY STRINGS Float Spiking)
+message("> ANN Type: ${ANN_TYPE}")
+add_definitions(-DANN_TYPE=${ANN_TYPE})
+list(APPEND KGD_DEFINITIONS -DANN_TYPE=${ANN_TYPE})
+
 #option(UPDATE_DEPENDENCIES "Whether or not to keep dependency data up-to-date
 #                            (implies extra compilation time)" ON)
 #message("> Auto updating dependencies " ${UPDATE_DEPENDENCIES})
@@ -279,6 +318,7 @@ set(${PROJECT_NAME}_LIBRARIES
     >)
 
 $<$<NOT:$<BOOL:${CLUSTER_BUILD}>>:
+set(Qt5_DIR ${Qt5_DIR})
 set(QT_COMPONENTS ${QT_COMPONENTS})
 find_package(Qt5 REQUIRED COMPONENTS ${QT_COMPONENTS})
 message(\"Qt found at \" ${Qt5_DIR})

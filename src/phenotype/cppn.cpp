@@ -77,7 +77,7 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   using NID = CPPN_g::Node::ID;
 
   const auto &ofuncs = [] (uint index) {
-    return genotype::ES_HyperNEAT::config_t::cppnOutputs()[index].function;
+    return genotype::ES_HyperNEAT::config_t::cppnOutputFuncs()[index];
   };
 
   CPPN cppn;
@@ -88,21 +88,21 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
 
   std::map<NID, Node_ptr> nodes;
 
-  cppn._inputs.resize(cppn_g.inputs);
-  for (uint i=0; i<cppn_g.inputs; i++) {
+  cppn._inputs.resize(CPPN_g::INPUTS);
+  for (uint i=0; i<CPPN_g::INPUTS; i++) {
 #ifdef DEBUG
     std::cerr << "(I) " << NID(i) << " " << i << std::endl;
 #endif
     nodes[NID(i)] = cppn._inputs[i] = std::make_shared<INode>();
   }
 
-  cppn._outputs.resize(cppn_g.outputs);
-  for (uint i=0; i<cppn_g.outputs; i++) {
+  cppn._outputs.resize(CPPN_g::OUTPUTS);
+  for (uint i=0; i<CPPN_g::OUTPUTS; i++) {
 #ifdef DEBUG
     std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
               << ofuncs[i] << std::endl;
 #endif
-    nodes[NID(i+cppn_g.inputs)] = cppn._outputs[i] = fnode(ofuncs(i));
+    nodes[NID(i+CPPN_g::INPUTS)] = cppn._outputs[i] = fnode(ofuncs(i));
   }
 
   uint i=0;
@@ -159,27 +159,33 @@ std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
   return os << " ]";
 }
 
-void CPPN::pre_evaluation(const Inputs &inputs) const {
+void CPPN::pre_evaluation(const Point &src, const Point &dst) const {
   /// TODO Should replace this test by a constexpr enum check
-  bool bias = ((_inputs.size() % 2) == 1);
-  assert(inputs.size() == _inputs.size()-bias);
-
   #ifdef DEBUG
   utils::IndentingOStreambuf indent (std::cout);
   std::cout << "compute step\n" << inputs << std::endl;
   #endif
 
-  for (uint i=0; i<inputs.size(); i++)  _inputs[i]->data = inputs[i];
-  if (bias) _inputs.back()->data = 1;
+  static constexpr auto N = SUBSTRATE_DIMENSION;
+  for (uint i=0; i<N; i++)  _inputs[i]->data = src.get(i);
+  for (uint i=0; i<N; i++)  _inputs[i+N]->data = dst.get(i);
+
+#if CPPN_WITH_DISTANCE
+  static const float norm = 2*std::sqrt(2);
+  _inputs[2*N]->data = (src - dst).length() / norm;
+#endif
+
+  _inputs.back()->data = 1;
 
   for (auto &n: _hidden)  n->data = NAN;
   for (auto &n: _outputs)  n->data = NAN;
 }
 
-void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
+void CPPN::operator() (const Point &src, const Point &dst,
+                       Outputs &outputs) const {
   assert(outputs.size() == _outputs.size());
 
-  pre_evaluation(inputs);
+  pre_evaluation(src, dst);
   for (uint i=0; i<outputs.size(); i++) outputs[i] = _outputs[i]->value();
 
 #ifdef DEBUG
@@ -187,12 +193,12 @@ void CPPN::operator() (const Inputs &inputs, Outputs &outputs) const {
 #endif
 }
 
-void CPPN::operator() (const Inputs &inputs, Outputs &outputs,
+void CPPN::operator() (const Point &src, const Point &dst, Outputs &outputs,
                        const OutputSubset &oset) const {
   assert(outputs.size() == _outputs.size());
   assert(oset.size() <= _outputs.size());
 
-  pre_evaluation(inputs);
+  pre_evaluation(src, dst);
   for (auto o: oset) outputs[uint(o)] = _outputs[uint(o)]->value();
 
 #ifdef DEBUG
@@ -200,8 +206,9 @@ void CPPN::operator() (const Inputs &inputs, Outputs &outputs,
 #endif
 }
 
-float CPPN::operator() (const Inputs &inputs, config::CPPNOutput o) const {
-  pre_evaluation(inputs);
+float CPPN::operator() (const Point &src, const Point &dst,
+                        genotype::cppn::Output o) const {
+  pre_evaluation(src, dst);
   return _outputs[uint(o)]->value();
 }
 

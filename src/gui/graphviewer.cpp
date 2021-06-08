@@ -21,6 +21,7 @@ void GraphViewer::setGraph(const gvc::Graph &graph) {
   auto gw = graph.build_gvc_graph();
   gw.layout(gvc_layout());
   gvRender(gvc::context(), gw.graph, "dot", NULL);
+//  gvRender(gvc::context(), gw.graph, "dot", stdout);
 
   auto scene = this->scene();
   scene->clear();
@@ -42,7 +43,7 @@ void GraphViewer::resizeEvent(QResizeEvent *e) {
 
 void GraphViewer::render (const QString &filename) {
   QPrinter printer(QPrinter::HighResolution);
-  printer.setPageSizeMM(sceneRect().size());
+  printer.setPageSize(QPageSize(sceneRect().size(), QPageSize::Millimeter));
   printer.setOutputFormat(QPrinter::PdfFormat);
   printer.setOutputFileName(filename);
 

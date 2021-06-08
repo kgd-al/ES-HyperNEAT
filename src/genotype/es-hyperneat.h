@@ -6,6 +6,48 @@
 #include "../misc/fixed_size_string.hpp"
 #include "../misc/gvc_wrapper.h"
 
+// =============================================================================
+// == Define CPPN I/O based on cmake-provided flags
+
+#if CPPN_WITH_DISTANCE
+#define MAYBE_LENGTH LENGTH,
+#else
+#define MAYBE_LENGTH
+#endif
+
+#if SUBSTRATE_DIMENSION == 2
+#define MAYBE_Z(X)
+#elif SUBSTRATE_DIMENSION == 3
+#define MAYBE_Z(X) Z##X,
+#else
+static_assert(false, "Substrate dimensions must be either 2 or 3");
+#endif
+
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+  genotype::cppn, Input,
+    X0, Y0, MAYBE_Z(0)
+    X1, Y1, MAYBE_Z(1)
+    MAYBE_LENGTH
+    BIAS)
+#undef MAYBE_Z
+
+#if ANN_TYPE == Float
+#define NEURON_PARAMS BIAS
+#elif ANN_TYPE == Spiking
+#define NEURON_PARAMS UNKNOWN
+#else
+static_assert(false, "ANN type can only be Float or Spiking")
+#endif
+
+DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
+  genotype::cppn, Output,
+    WEIGHT, LEO,
+    NEURON_PARAMS
+)
+#undef NEURON_PARAMS
+
+// =============================================================================
+
 namespace genotype {
 
 class ES_HyperNEAT : public genotype::EDNA<ES_HyperNEAT> {
@@ -53,22 +95,24 @@ public:
     };
     using Links = std::set<Link, ID_CMP<Link>>;
 
+    static constexpr uint INPUTS = EnumUtils<cppn::Input>::size();
+    static constexpr uint OUTPUTS = EnumUtils<cppn::Output>::size();
+
     Nodes nodes;
     Links links;
-    uint inputs, outputs;
     Node::ID nextNID;
     Link::ID nextLID;
 
-    CPPN (void) : inputs(0), outputs(0) {}
+    CPPN (void) = default;
 
 #ifdef WITH_GVC
     gvc::GraphWrapper build_gvc_graph (void) const;
     void render_gvc_graph (const std::string &path) const;
 #endif
 
-    bool isInput (Node::ID nid) const;
-    bool isOutput (Node::ID nid) const;
-    bool isHidden (Node::ID nid) const;
+    static bool isInput (Node::ID nid);
+    static bool isOutput (Node::ID nid);
+    static bool isHidden (Node::ID nid);
 
     static CPPN fromDot (const std::string &data, rng::AbstractDice &dice);
 
@@ -81,9 +125,9 @@ public:
     friend void assertEqual(const CPPN &lhs, const CPPN &rhs, bool deepcopy);
 
   private:
-    bool isInput (Node::ID::ut nid) const;
-    bool isOutput (Node::ID::ut nid) const;
-    bool isHidden (Node::ID::ut nid) const;
+    static bool isInput (Node::ID::ut nid);
+    static bool isOutput (Node::ID::ut nid);
+    static bool isHidden (Node::ID::ut nid);
   } cppn;
 
   uint substeps;
@@ -107,12 +151,6 @@ DECLARE_GENOME_FIELD(ES_HyperNEAT, uint, substeps)
 } // end of namespace genotype
 
 DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
-  config, CPPNInput, X0, Y0, X1, Y1, BIAS)
-
-DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
-    config, CPPNOutput, WEIGHT, LEO, BIAS)
-
-DEFINE_NAMESPACE_SCOPED_PRETTY_ENUMERATION(
   config, CPPNInitMethod,
     PERCEPTRON, BIMODAL)
 
@@ -127,20 +165,8 @@ struct EDNA_CONFIG_FILE(ES_HyperNEAT) {
   using FBounds = Bounds<float>;
   DECLARE_PARAMETER(FBounds, weightBounds)
 
-  static constexpr auto INPUTS_COUNT = EnumUtils<CPPNInput>::size();
-  struct InputData {
-    std::string name;
-  };
-  using Inputs = std::array<InputData, INPUTS_COUNT>;
-  DECLARE_CONST_PARAMETER(Inputs, cppnInputs)
-
-  static constexpr auto OUTPUTS_COUNT = EnumUtils<CPPNOutput>::size();
-  struct OutputData {
-    std::string name;
-    FuncID function;
-  };
-  using Outputs = std::array<OutputData, OUTPUTS_COUNT>;
-  DECLARE_CONST_PARAMETER(Outputs, cppnOutputs)
+  using OutputFuncs = std::array<FuncID, genotype::ES_HyperNEAT::CPPN::OUTPUTS>;
+  DECLARE_CONST_PARAMETER(OutputFuncs, cppnOutputFuncs)
 
   DECLARE_PARAMETER(CPPNInitMethod, cppnInit)
 

@@ -94,8 +94,8 @@ void OutputSummary::phenotypes (const phenotype::CPPN &cppn, const QPointF &p,
   using CPPN = phenotype::CPPN;
   using Range = phenotype::CPPN::Range;
   static const auto &functionRanges = phenotype::CPPN::functionRanges;
-  static const auto &cppnOutputs =
-      genotype::ES_HyperNEAT::config_t::cppnOutputs();
+  static const auto &cppnOutputFuncs =
+      genotype::ES_HyperNEAT::config_t::cppnOutputFuncs();
   static const auto scale = [] (const Range &in, const Range &out, float v) {
     return (out.max - out.min) * (v - in.min) / (in.max - in.min) + out.min;
   };
@@ -113,17 +113,12 @@ void OutputSummary::phenotypes (const phenotype::CPPN &cppn, const QPointF &p,
 
   noPhenotypes(flag);
 
-
-  std::array<CPPN::Inputs, 2> inputs;
-  inputs.fill(cppn.inputs());
-
   std::array<CPPN::Outputs, 2> outputs;
-  outputs.fill(cppn.outputs());
 
   std::vector<phenotype::CPPN::Range> ranges;
   ranges.resize(outputs.size());
   for (uint i=0; i<outputs.size(); i++)
-    ranges[i] = functionRanges.at(cppnOutputs[i].function);
+    ranges[i] = functionRanges.at(cppnOutputFuncs[i]);
 
   static const auto rw_color = [] (float v) {
     assert(-1 <= v && v <= 1);
@@ -142,26 +137,26 @@ void OutputSummary::phenotypes (const phenotype::CPPN &cppn, const QPointF &p,
 
   // Generate output for neural parameter /// TODO Only one for now
   if (flag & NEURAL) {
-    CPPN::Inputs inputs = cppn.inputs();
-    inputs[2] = inputs[3] = 0;
+    phenotype::Point p1 {0,0};
     for (int r=0; r<S; r++) {
       QRgb *bytes = (QRgb*)_nviewers[0]->image.scanLine(r);
-      inputs[1] = -2.*r/(S-1) + 1;
+      phenotype::Point p0;
+      p0.set(1, -2.*r/(S-1) + 1);
 
       for (int c=0; c<S; c++) {
-        inputs[0] = 2.*c/(S-1) - 1;
-        bytes[c] = rw_color(utils::clip(-1.f,
-                                        cppn(inputs, config::CPPNOutput::BIAS),
-                                        1.f));
+        p0.set(0, 2.*c/(S-1) - 1);
+        bytes[c] = rw_color(
+          utils::clip(-1.f,
+                      cppn(p0, p1, genotype::cppn::Output::BIAS),
+                      1.f));
       }
     }
     _nviewers[0]->enabled = true;
     _nviewers[0]->update();
   }
 
-
-  inputs[0][0] = p.x(); inputs[0][1] = p.y();
-  inputs[1][2] = p.x(); inputs[1][3] = p.y();
+  /// TODO Check that I did not break everything
+  phenotype::Point p0 {float(p.x()), float(p.y())};
   for (int r=0; r<S; r++) {
     std::array<QRgb*, 4> bytes;
     for (uint i=0; i<_cviewers.size(); i++)
@@ -169,12 +164,14 @@ void OutputSummary::phenotypes (const phenotype::CPPN &cppn, const QPointF &p,
        || (i >= 2 && (flag & INCOMING)))
         bytes[i] = (QRgb*) _cviewers[i]->image.scanLine(r);
 
+    phenotype::Point p1;
     // Invert y to account for downward y axis windows
-    inputs[0][3] = inputs[1][1] = -2.*r/(S-1) + 1;
+    p1.set(1, -2.*r/(S-1) + 1);
 
     for (int c=0; c<S; c++) {
-      inputs[0][2] = inputs[1][0] = 2.*c/(S-1) - 1;
-      for (uint i=0; i<2; i++)  cppn(inputs[i], outputs[i]);
+      p1.set(0, 2.*c/(S-1) - 1);
+      cppn(p0, p1, outputs[0]);
+      cppn(p1, p0, outputs[1]);
 
       if (flag & OUTGOING) {
         bytes[0][c] = w_color(0, 0);

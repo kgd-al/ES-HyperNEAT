@@ -1,4 +1,4 @@
-#ifndef KGD_GVC_WRAPPER_HPP
+﻿#ifndef KGD_GVC_WRAPPER_HPP
 #define KGD_GVC_WRAPPER_HPP
 
 #ifdef WITH_GVC

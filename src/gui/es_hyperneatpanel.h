@@ -8,7 +8,7 @@
 #include "cppn/viewer.h"
 #include "cppn/outputsummary.h"
 
-#include "ann/viewer.h"
+#include "ann/2d/viewer.h"
 
 namespace kgd::gui {
 
@@ -19,6 +19,7 @@ void restore (const QSettings &settings, QSplitter *splitter);
 
 namespace kgd::es_hyperneat::gui {
 
+namespace ann = ann2d;
 struct ES_HyperNEATPanel : public QWidget {
   using NeuronType = phenotype::ANN::Neuron::Type;
 

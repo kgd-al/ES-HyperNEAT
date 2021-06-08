@@ -2,6 +2,7 @@
 #define KGD_CPPN_PHENOTYPE_H
 
 #include "../genotype/es-hyperneat.h"
+#include "point.hpp"
 
 namespace phenotype {
 
@@ -52,21 +53,22 @@ public:
   auto inputSize (void) const { return _inputs.size();  }
   auto outputSize (void) const {  return _outputs.size();  }
 
-  auto inputs (void) const {  return Inputs((inputSize()>>2)<<2); }
-  auto outputs (void) const {  return Outputs(outputSize()); }
+//  using Inputs = std::array<float, >;
+//  auto inputs (void) const {  return Inputs((inputSize()>>2)<<2); }
 
-  using Inputs = std::vector<float>;
-  using Outputs = Inputs;
-  void operator() (const Inputs &inputs, Outputs &outputs) const;
+  using Outputs = std::array<float, genotype::ES_HyperNEAT::CPPN::OUTPUTS>;
 
-  float operator() (const Inputs &inputs, config::CPPNOutput o) const;
+  void operator() (const Point &src, const Point &dst, Outputs &outputs) const;
 
-  using OutputSubset = std::set<config::CPPNOutput>;
-  void operator() (const Inputs &inputs, Outputs &outputs,
+  float operator() (const Point &src, const Point &dst,
+                    genotype::cppn::Output o) const;
+
+  using OutputSubset = std::set<genotype::cppn::Output>;
+  void operator() (const Point &src, const Point &dst, Outputs &outputs,
                    const OutputSubset &oset) const;
 
 private:
-  void pre_evaluation (const Inputs &inputs) const;
+  void pre_evaluation (const Point &src, const Point &dst) const;
 };
 
 } // end of namespace phenotype

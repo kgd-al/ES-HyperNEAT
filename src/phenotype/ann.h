@@ -12,111 +12,7 @@ const stdfs::path& debugFilePrefix (const stdfs::path &path = "");
 
 namespace phenotype {
 
-template <uint DIMENSIONS, uint DECIMALS>
-class Point_t {
-  static_assert(DIMENSIONS > 0, "Null points do not make sense");
-  static_assert(DIMENSIONS > 1, "1D ANNs are far from fonctional");
-  static_assert(DIMENSIONS < 3, "3D ANNs are far from fonctional");
-
-  static constexpr uint MAX_DECIMALS = std::numeric_limits<int>::digits10-1;
-  static_assert(DECIMALS <= MAX_DECIMALS,
-                "Cannot represent such precision in fixed point type");
-
-  static constexpr int RATIO = std::pow(10, DECIMALS);
-  std::array<int, DIMENSIONS> _data;
-
-public:
-  Point_t(std::initializer_list<float> &&flist) {
-    uint i=0;
-    for (float f: flist) set(i++, f);
-  }
-  Point_t(void) : Point_t{0,0} {}
-
-  float x (void) const {  return get(0); }
-
-  float y (void) const {
-    static_assert(DIMENSIONS >= 1, "Current point type is mono-dimensional");
-    return get(1);
-  }
-
-  float get (uint i) const {
-    return _data[i] / float(RATIO);
-  }
-
-  void set (uint i, float v) {
-    _data[i] = std::round(RATIO * v);
-  }
-
-  Point_t& operator+= (const Point_t &that) {
-    for (uint i=0; i<DIMENSIONS; i++)
-      set(i, get(i) + that.get(i));
-    return *this;
-  }
-
-  Point_t& operator/= (float v) {
-    for (uint i=0; i<DIMENSIONS; i++)
-      set(i, get(i) / v);
-    return *this;
-  }
-
-  friend Point_t operator- (const Point_t &lhs, const Point_t &rhs) {
-    Point_t res;
-    for (uint i=0; i<DIMENSIONS; i++)
-      res.set(i, lhs.get(i) - rhs.get(i));
-    return res;
-  }
-
-  friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
-    if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
-    return lhs.x() < rhs.x();
-  }
-
-  friend bool operator== (const Point_t &lhs, const Point_t &rhs) {
-    return lhs.x() == rhs.x() && lhs.y() == rhs.y();
-  }
-
-  friend bool operator!= (const Point_t &lhs, const Point_t &rhs) {
-    return lhs.x() != rhs.x() || lhs.y() != rhs.y();
-  }
-
-  friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
-    os << p.get(0);
-    for (uint i=1; i<DIMENSIONS; i++)  os << "," << p.get(i);
-    return os;
-  }
-
-  friend std::istream& operator>> (std::istream &is, Point_t &p) {
-    char c;
-    float f;
-    is >> f;
-    p.set(0, f);
-    for (uint i=1; i<DIMENSIONS; i++) {
-      is >> c >> f;
-      p.set(i, f);
-    }
-    return is;
-  }
-
-  friend void to_json (nlohmann::json &j, const Point_t &p) {
-    j = { p._data };
-  }
-
-  friend void from_json (const nlohmann::json &j, Point_t &p) {
-    p._data = j;
-  }
-
-  friend void assertEqual (const Point_t &lhs, const Point_t &rhs,
-                           bool deepcopy) {
-    using utils::assertEqual;
-    assertEqual(lhs._data, rhs._data, deepcopy);
-  }
-};
-
 class ANN : public gvc::Graph {
-public:
-  using Point = Point_t<2, 3>;
-
-private:
   struct RangeFinder {
     float min;
   };
@@ -220,7 +116,6 @@ private:
 };
 
 struct ModularANN : public gvc::Graph {
-  using Point = ANN::Point;
   using Neuron = ANN::Neuron;
   struct Module {
     Point center, bl, ur;

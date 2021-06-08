@@ -24,7 +24,7 @@ int main (void) {
     assertEqual(genotype, genotype2, true);
   }
 
-  for (uint i=0; i<100; i++) {
+  for (uint i=0; i<1000; i++) {
     genotype.mutate(dice);
     std::cout << ".";
   }
@@ -40,10 +40,10 @@ int main (void) {
 //  std::cout << cppn.dump(1) << std::endl;
 //  genotype.cppn.graphviz_render_graph("mutated.pdf");
 //  genotype.cppn.graphviz_render_graph("mutated.png");
-  genotype.cppn.render_gvc_graph("mutated.ps");
+  genotype.cppn.render_gvc_graph("mutated.png");
 
   auto manual_cppn = CPPN::fromDot(R"(
-  CPPN(5,2)
+  CPPN(5,3)
     6 [sigm]; # weight
     7 [step]; # leo
     8 [gaus]; # G1
@@ -57,7 +57,7 @@ int main (void) {
     9 -> 6 [+1];
     8 -> 7 [+1];
   )", dice);
-  manual_cppn.render_gvc_graph("manual.ps");
+  manual_cppn.render_gvc_graph("manual.png");
 
   return 0;
 }
