@@ -1,4 +1,10 @@
 leak:libQt5Core.so.5
+leak:libQt5Gui.so.5
+leak:libQt53DCore.so.5
+leak:libQt53DInput.so.5
+leak:libQt53DRender.so.5
+leak:libQt53DExtras.so.5
+leak:libopenglrenderer
 
 leak:libfontconfig.so.1
 leak:libdbus-1.so.3

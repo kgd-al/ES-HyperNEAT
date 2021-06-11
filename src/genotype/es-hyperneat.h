@@ -15,9 +15,9 @@
 #define MAYBE_LENGTH
 #endif
 
-#if SUBSTRATE_DIMENSION == 2
+#if ESHN_SUBSTRATE_DIMENSION == 2
 #define MAYBE_Z(X)
-#elif SUBSTRATE_DIMENSION == 3
+#elif ESHN_SUBSTRATE_DIMENSION == 3
 #define MAYBE_Z(X) Z##X,
 #else
 static_assert(false, "Substrate dimensions must be either 2 or 3");
@@ -54,7 +54,6 @@ class ES_HyperNEAT : public genotype::EDNA<ES_HyperNEAT> {
   APT_EDNA()
 
 public:
-
   struct CPPN : gvc::Graph {
 
     template <typename T>

@@ -4,7 +4,7 @@
 
 namespace kgd::es_hyperneat::gui::cppn {
 
-Edge::Edge (Agedge_t *edge, qreal scale) {
+Edge::Edge (Agedge_t *edge) {
   setZValue(-1);
 
 #ifndef NDEBUG
@@ -12,11 +12,11 @@ Edge::Edge (Agedge_t *edge, qreal scale) {
 #endif
 
   const splines* spl = ED_spl(edge);
-  _bounds = kgd::gui::toQt(spl->bb, scale);
+  _bounds = kgd::gui::toQt(spl->bb);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
 
-  drawShape(spl, scale, pos(), _edge, _arrow);
+  drawShape(spl, pos(), _edge, _arrow);
 
   _width = gvc::get(edge, "penwidth", 1.f);
   _color = QColor(gvc::get(edge, "color", std::string()).c_str());
@@ -45,15 +45,15 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
   painter->restore();
 }
 
-void Edge::drawShape (const splines *spl, float scale,
-                          const QPointF &offset, QPainterPath &edge,
-                          QPainterPath &arrow) {
+void Edge::drawShape (const splines *spl,
+                      const QPointF &offset, QPainterPath &edge,
+                      QPainterPath &arrow) {
 
   static constexpr float arrowLength = 7.5;
   static constexpr float arrowFolding = .25;
 
-  auto convert = [scale, offset] (pointf p) {
-    return kgd::gui::toQt(p, scale) - offset;
+  auto convert = [offset] (pointf p) {
+    return kgd::gui::toQt(p) - offset;
   };
 
   if ((spl->list != 0) && (spl->list->size%3 == 1)) {

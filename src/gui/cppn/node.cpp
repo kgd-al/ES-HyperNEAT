@@ -74,13 +74,13 @@ const QFont EdgeFont { BaseFont.family(), int(BaseFont.pointSize() * .8)};
 
 static constexpr int MARGIN = 1;
 
-Node::Node (Agnode_t *node, qreal scale) {
+Node::Node (Agnode_t *node) {
 #ifndef NDEBUG
   _name = QString(agnameof(node));
 #endif
 
   auto b = ND_bb(node);
-  _bounds = kgd::gui::toQt(b, scale);
+  _bounds = kgd::gui::toQt(b);
   setPos(_bounds.center());
   _bounds.translate(-_bounds.center());
   _shape = _bounds;

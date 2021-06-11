@@ -11,7 +11,7 @@ namespace kgd::es_hyperneat::gui::cppn {
 class Node : public QGraphicsObject {
 
 public:
-  Node (Agnode_t *node, qreal scale);
+  Node (Agnode_t *node);
 
   QRectF boundingRect(void) const override {    return _bounds; }
 

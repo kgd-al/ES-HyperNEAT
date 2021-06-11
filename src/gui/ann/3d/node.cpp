@@ -6,6 +6,7 @@
 #include <Qt3DExtras/QSphereMesh>
 
 #include "node.h"
+#include "edge.h"
 
 #include "../../../phenotype/ann.h"
 
@@ -13,8 +14,10 @@
 
 namespace kgd::es_hyperneat::gui::ann3d {
 
-static constexpr auto defaultColor = Qt::gray;
-static constexpr auto highlightColor = Qt::blue;
+static const QColor inputsColor = Qt::black,
+                    outputsColor = Qt::black,
+                    hiddensColor = Qt::gray,
+                    highlightColor = Qt::blue;
 
 struct TextureImage : public Qt3DRender::QPaintedTextureImage {
 public:
@@ -31,6 +34,14 @@ public:
   }
 };
 
+QVector3D get3dCoord (Agnode_t *n) {
+  QVector3D p;
+  auto gvc_p = ND_pos(n);
+  for (uint i=0; i<phenotype::ANN::DIMENSIONS; i++)
+    p[i] = gvc_p[i] / gvc::Graph::scale;
+  return p;
+}
+
 template <typename P, uint D = P::DIMENSIONS>
 std::enable_if_t<D == 2, QVector3D>
 maybePromoteTo3D (const P &p) {
@@ -44,10 +55,16 @@ maybePromoteTo3D (const P &p) {
 }
 
 Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
-  phenotype::Point p;
-  auto spos_str = gvc::get(n, "spos", std::string());
-  std::istringstream (spos_str) >> p;
-  _pos = _spos = maybePromoteTo3D(p);
+  QVector3D pos1 = get3dCoord(n); // from pos attribute
+
+  auto sp = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
+  QVector3D pos2 = maybePromoteTo3D(sp); // from provided substrate position
+  qDebug() << pos1 << " =?= " << pos2 << " =?= "
+           << kgd::gui::toQt(ND_coord(n));
+
+  _pos = _spos = pos2;
+  _color = QColor(QString::fromStdString(gvc::get(n, "fillcolor",
+                                                  std::string("green"))));
 
   Qt3DExtras::QSphereMesh *mesh = new Qt3DExtras::QSphereMesh;
   mesh->setRadius(RADIUS);
@@ -59,10 +76,10 @@ Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
   //  transform->setScale3D(QVector3D(1.5, 1, 0.5));
   //  transform->setRotation(QQuaternion::fromAxisAndAngle(QVector3D(1,0,0), 45.f ));
 
-  auto *canvas = new TextureImage;
+//  auto *canvas = new TextureImage;
 
   _material = new Qt3DExtras::QDiffuseSpecularMaterial(this);
-  _material->setDiffuse(QColor(defaultColor));
+  _material->setDiffuse(_color);
   _material->setShininess(0);
 //  _material->diffuse()->addTextureImage(canvas);
 
@@ -83,11 +100,13 @@ Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
 }
 
 void Node::hoverEntered(void) {
-  _material->setDiffuse(QColor(highlightColor));
+  _material->setDiffuse(highlightColor);
+  for (auto v: {in,out}) for (auto e: v) e->setHovered(true);
 }
 
 void Node::hoverExited(void) {
-  _material->setDiffuse(QColor(defaultColor));
+  _material->setDiffuse(_color);
+  for (auto v: {in,out}) for (auto e: v) e->setHovered(false);
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

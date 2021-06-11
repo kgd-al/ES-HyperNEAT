@@ -14,14 +14,12 @@ void Viewer::setGraph (const Graph_t &cppn) {
 void Viewer::processGraph (const gvc::Graph&, const gvc::GraphWrapper &gw) {
   auto scene = this->scene();
   auto gvc = gw.graph;
-  qreal s = gvc::get(gvc, "dpi", 96.0) / 72.;
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
-    scene->addItem(new Node(n, s));
+    scene->addItem(new Node(n));
 
-    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e)) {
+    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
       if (gvc::get(e, "style", std::string()) != "invis")
-        scene->addItem(new Edge(e, s));
-    }
+        scene->addItem(new Edge(e));
   }
 }
 

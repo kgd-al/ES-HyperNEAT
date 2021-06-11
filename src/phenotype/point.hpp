@@ -6,8 +6,8 @@ namespace phenotype {
 template <uint DI, uint DE>
 class Point_t {
   static_assert(DI > 0, "Null points do not make sense");
-  static_assert(DI > 1, "1D ANNs are far from fonctional");
-  static_assert(DI < 3, "3D ANNs are far from fonctional");
+  static_assert(DI > 1, "1D ANNs do not make much sense, right?");
+  static_assert(DI < 4, "n-D ANNs are really not a good idea");
 
   static constexpr uint MAX_DECIMALS = std::numeric_limits<int>::digits10-1;
   static_assert(DE <= MAX_DECIMALS,
@@ -23,14 +23,23 @@ public:
   Point_t(std::initializer_list<float> &&flist) {
     uint i=0;
     for (float f: flist) set(i++, f);
+    for (; i<DIMENSIONS; i++) set(i, 0);
   }
-  Point_t(void) : Point_t{0,0} {}
+
+  Point_t(void) { set(0); }
+
+  static Point_t null (void) { return Point_t(); }
 
   float x (void) const {  return get(0); }
 
-  float y (void) const {
-    static_assert(DIMENSIONS >= 1, "Current point type is mono-dimensional");
+  template <uint DI_ = DI>
+  std::enable_if_t<DI_ >= 2, float> y (void) const {
     return get(1);
+  }
+
+  template <uint DI_ = DI>
+  std::enable_if_t<DI_ >= 3, float> z (void) const {
+    return get(2);
   }
 
   float get (uint i) const {
@@ -39,6 +48,10 @@ public:
 
   void set (uint i, float v) {
     _data[i] = std::round(RATIO * v);
+  }
+
+  void set (float v) {
+    for (uint i=0; i<DIMENSIONS; i++) set(i, v);
   }
 
   Point_t& operator+= (const Point_t &that) {
@@ -68,16 +81,15 @@ public:
   }
 
   friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
-    if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
-    return lhs.x() < rhs.x();
+    return lhs._data < rhs._data;
   }
 
   friend bool operator== (const Point_t &lhs, const Point_t &rhs) {
-    return lhs.x() == rhs.x() && lhs.y() == rhs.y();
+    return lhs._data == rhs._data;
   }
 
   friend bool operator!= (const Point_t &lhs, const Point_t &rhs) {
-    return lhs.x() != rhs.x() || lhs.y() != rhs.y();
+    return lhs._data != rhs._data;
   }
 
   friend std::ostream& operator<< (std::ostream &os, const Point_t &p) {
@@ -112,7 +124,7 @@ public:
     assertEqual(lhs._data, rhs._data, deepcopy);
   }
 };
-using Point = Point_t<SUBSTRATE_DIMENSION, 3>;
+using Point = Point_t<ESHN_SUBSTRATE_DIMENSION, 3>;
 
 } // end of namespace phenotype
 

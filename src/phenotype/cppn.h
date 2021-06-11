@@ -8,6 +8,8 @@ namespace phenotype {
 
 class CPPN {
 public:
+  static constexpr auto DIMENSIONS = Point::DIMENSIONS;
+
   using FuncID = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
   using Function = float (*) (float);
   static const std::map<FuncID, CPPN::Function> functions;

@@ -36,21 +36,27 @@ using Config = config::EvolvableSubstrate;
 using Coordinates = ANN::Coordinates;
 using Coordinates_s = std::set<Coordinates::value_type>;
 
-struct QuadTreeNode {
+struct QOTreeNode {
   Point center;
-  static_assert(SUBSTRATE_DIMENSION == 2, "OctoTree not implemented");
+  /// TODO remove
+//  static_assert(ESHN_SUBSTRATE_DIMENSION == 2, "OctoTree not implemented");
   float radius;
   uint level;
   float weight;
 
-  using ptr = std::shared_ptr<QuadTreeNode>;
+  using ptr = std::shared_ptr<QOTreeNode>;
   std::vector<ptr> cs;
 
-  QuadTreeNode (const Point &p, float r, uint l)
+  QOTreeNode (const Point &p, float r, uint l)
     : center(p), radius(r), level(l), weight(NAN) {}
 
-  QuadTreeNode (float x, float y, float r, uint l)
-    : QuadTreeNode({x,y}, r, l) {}
+#if ESHN_SUBSTRATE_DIMENSION == 2
+  QOTreeNode (float x, float y, float r, uint l)
+    : QOTreeNode({x,y}, r, l) {}
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+  QOTreeNode (float x, float y, float z, float r, uint l)
+    : QOTreeNode({x,y,z}, r, l) {}
+#endif
 
   float variance (void) const {
     if (cs.empty()) return 0;
@@ -72,21 +78,21 @@ struct QuadTreeNode {
   }
 #endif
 };
-using QuadTree = QuadTreeNode::ptr;
+using QOTree = QOTreeNode::ptr;
 
 template <typename... ARGS>
-QuadTreeNode::ptr node (ARGS... args) {
-  return std::make_shared<QuadTreeNode>(args...);
+QOTreeNode::ptr node (ARGS... args) {
+  return std::make_shared<QOTreeNode>(args...);
 }
 
 
-QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
+QOTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
   static const auto &initialDepth = Config::initialDepth();
   static const auto &maxDepth = Config::maxDepth();
   static const auto &divThr = Config::divThr();
 
-  QuadTree root = node(0.f, 0.f, 1.f, 1);
-  std::queue<QuadTreeNode*> q;
+  QOTree root = node(Point::null(), 1.f, 1);
+  std::queue<QOTreeNode*> q;
   q.push(root.get());
 
   const auto weight = [&cppn] (const Point &p0, const Point &p1) {
@@ -98,17 +104,26 @@ QuadTree divisionAndInitialisation(const CPPN &cppn, const Point &p, bool out) {
 #endif
 
   while (!q.empty()) {
-    QuadTreeNode &n = *q.front();
+    QOTreeNode &n = *q.front();
     q.pop();
 
     float cx = n.center.x(), cy = n.center.y();
+#if ESHN_SUBSTRATE_DIMENSION == 3
+    float cz = n.center.z();
+#endif
     float hr = .5 * n.radius;
     float nl = n.level + 1;
-    n.cs.resize(4);
-    n.cs[0] = node(cx - hr, cy - hr, hr, nl);
-    n.cs[1] = node(cx - hr, cy + hr, hr, nl);
-    n.cs[2] = node(cx + hr, cy - hr, hr, nl);
-    n.cs[3] = node(cx + hr, cy + hr, hr, nl);
+
+    n.cs.resize(1 << ESHN_SUBSTRATE_DIMENSION);
+    uint i=0;
+    for (int x: {-1,1})
+      for (int y: {-1, 1})
+#if ESHN_SUBSTRATE_DIMENSION == 2
+        n.cs[i++] = node(cx + x * hr, cy + y * hr, hr, nl);
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+        for (int z: {-1,1})
+          n.cs[i++] = node(cx + x * hr, cy + y * hr, cz + z * hr, hr, nl);
+#endif
 
     for (auto &c: n.cs)
       c->weight = out ? weight(p, c->center) : weight(c->center, p);
@@ -147,7 +162,7 @@ struct Connection {
 };
 using Connections = std::vector<Connection>;
 void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
-                      const QuadTree &t, bool out) {
+                      const QOTree &t, bool out) {
 
   static const auto &varThr = Config::varThr();
   static const auto &bndThr = Config::bndThr();
@@ -180,16 +195,33 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
     } else {
       // Not enough information at lower resolution -> test if part of band
 
-      const auto dweight = [&cppn, &p, &c, out] (float x, float y) {
-        Point src = out ? Point{p.x(), p.y()} : Point{x,y},
-              dst = out ? Point{x,y} : Point{p.x(), p.y()};
+      float r = c->radius;
+      float bnd = 0;
+
+      float cx = c->center.x(), cy = c->center.y();
+      const auto dweight = [&cppn, &p, &c, out] (auto... coords) {
+        Point src = out ? p : Point{coords...},
+              dst = out ? Point{coords...} : p;
         return std::fabs(c->weight
                          - cppn(src, dst, genotype::cppn::Output::WEIGHT));
       };
-      float cx = c->center.x(), cy = c->center.y();
-      float r = c->radius;
-      float dl = dweight(cx-r, cy), dr = dweight(cx+r, cy),
-            dt = dweight(cx, cy-r), db = dweight(cx, cy+r);
+
+
+#if ESHN_SUBSTRATE_DIMENSION == 2
+      bnd = std::max(
+        std::min(dweight(cx-r, cy), dweight(cx+r, cy)),
+        std::min(dweight(cx, cy-r), dweight(cx, cy+r))
+      );
+
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+      float cz = c->center.z();
+      bnd = std::max({
+        std::min(dweight(cx-r, cy, cz), dweight(cx+r, cy, cz)),
+        std::min(dweight(cx, cy-r, cz), dweight(cx, cy+r, cz)),
+        std::min(dweight(cx, cy, cz-r), dweight(cx, cy, cz+r))
+      });
+
+#endif
 
 #ifdef DEBUG_QUADTREE_PRUNING
       std::cout << "b> var = " << c->variance() << ", bnd = "
@@ -200,7 +232,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
                 << "\n";
 #endif
 
-      if (std::max(std::min(dl, dr), std::min(dt, db)) > bndThr
+      if (bnd > bndThr
           && leo(cppn, out ? p : c->center, out ? c->center : p)
           && c->weight != 0) {
         con.push_back({
@@ -345,8 +377,14 @@ void connect (const CPPN &cppn,
   static const auto &iterations = Config::iterations();
 
   Coordinates_s sio;  // All fixed positions
-  for (Point p: inputs) sio.insert(p);
-  for (Point p: outputs) sio.insert(p);
+  for (const auto &vec: {inputs, outputs}) {
+    for (Point p: vec) {
+      auto r = sio.insert(p);
+      if (!r.second)
+        utils::doThrow<std::invalid_argument>(
+          "Unable to insert duplicate coordinate ", p);
+    }
+  }
 
 #if DEBUG_ES
   using utils::operator<<;
@@ -451,7 +489,7 @@ ANN ANN::build (const Coordinates &inputs,
   const auto add = [&cppn, &ann] (auto p, auto t) {
     float bias = 0;
     if (t != Neuron::I)
-      bias = cppn(p, {0,0}, genotype::cppn::Output::BIAS);
+      bias = cppn(p, Point::null(), genotype::cppn::Output::BIAS);
     return ann.addNeuron(p, t, bias);
   };
 
@@ -492,6 +530,7 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
   set(g.graph, "splines", "true");
   set(g.graph, "margin", "0,0");
   set(g.graph, "notranslate", "true");
+  set(g.graph, "dim", ESHN_SUBSTRATE_DIMENSION);
 
   // Dot only -> useless here
 //  set(g.graph, "concentrate", "true");
@@ -504,6 +543,11 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
     auto neuron = p.second;
     auto n = gvnodes[neuron.get()] = add_node(g.graph, "N", i++);
     set(n, "label", "");
+#if ESHN_SUBSTRATE_DIMENSION == 2
+    set(n, "pos", scale*pos.x(), ",", scale*pos.y());
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+    set(n, "pos", scale*pos.x(), ",", scale*pos.y(), ",", scale*pos.z());
+#endif
     set(n, "pos", scale*pos.x(), ",", scale*pos.y());
     set(n, "width", ".1");
     set(n, "height", ".1");
@@ -629,11 +673,11 @@ void to_json (nlohmann::json &j, const ANN &ann) {
 
 // =============================================================================
 
-void from_json (const nlohmann::json &j, ANN::Neuron::ptr &n) {
+void from_json (const nlohmann::json &/*j*/, ANN::Neuron::ptr &/*n*/) {
 
 }
 
-void from_json (const nlohmann::json &j, ANN &ann) {
+void from_json (const nlohmann::json &/*j*/, ANN &/*ann*/) {
   assert(false);
 //  ann = ANN();
 
@@ -783,6 +827,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       }
       if (size == 1)  m.size = {1,1};
       else {
+        /// TODO make up your mind about anisotropic modules
 //        Module::Size s { m.ur.x() - m.bl.x(), m.ur.y() - m.bl.y() };
         float aratio = 1;// std::max(.5f, std::min(s.w / s.h, 2.f));
         float r = (1+5*size/hSize);

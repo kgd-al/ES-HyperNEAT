@@ -18,7 +18,7 @@ struct Edge;
 class Node : public Entity {
   Q_OBJECT
 public:
-  static constexpr float RADIUS = .1;
+  static constexpr float RADIUS = .05;
 
   Node(Agnode_t *node, Entity *parent);
   virtual ~Node (void) = default;
@@ -44,6 +44,7 @@ private:
   Qt3DExtras::QDiffuseSpecularMaterial *_material;
   Qt3DRender::QObjectPicker *_picker;
   QVector3D _pos, _spos;
+  QColor _color;
 
   void hoverEntered (void);
   void hoverExited (void);

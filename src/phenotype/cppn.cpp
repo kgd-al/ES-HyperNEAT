@@ -166,11 +166,11 @@ void CPPN::pre_evaluation(const Point &src, const Point &dst) const {
   std::cout << "compute step\n" << inputs << std::endl;
   #endif
 
-  static constexpr auto N = SUBSTRATE_DIMENSION;
+  static constexpr auto N = DIMENSIONS;
   for (uint i=0; i<N; i++)  _inputs[i]->data = src.get(i);
   for (uint i=0; i<N; i++)  _inputs[i+N]->data = dst.get(i);
 
-#if CPPN_WITH_DISTANCE
+#if ESHN_WITH_DISTANCE
   static const float norm = 2*std::sqrt(2);
   _inputs[2*N]->data = (src - dst).length() / norm;
 #endif

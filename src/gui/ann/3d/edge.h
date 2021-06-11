@@ -3,19 +3,26 @@
 
 #include <Qt3DCore/QEntity>
 
+#include <Qt3DExtras/QDiffuseSpecularMaterial>
+
+#include "../../gvcqtinterface.h"
+
 namespace kgd::es_hyperneat::gui::ann3d {
 using Entity = Qt3DCore::QEntity;
 
 struct Node;
 class Edge : public Entity {
 public:
-  Edge(const QVector3D &src, const QVector3D &dst, Entity *parent);
+  Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent);
   virtual ~Edge (void) = default;
 
-  void updateIO (Node *i, Node *o);
+  void setHovered (bool h);
 
 private:
   Node *in, *out;
+  QColor _currentColor, _color;
+
+  Qt3DExtras::QDiffuseSpecularMaterial *_material;
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

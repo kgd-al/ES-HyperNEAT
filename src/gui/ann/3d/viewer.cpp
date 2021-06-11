@@ -188,6 +188,27 @@ void Viewer::setGraph(const gvc::Graph &graph) {
 
   // process graph
   /// TODO Lots of duplicated code with 2d/viewer
+  struct EdgeBuildData {
+    Agedge_t *e;
+    Node *i = nullptr, *o = nullptr;
+  };
+
+  std::map<std::string, EdgeBuildData> edges;
+  const auto getOrNew = [this, &edges] (Agedge_t *e, Node *i, Node *o) {
+    auto ename = std::string(agnameof(e));
+    auto it = edges.find(ename);
+
+    if (it != edges.end()) {
+      auto &d = it->second;
+      if (i) d.i = i;
+      if (o) d.o = o;
+
+    } else
+      edges[ename] = EdgeBuildData{e,i,o};
+  };
+
+//      qe = new Edge(e, _scene);
+
 
 //  std::function<NeuralData*(const phenotype::Point&)> neuralData;
 //  if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
@@ -205,17 +226,26 @@ void Viewer::setGraph(const gvc::Graph &graph) {
 //      "Provided graph is of wrong derived type. How did you do that?");
 
   auto gvc = gw.graph;
-  qreal s = gvc::get(gvc, "dpi", 96.0) / 72.;
 
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
-    phenotype::Point p;
-    auto spos_str = gvc::get(n, "spos", std::string());
-    std::istringstream (spos_str) >> p;
+    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
 
     auto qn = new Node(n, /*neuralData(p), */_scene);
-//    scene->addItem(qn);
 //    _nodes.append(qn);
 //    connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
+
+    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
+      getOrNew(e, qn, nullptr);
+
+    for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e))
+      getOrNew(e, nullptr, qn);
+  }
+
+  for (const auto &it: edges) {
+    const EdgeBuildData &d = it.second;
+    auto qe = new Edge(d.e, d.i, d.o, _scene);
+    d.i->out.push_back(qe);
+    d.o->in.push_back(qe);
   }
 
 

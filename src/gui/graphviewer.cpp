@@ -21,7 +21,7 @@ void GraphViewer::setGraph(const gvc::Graph &graph) {
   auto gw = graph.build_gvc_graph();
   gw.layout(gvc_layout());
   gvRender(gvc::context(), gw.graph, "dot", NULL);
-//  gvRender(gvc::context(), gw.graph, "dot", stdout);
+  gvRender(gvc::context(), gw.graph, "dot", stdout);
 
   auto scene = this->scene();
   scene->clear();

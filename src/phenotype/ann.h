@@ -32,6 +32,8 @@ class ANN : public gvc::Graph {
   };
 
 public:
+  static constexpr auto DIMENSIONS = CPPN::DIMENSIONS;
+
   struct Neuron {
     const Point pos;
     enum Type { I, O, H };

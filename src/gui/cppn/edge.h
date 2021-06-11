@@ -11,7 +11,7 @@ class Edge : public QGraphicsObject {
   Q_OBJECT
 
 public:
-  Edge (Agedge_t *edge, qreal scale);
+  Edge (Agedge_t *edge);
 
   QRectF boundingRect(void) const override {    return _bounds; }
 
@@ -28,7 +28,7 @@ private:
   float _width;
   QColor _color;
 
-  void drawShape (const splines *spl, float scale, const QPointF &offset,
+  void drawShape (const splines *spl, const QPointF &offset,
                   QPainterPath &edge, QPainterPath &arrow);
 };
 

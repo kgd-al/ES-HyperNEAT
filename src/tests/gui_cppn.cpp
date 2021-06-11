@@ -51,6 +51,7 @@ int main (int argc, char **argv) {
 
     phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
     // Assymetrical lower bound
 //    ann = phenotype::ANN::build(
 //      { { -.5, -.5 }, { 0, -.5}, { .5, -.5 }, {0,0} },
@@ -74,10 +75,25 @@ int main (int argc, char **argv) {
 
     // Regular and pretty
     ann = phenotype::ANN::build(
-      { { -1, -1 }, { 0, -1}, { 1, -1 } },
-      { { -.5, 1 }, { 0, 1}, { .5, 1 } },
+      { { -1, -1 }, { 0, -1 }, { 1, -1 } },
+      { { -.5, 1 }, { 0,  1 }, { .5, 1 } },
       cppn
     );
+
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+//    ann = phenotype::ANN::build(
+//      { { -1, -1, -1 }, { -1, -1, 0 }, { -1, -1,  1 },
+//        {  0, -1, 0 },
+//        {  1, -1, -1 }, {  1, -1, 0 }, {  1, -1,  1 } },
+//      { { -.5, 1, 0 }, { 0,  1, 0 }, { .5, 1, 0 }, { 0, 1, -1 } },
+//      cppn
+//    );
+    ann = phenotype::ANN::build(
+      { {  0, -1, -1 }, {  0, -1, +1 } },
+      { { 0,  1, 0 } },
+      cppn
+    );
+#endif
 
     std::cout << "Seed " << dice.getSeed() << ":" << (ann.empty() ? "" : " not")
               << " empty\n";
