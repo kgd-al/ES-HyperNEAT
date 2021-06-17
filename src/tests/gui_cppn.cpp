@@ -13,6 +13,8 @@ void make_sound (void) {
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
 
+  config::EvolvableSubstrate::printConfig();
+
 //  rng::FastDice dice (6);
 //  genotype::ES_HyperNEAT genome = genotype::ES_HyperNEAT::random(dice);
 

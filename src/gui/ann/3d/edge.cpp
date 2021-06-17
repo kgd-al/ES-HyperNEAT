@@ -65,7 +65,7 @@ Edge::Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent)
 //    arrow.lineTo(end-axis);
 //    arrow.closeSubpath();
 
-    qDebug() << "edge " << src << " -> " << dst << ":\n\t" << edge_p;
+//    qDebug() << "edge " << src << " -> " << dst << ":\n\t" << edge_p;
   }
   _currentColor = _color =
     QColor(QString::fromStdString(gvc::get(edge, "color",
@@ -134,16 +134,16 @@ Edge::Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent)
   line->setGeometry(geometry);
   line->setPrimitiveType(Qt3DRender::QGeometryRenderer::Lines);
 
-  _material = new Qt3DExtras::QDiffuseSpecularMaterial(this);
-  _material->setAmbient(_color);
-
   addComponent(line);
-  addComponent(_material);
+
+  static auto material = new Qt3DExtras::QDiffuseSpecularMaterial(parentEntity());
+  addComponent(material);
+
+  setEnabled(false);
 }
 
 void Edge::setHovered (bool h) {
-  _currentColor = h ? QColor(Qt::blue) : _color;
-  _material->setAmbient(_currentColor);
+  setEnabled(h);
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
