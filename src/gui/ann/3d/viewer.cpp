@@ -18,7 +18,6 @@
 #include "edge.h"
 
 #include <set>
-//#include "kgd/random/dice.hpp"
 
 namespace kgd::es_hyperneat::gui::ann3d {
 
@@ -207,8 +206,15 @@ void Viewer::setGraph(const gvc::Graph &graph) {
       edges[ename] = EdgeBuildData{e,i,o};
   };
 
-//      qe = new Edge(e, _scene);
+  struct NodeCMP {
+    using is_transparent = void;
 
+    bool operator() (const Node *lhs, const Node *rhs) const {
+//      return lhs->pos() < rhs->pos();
+      return lhs < rhs; /// TODO Fix
+    }
+  };
+  std::set<Node*, NodeCMP> nodes;
 
 //  std::function<NeuralData*(const phenotype::Point&)> neuralData;
 //  if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
@@ -231,7 +237,7 @@ void Viewer::setGraph(const gvc::Graph &graph) {
 //    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
 
     auto qn = new Node(n, /*neuralData(p), */_scene);
-//    _nodes.append(qn);
+    nodes.insert(qn);
 //    connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
 
     for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
@@ -248,39 +254,14 @@ void Viewer::setGraph(const gvc::Graph &graph) {
     d.o->in.push_back(qe);
   }
 
-
-//  rng::FastDice dice (0);
-//  std::set<QVector3D, QV3DCMP> coords;
-//  std::set<FakeLink> links;
-
-//  const auto val = [&dice] (void) -> float {
-//    return std::round(dice(-9, 9)) / 10.f;
-//  };
-
-//  while (coords.size() < 10)  coords.insert({ val(), val(), val() });
-//  while (coords.size() < 12)  coords.insert({ val(),    -1, val() });
-//  while (coords.size() < 14)  coords.insert({ val(),    +1, val() });
-
-//  for (const QVector3D &p: coords) {
-//    auto n = new Node(p, _scene);
-//    connect(n, &Node::clicked, this, &Viewer::selectionChanged);
-//  }
-
-//  while (links.size() < 2/**coords.size()*/) {
-//    auto src = *dice(coords), dst = *dice(coords);
-//    if (src.y() == 1) continue;
-//    if (dst.y() == -1)  continue;
-
-//    links.insert({src, dst});
-//    new Edge (src, dst, _scene);
-//  }
+  qDebug() << __PRETTY_FUNCTION__ << " rendering" << nodes.size() << "nodes &"
+           << edges.size() << "edges";
 }
 
 void Viewer::updateCamera(void) {
-  QVector3D c (0,0,0);
-  if (_selection) c = _selection->substratePos();
-  camera()->setViewCenter(c);
-//  camera()->setUpVector({0,0,0});
+//  QVector3D c (0,0,0);
+//  if (_selection) c = _selection->substratePos();
+//  camera()->setViewCenter(c);
 }
 
 void Viewer::selectionChanged(Node *n) {
@@ -290,6 +271,7 @@ void Viewer::selectionChanged(Node *n) {
     _selectionHighlighter->componentsOfType<Qt3DCore::QTransform>()
         .front()->setTranslation(_selection->pos());
   updateCamera();
+  qDebug() << "Selection:" << _selection;
 }
 
 void Viewer::mouseDoubleClickEvent(QMouseEvent */*ev*/) {

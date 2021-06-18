@@ -59,17 +59,20 @@ Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
 
   auto sp = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
   QVector3D pos2 = maybePromoteTo3D(sp); // from provided substrate position
-  qDebug() << pos1 << " =?= " << pos2 << " =?= "
-           << kgd::gui::toQt(ND_coord(n));
+//  qDebug() << pos1 << " =?= " << pos2 << " =?= "
+//           << kgd::gui::toQt(ND_coord(n));
 
   _pos = _spos = pos2;
   _color = QColor(QString::fromStdString(gvc::get(n, "fillcolor",
                                                   std::string("green"))));
 
-  Qt3DExtras::QSphereMesh *mesh = new Qt3DExtras::QSphereMesh;
-  mesh->setRadius(RADIUS);
-  mesh->setRings(10);
-  mesh->setSlices(10);
+  static Qt3DExtras::QSphereMesh *mesh = [] (Entity *parent) {
+    auto m = new Qt3DExtras::QSphereMesh (parent);
+    m->setRadius(RADIUS);
+    m->setRings(10);
+    m->setSlices(10);
+    return m;
+  }(parent);
 
   Qt3DCore::QTransform *transform = new Qt3DCore::QTransform;
   transform->setTranslation(_pos);
