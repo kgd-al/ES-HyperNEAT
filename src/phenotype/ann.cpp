@@ -913,9 +913,11 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   }
 
   // Modules are ready!
+#ifndef NDEBUG
   for (const auto &p: _components)
     for (const Module::Link &l: p.second->links)
       assert(l.in);
+#endif
 }
 
 ModularANN::~ModularANN (void) {

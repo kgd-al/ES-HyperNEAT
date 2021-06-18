@@ -228,7 +228,7 @@ void Viewer::setGraph(const gvc::Graph &graph) {
   auto gvc = gw.graph;
 
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
-    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
+//    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
 
     auto qn = new Node(n, /*neuralData(p), */_scene);
 //    _nodes.append(qn);

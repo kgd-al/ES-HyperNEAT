@@ -83,9 +83,9 @@ void Edge::updateCustomColor (void) {
   static const auto hasType = [] (const Node *n, Neuron::Type t) {
     return n->ntype() == t;
   };
-  static const auto hasCC = [] (const Node *n) {
-    return n->flags() != 0;
-  };
+//  static const auto hasCC = [] (const Node *n) {
+//    return n->flags() != 0;
+//  };
 
   updateAnimation(0);
   setZValue(-5);
