@@ -100,16 +100,29 @@ Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
           this, &Node::hoverExited);
   connect(_picker, &Qt3DRender::QObjectPicker::clicked,
           [this] { emit clicked(this); });
+
+  _selected = _hovered = _highlighted = false;
+}
+
+void Node::setHighlighted (void) {
+  bool h = _selected | _hovered;
+  _material->setDiffuse(h ? highlightColor : _color);
+  for (auto v: {in,out}) for (auto e: v) e->setVisible(h);
+}
+
+void Node::setSelected(bool s) {
+  _selected = s;
+  setHighlighted();
 }
 
 void Node::hoverEntered(void) {
-  _material->setDiffuse(highlightColor);
-  for (auto v: {in,out}) for (auto e: v) e->setHovered(true);
+  _hovered = true;
+  setHighlighted();
 }
 
 void Node::hoverExited(void) {
-  _material->setDiffuse(_color);
-  for (auto v: {in,out}) for (auto e: v) e->setHovered(false);
+  _hovered = false;
+  setHighlighted();
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

@@ -35,6 +35,12 @@ public:
     return _picker->containsMouse();
   }
 
+  void setSelected (bool s);
+  bool isSelected (void) const {
+    return _selected;
+  }
+
+
   std::vector<Edge*> in, out;
 
 signals:
@@ -45,9 +51,12 @@ private:
   Qt3DRender::QObjectPicker *_picker;
   QVector3D _pos, _spos;
   QColor _color;
+  bool _selected, _hovered, _highlighted;
 
   void hoverEntered (void);
   void hoverExited (void);
+
+  void setHighlighted (void);
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

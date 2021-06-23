@@ -11,6 +11,7 @@
 namespace kgd::es_hyperneat::gui::ann3d {
 
 struct Node;
+struct CameraController;
 class Viewer : public Qt3DExtras::Qt3DWindow {
 public:
   Viewer(void);
@@ -23,7 +24,7 @@ private:
   using Entity = Qt3DCore::QEntity;
   Entity *_scene = nullptr, *_axis = nullptr;
 
-  Qt3DExtras::QOrbitCameraController *_manipulator = nullptr;
+  CameraController *_manipulator = nullptr;
 
   Node *_selection = nullptr;
   Entity *_selectionHighlighter = nullptr;
@@ -34,7 +35,6 @@ private:
   void processGraph (const gvc::Graph &g,
                      const gvc::GraphWrapper &gw) /*override*/;
 
-  void updateCamera (void);
   void selectionChanged (Node *n);
 
   void keyReleaseEvent(QKeyEvent *e) override;

@@ -10,13 +10,18 @@
 namespace kgd::es_hyperneat::gui::ann3d {
 using Entity = Qt3DCore::QEntity;
 
+Qt3DRender::QGeometryRenderer* arrowMesh (Qt3DCore::QNode *parent,
+                                          const QVector3D &src,
+                                          const QVector3D &dst,
+                                          float width, float length);
+
 struct Node;
 class Edge : public Entity {
 public:
   Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent);
   virtual ~Edge (void) = default;
 
-  void setHovered (bool h);
+  void setVisible (bool v);
 
 private:
   Node *in, *out;

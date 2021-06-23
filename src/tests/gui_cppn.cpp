@@ -130,6 +130,8 @@ int main (int argc, char **argv) {
   holder->show();
   qDebug() << holder->geometry();
 
+  annholder->setFocus();
+
   auto r = app.exec();
   qDebug() << holder->geometry();
   return r;
