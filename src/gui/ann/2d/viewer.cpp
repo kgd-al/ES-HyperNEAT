@@ -1,5 +1,4 @@
 #include <QtPrintSupport/QPrinter>
-#include <QTextStream>
 
 #include "viewer.h"
 
@@ -8,62 +7,6 @@
 #include <QDebug>
 
 namespace kgd::es_hyperneat::gui::ann2d {
-
-NeuronStateViewer::NeuronStateViewer (void) {
-  setReadOnly(true);
-}
-
-void NeuronStateViewer::noState(void) {
-  _neuron = nullptr;
-  updateState();
-}
-
-void NeuronStateViewer::displayState(const Neuron *n) {
-  _neuron = n;
-  updateState();
-}
-
-void NeuronStateViewer::updateState(void) {
-  static const auto activation =
-    QString::fromStdString(
-      (std::string)config::EvolvableSubstrate::activationFunc());
-
-  if (_neuron == nullptr) {
-    setPlainText("N/A");
-    return;
-  }
-
-  QString contents;
-  QTextStream qts (&contents);
-  qts.setRealNumberNotation(QTextStream::FixedNotation);
-  qts.setRealNumberPrecision(3);
-  qts.setNumberFlags(QTextStream::ForceSign);
-
-  const Neuron &n = *_neuron;
-  float input = n.bias;
-  if (!n.isInput()) {
-    qts << " input:\n";
-
-    qts << "             [B] " << n.bias << "\n";
-    for (const phenotype::ANN::Neuron::Link &l: n.links()) {
-      const Neuron &in = *l.in.lock();
-      qts << "[" << in.pos.x() << ", " << in.pos.y() << "] "
-          << in.value * l.weight << " (" << in.value << " * " << l.weight
-          << ")\n";
-      input += in.value * l.weight;
-    }
-
-    qts << "                 = " << input << "\n";
-
-  } else
-    qts << "\n\n\n";
-
-  qts << "output: " << n.value;
-
-  if (!n.isInput()) qts << " = " << activation << "(" << input << ")";
-
-  setPlainText(contents);
-}
 
 struct Axis : public QGraphicsRectItem {
   static constexpr auto S = gvc::Graph::scale;
@@ -165,7 +108,7 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
   std::function<NeuralData*(const phenotype::Point&)> neuralData;
   if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
     neuralData = [ann] (auto p) {
-      return new NeuronData (*ann->neurons().at(p));
+      return new NeuronData (*ann->neuronAt(p));
     };
 
   else if (auto *mann = dynamic_cast<const phenotype::ModularANN*>(&g))

@@ -43,6 +43,7 @@ int main (int argc, char **argv) {
 
   uint baseSeed = (argc > 1 ? atoi(argv[1]) : 0), seed = baseSeed;
   genotype::ES_HyperNEAT genome;
+  phenotype::CPPN cppn;
   phenotype::ANN ann;
 
   do {
@@ -51,7 +52,7 @@ int main (int argc, char **argv) {
 
     for (uint i=0; i<1000; i++) genome.mutate(dice);
 
-    phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
+    cppn = phenotype::CPPN::fromGenotype(genome);
 
 #if ESHN_SUBSTRATE_DIMENSION == 2
     // Assymetrical lower bound
@@ -99,10 +100,15 @@ int main (int argc, char **argv) {
 
     std::cout << "Seed " << dice.getSeed() << ":" << (ann.empty() ? "" : " not")
               << " empty\n";
+
+    if (!ann.empty()) {
+      std::cout << "\t" << ann.neurons().size() << " neurons\n";
+      uint e = 0;
+      for (const auto &n: ann.neurons()) e += n->links().size();
+      std::cout << "\t" << e << " connections\n";
+    }
+
   } while (ann.empty() && seed < baseSeed+100);
-
-
-  phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
 
   kgd::es_hyperneat::gui::ES_HyperNEATPanel p;
   p.setData(genome, cppn, ann);
@@ -110,29 +116,12 @@ int main (int argc, char **argv) {
 
   genome.cppn.render_gvc_graph("tmp/cppn_genotype.png");
   p.cppnViewer->render("tmp/cppn_qt.pdf");
+#if ESHN_SUBSTRATE_DIMENSION == 2
   ann.render_gvc_graph("tmp/ann_phenotype.pdf");
   p.annViewer->render("tmp/ann_qt.pdf");
-
-  kgd::es_hyperneat::gui::ann3d::Viewer ann3d;
-  ann3d.setGraph(ann);
-//  ann3d.show();
-
-  QWidget *holder = new QWidget,
-          *annholder = QWidget::createWindowContainer(&ann3d);
-  QHBoxLayout *layout = new QHBoxLayout;
-  layout->addWidget(&p);
-  layout->addWidget(annholder);
-  annholder->setMinimumWidth(100);
-  layout->setStretch(0, 1);
-  layout->setStretch(1, 1);
-  holder->setLayout(layout);
-  holder->setGeometry(0, 83, 1280, 997);
-  holder->show();
-  qDebug() << holder->geometry();
-
-  annholder->setFocus();
+#endif
 
   auto r = app.exec();
-  qDebug() << holder->geometry();
+  qDebug() << p.geometry();
   return r;
 }

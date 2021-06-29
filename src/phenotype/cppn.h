@@ -47,9 +47,9 @@ private:
 
   std::vector<Node_ptr> _inputs, _hidden, _outputs;
 
+public:
   CPPN(void);
 
-public:
   static CPPN fromGenotype (const genotype::ES_HyperNEAT &es_hyperneat);
 
   auto inputSize (void) const { return _inputs.size();  }

@@ -8,21 +8,28 @@
 #include "../../../phenotype/ann.h"
 #include "../../../misc/gvc_wrapper.h"
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 
 struct Node;
 struct CameraController;
 class Viewer : public Qt3DExtras::Qt3DWindow {
+  Q_OBJECT
 public:
   Viewer(void);
   ~Viewer (void);
 
-//  void processGraph (void);
-  void setGraph (const gvc::Graph &graph);
+  void setANN (const phenotype::ANN &ann);
+  void clearANN (void);
+
+signals:
+  void neuronHovered (const phenotype::ANN::Neuron *n);
 
 private:
   using Entity = Qt3DCore::QEntity;
   Entity *_scene = nullptr, *_axis = nullptr;
+
+  QVector<Entity*> _entities;
 
   CameraController *_manipulator = nullptr;
 
@@ -42,5 +49,6 @@ private:
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif
 
 #endif // KGD_ANN_3D_VIEWER_H

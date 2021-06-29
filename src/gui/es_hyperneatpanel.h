@@ -8,7 +8,13 @@
 #include "cppn/viewer.h"
 #include "cppn/outputsummary.h"
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
 #include "ann/2d/viewer.h"
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+#include "ann/3d/viewer.h"
+#endif
+
+#include "ann/neuronstate.h"
 
 namespace kgd::gui {
 
@@ -19,14 +25,19 @@ void restore (const QSettings &settings, QSplitter *splitter);
 
 namespace kgd::es_hyperneat::gui {
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
 namespace ann = ann2d;
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+namespace ann = ann3d;
+#endif
+
 struct ES_HyperNEATPanel : public QWidget {
   using NeuronType = phenotype::ANN::Neuron::Type;
 
   cppn::Viewer *cppnViewer;
   cppn::OutputSummary *cppnOViewer;
   ann::Viewer *annViewer;
-  ann::NeuronStateViewer *neuronViewer;
+  neurons::NeuronStateViewer *neuronViewer;
   std::map<std::string, QLabel*> otherFields;
 
   ES_HyperNEATPanel (QWidget *parent = nullptr);

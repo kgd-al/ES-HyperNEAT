@@ -12,10 +12,10 @@
 
 #include <QDebug>
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 
-static const QColor inputsColor = Qt::black,
-                    outputsColor = Qt::black,
+static const QColor defaultColor = Qt::black,
                     hiddensColor = Qt::gray,
                     highlightColor = Qt::blue;
 
@@ -34,37 +34,17 @@ public:
   }
 };
 
-QVector3D get3dCoord (Agnode_t *n) {
-  QVector3D p;
-  auto gvc_p = ND_pos(n);
-  for (uint i=0; i<phenotype::ANN::DIMENSIONS; i++)
-    p[i] = gvc_p[i] / gvc::Graph::scale;
-  return p;
-}
-
-template <typename P, uint D = P::DIMENSIONS>
-std::enable_if_t<D == 2, QVector3D>
-maybePromoteTo3D (const P &p) {
-  return QVector3D(p.x(), p.y(), 0);
-}
-
-template <typename P, uint D = P::DIMENSIONS>
-std::enable_if_t<D == 3, QVector3D>
-maybePromoteTo3D (const P &p) {
+QVector3D toQt3D (const phenotype::Point &p) {
   return QVector3D(p.x(), p.y(), p.z());
 }
 
-Node::Node(Agnode_t *n, Entity *parent) : Entity(parent) {
-  QVector3D pos1 = get3dCoord(n); // from pos attribute
+using Neuron = phenotype::ANN::Neuron;
+Node::Node (const Neuron &n, Entity *parent)
+  : Entity(parent), _neuron(n) {
 
-  auto sp = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
-  QVector3D pos2 = maybePromoteTo3D(sp); // from provided substrate position
-//  qDebug() << pos1 << " =?= " << pos2 << " =?= "
-//           << kgd::gui::toQt(ND_coord(n));
+  _pos = toQt3D(n.pos); // from pos attribute
 
-  _pos = _spos = pos2;
-  _color = QColor(QString::fromStdString(gvc::get(n, "fillcolor",
-                                                  std::string("green"))));
+  _color = (n.type == Neuron::H ? hiddensColor : defaultColor);
 
   static Qt3DExtras::QSphereMesh *mesh = [] (Entity *parent) {
     auto m = new Qt3DExtras::QSphereMesh (parent);
@@ -118,6 +98,7 @@ void Node::setSelected(bool s) {
 void Node::hoverEntered(void) {
   _hovered = true;
   setHighlighted();
+  emit hovered(&_neuron);
 }
 
 void Node::hoverExited(void) {
@@ -126,3 +107,4 @@ void Node::hoverExited(void) {
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif

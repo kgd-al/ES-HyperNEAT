@@ -5,8 +5,7 @@
 
 #include <Qt3DExtras/QDiffuseSpecularMaterial>
 
-#include "../../gvcqtinterface.h"
-
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 using Entity = Qt3DCore::QEntity;
 
@@ -18,18 +17,18 @@ Qt3DRender::QGeometryRenderer* arrowMesh (Qt3DCore::QNode *parent,
 struct Node;
 class Edge : public Entity {
 public:
-  Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent);
+  Edge(Node *i, Node *o, Entity *parent);
   virtual ~Edge (void) = default;
 
   void setVisible (bool v);
 
 private:
   Node *in, *out;
-  QColor _currentColor, _color;
 
   Qt3DExtras::QDiffuseSpecularMaterial *_material;
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif
 
 #endif // KGD_ANN_3D_GRAPHIC_EDGE_H

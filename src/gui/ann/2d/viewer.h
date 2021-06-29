@@ -1,25 +1,11 @@
 #ifndef KGD_ANN_2D_VIEWER_H
 #define KGD_ANN_2D_VIEWER_H
 
-#include <QTextEdit>
-
 #include "../../../phenotype/ann.h"
 #include "../../graphviewer.h"
 #include "node.h"
 
 namespace kgd::es_hyperneat::gui::ann2d {
-
-struct NeuronStateViewer : public QTextEdit {
-  using Neuron = phenotype::ANN::Neuron;
-  NeuronStateViewer (void);
-
-  void noState (void);
-  void displayState (const Neuron *n);
-  void updateState (void);
-
-private:
-  const Neuron *_neuron;
-};
 
 struct Viewer : public GraphViewer {
   Q_OBJECT

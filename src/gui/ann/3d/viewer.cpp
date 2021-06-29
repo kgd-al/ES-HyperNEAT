@@ -20,6 +20,7 @@
 
 #include <set>
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 
 struct CameraController : public Qt3DExtras::QAbstractCameraController {
@@ -238,82 +239,39 @@ Viewer::Entity* Viewer::buildSelectionHighlighter(Entity *parent) {
   return sh;
 }
 
-void Viewer::setGraph(const gvc::Graph &graph) {
-  auto gw = graph.build_gvc_graph();
-  gw.layout("nop");
-  gvRender(gvc::context(), gw.graph, "dot", NULL);
-
-  // process graph
-  /// TODO Lots of duplicated code with 2d/viewer
+void Viewer::setANN(const phenotype::ANN &ann) {
   struct EdgeBuildData {
-    Agedge_t *e;
-    Node *i = nullptr, *o = nullptr;
+    const phenotype::ANN::Neuron *i = nullptr, *o = nullptr;
   };
+  std::vector<EdgeBuildData> edges;
+  std::map<phenotype::Point, Node*> nodes;
 
-  std::map<std::string, EdgeBuildData> edges;
-  const auto getOrNew = [this, &edges] (Agedge_t *e, Node *i, Node *o) {
-    auto ename = std::string(agnameof(e));
-    auto it = edges.find(ename);
-
-    if (it != edges.end()) {
-      auto &d = it->second;
-      if (i) d.i = i;
-      if (o) d.o = o;
-
-    } else
-      edges[ename] = EdgeBuildData{e,i,o};
-  };
-
-  struct NodeCMP {
-    using is_transparent = void;
-
-    bool operator() (const Node *lhs, const Node *rhs) const {
-//      return lhs->pos() < rhs->pos();
-      return lhs < rhs; /// TODO Fix
-    }
-  };
-  std::set<Node*, NodeCMP> nodes;
-
-//  std::function<NeuralData*(const phenotype::Point&)> neuralData;
-//  if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
-//    neuralData = [ann] (auto p) {
-//      return new NeuronData (*ann->neurons().at(p));
-//    };
-
-//  else if (auto *mann = dynamic_cast<const phenotype::ModularANN*>(&g))
-//    neuralData = [mann] (auto p) {
-//      return new ModuleData (*mann->module(p));
-//    };
-
-//  else
-//    throw std::invalid_argument(
-//      "Provided graph is of wrong derived type. How did you do that?");
-
-  auto gvc = gw.graph;
-
-  for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
-//    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
-
-    auto qn = new Node(n, /*neuralData(p), */_scene);
-    nodes.insert(qn);
+  for (const auto &n: ann.neurons()) {
+    auto qn = new Node(*n, _scene);
+    nodes[n->pos] = qn;
+    _entities.push_back(qn);
     connect(qn, &Node::clicked, this, &Viewer::selectionChanged);
+    connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
 
-    for (auto *e = agfstout(gvc, n); e != NULL; e = agnxtout(gvc, e))
-      getOrNew(e, qn, nullptr);
-
-    for (auto *e = agfstin(gvc, n); e != NULL; e = agnxtin(gvc, e))
-      getOrNew(e, nullptr, qn);
+    for (const phenotype::ANN::Neuron::Link &l: n->links())
+      edges.push_back({ l.in.lock().get(), n.get() });
   }
 
-  for (const auto &it: edges) {
-    const EdgeBuildData &d = it.second;
-    auto qe = new Edge(d.e, d.i, d.o, _scene);
-    d.i->out.push_back(qe);
-    d.o->in.push_back(qe);
+  for (const EdgeBuildData &d: edges) {
+    Node *i = nodes.at(d.i->pos), *o = nodes.at(d.o->pos);
+    auto qe = new Edge(i, o, _scene);
+    _entities.push_back(qe);
+    i->out.push_back(qe);
+    o->in.push_back(qe);
   }
 
-  qDebug() << __PRETTY_FUNCTION__ << " rendering" << nodes.size() << "nodes &"
-           << edges.size() << "edges";
+  qDebug() << "Set up" << this << _entities.size() << "entities";
+}
+
+void Viewer::clearANN(void) {
+  qDebug() << "Clearing" << this << _entities.size() << "entities";
+  for (Entity *e: _entities)  delete e;
+  _entities.clear();
 }
 
 void Viewer::selectionChanged(Node *n) {
@@ -369,3 +327,4 @@ void Viewer::keyReleaseEvent(QKeyEvent *e) {
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif

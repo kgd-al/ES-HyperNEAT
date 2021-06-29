@@ -46,8 +46,13 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
 
   _annSplitter = new QSplitter;
   _annSplitter->setObjectName("eshn::splitters::ann");
-  _annSplitter->addWidget(annViewer = new ann::Viewer);
-  _annSplitter->addWidget(neuronViewer = new ann::NeuronStateViewer);
+  annViewer = new ann::Viewer;
+#if ESHN_SUBSTRATE_DIMENSION == 2
+  _annSplitter->addWidget(annViewer);
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+  _annSplitter->addWidget(QWidget::createWindowContainer(annViewer));
+#endif
+  _annSplitter->addWidget(neuronViewer = new neurons::NeuronStateViewer);
   _mainSplitter->addWidget(row("ANN", _annSplitter));
 
   auto lotherFields = new QFormLayout;
@@ -82,7 +87,12 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
 
   cppnViewer->setGraph(genome.cppn);
   cppnOViewer->phenotypes(cppn, {0,0}, cppn::OutputSummary::ALL);
+
+#if ESHN_SUBSTRATE_DIMENSION == 2
   annViewer->setGraph(ann);
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+  annViewer->setANN(ann);
+#endif
 
   for (const auto &p: otherFields)
     p.second->setText(QString::fromStdString(genome.getField(p.first)));
@@ -91,7 +101,11 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
 void ES_HyperNEATPanel::noData(void) {
   cppnViewer->clearGraph();
   cppnOViewer->noPhenotypes();
+#if ESHN_SUBSTRATE_DIMENSION == 2
   annViewer->clearGraph();
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+  annViewer->clearANN();
+#endif
   neuronViewer->noState();
   for (const auto &p: otherFields) p.second->setText("N/A");
 }

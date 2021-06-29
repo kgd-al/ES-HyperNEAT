@@ -9,10 +9,13 @@
 
 #include <Qt3DExtras/QDiffuseSpecularMaterial>
 
-#include "../../gvcqtinterface.h"
+#include "../../../phenotype/ann.h"
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 using Entity = Qt3DCore::QEntity;
+
+QVector3D toQt3D (const phenotype::Point &p);
 
 struct Edge;
 class Node : public Entity {
@@ -20,15 +23,11 @@ class Node : public Entity {
 public:
   static constexpr float RADIUS = .05;
 
-  Node(Agnode_t *node, Entity *parent);
+  Node(const phenotype::ANN::Neuron &n, Entity *parent);
   virtual ~Node (void) = default;
 
   const QVector3D& pos (void) const {
     return _pos;
-  }
-
-  const QVector3D& substratePos (void) const {
-    return _spos;
   }
 
   bool isHovered (void) const {
@@ -40,16 +39,18 @@ public:
     return _selected;
   }
 
-
   std::vector<Edge*> in, out;
 
 signals:
   void clicked (Node *me);
+  void hovered (const phenotype::ANN::Neuron *n);
 
 private:
+  const phenotype::ANN::Neuron &_neuron;
+
   Qt3DExtras::QDiffuseSpecularMaterial *_material;
   Qt3DRender::QObjectPicker *_picker;
-  QVector3D _pos, _spos;
+  QVector3D _pos;
   QColor _color;
   bool _selected, _hovered, _highlighted;
 
@@ -60,5 +61,6 @@ private:
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif
 
 #endif // KGD_ANN_2D_GRAPHIC_NODE_H

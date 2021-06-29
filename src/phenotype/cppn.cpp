@@ -69,7 +69,7 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
 };
 #undef F
 
-CPPN::CPPN(){}
+CPPN::CPPN (void){}
 
 CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   using CPPN_g = genotype::ES_HyperNEAT::CPPN;

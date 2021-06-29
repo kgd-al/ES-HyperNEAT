@@ -129,6 +129,8 @@ if (NOT CLUSTER_BUILD)
         "cppn/viewer.cpp"
         "cppn/outputsummary.cpp"
 
+        "ann/neuronstate.cpp"
+
         "ann/2d/node.cpp"
         "ann/2d/edge.cpp"
         "ann/2d/viewer.cpp"

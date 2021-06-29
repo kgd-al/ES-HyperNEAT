@@ -13,24 +13,6 @@ const stdfs::path& debugFilePrefix (const stdfs::path &path = "");
 namespace phenotype {
 
 class ANN : public gvc::Graph {
-  struct RangeFinder {
-    float min;
-  };
-  struct PointCMP {
-    using is_transparent = void;
-    bool operator() (const Point &lhs, const Point &rhs) const {
-      return lhs < rhs;
-    }
-
-    bool operator() (const Point &lhs, const RangeFinder &rhs) const {
-      return lhs.y() < rhs.min;
-    }
-
-    bool operator() (const RangeFinder &lhs, const Point &rhs) const {
-      return lhs.min < rhs.y();
-    }
-  };
-
 public:
   static constexpr auto DIMENSIONS = CPPN::DIMENSIONS;
 
@@ -41,6 +23,8 @@ public:
 
     const float bias;
     float value;
+
+    int depth = -1;
 
     // For clustering purposes (bitwise mask)
     using Flags_t = uint;
@@ -63,10 +47,10 @@ public:
     };
     using Links = std::vector<Link>;
 
-    const Links& links (void) const {   return _links;            }
-    Links& links (void) {   return _links;            }
+    const Links& links (void) const {   return _ilinks; }
+    Links& links (void) {               return _ilinks; }
 
-    void addLink (float w, wptr n) {    _links.push_back({w,n});  }
+    void addLink (float w, wptr n) {    _ilinks.push_back({w,n});  }
 
     friend void assertEqual (const Neuron &lhs, const Neuron &rhs,
                              bool deepcopy);
@@ -74,13 +58,21 @@ public:
     friend void assertEqual (const Link &lhs, const Link &rhs, bool deepcopy);
 
   private:
-    Links _links;
+    Links _ilinks;
   };
 
   ANN(void) = default;
 
   const auto& neurons (void) const {  return _neurons;  }
   auto& neurons (void) {  return _neurons;  }
+
+  const Neuron::ptr& neuronAt (const Point &p) const {
+    auto it = _neurons.find(p);
+    if (it == _neurons.end())
+      utils::doThrow<std::invalid_argument>(
+        "No neuron at position ", p);
+    return *it;
+  }
 
 #ifdef WITH_GVC
   gvc::GraphWrapper build_gvc_graph (void) const;
@@ -109,7 +101,25 @@ public:
   friend void assertEqual (const ANN &lhs, const ANN &rhs, bool deepcopy);
 
 private:
-  using NeuronsMap = std::map<Point, Neuron::ptr, PointCMP>;
+  struct NeuronCMP {
+    using is_transparent = void;
+    bool operator() (const Point &lhs, const Point &rhs) const {
+      return lhs < rhs;
+    }
+
+    bool operator() (const Neuron::ptr &lhs, const Point &rhs) const {
+      return operator()(lhs->pos, rhs);
+    }
+
+    bool operator() (const Point &lhs, const Neuron::ptr &rhs) const {
+      return operator()(lhs, rhs->pos);
+    }
+
+    bool operator() (const Neuron::ptr &lhs, const Neuron::ptr &rhs) const {
+      return operator()(lhs->pos, rhs->pos);
+    }
+  };
+  using NeuronsMap = std::set<Neuron::ptr, NeuronCMP>;
   NeuronsMap _neurons;
 
   std::vector<Neuron::ptr> _inputs, _outputs;

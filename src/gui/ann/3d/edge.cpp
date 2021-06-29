@@ -12,6 +12,7 @@
 #include "edge.h"
 #include "node.h"
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
 namespace kgd::es_hyperneat::gui::ann3d {
 
 Qt3DRender::QGeometryRenderer* arrowMesh (Qt3DCore::QNode *parent,
@@ -85,15 +86,11 @@ Qt3DRender::QGeometryRenderer* arrowMesh (Qt3DCore::QNode *parent,
   return line;
 }
 
-Edge::Edge(Agedge_t *edge, Node *i, Node *o, Entity *parent)
+Edge::Edge(Node *i, Node *o, Entity *parent)
   : Entity(parent), in(nullptr), out(nullptr) {
 
   QVector3D src = i->pos(), dst = o->pos();
   QVector3D fwd = (dst - src).normalized();
-
-  _currentColor = _color =
-    QColor(QString::fromStdString(gvc::get(edge, "color",
-                                                 std::string("green"))));
 
   static constexpr auto R = Node::RADIUS, T = R/4, L = R/2;
   addComponent(arrowMesh(this,
@@ -114,3 +111,4 @@ void Edge::setVisible (bool v) {
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
+#endif

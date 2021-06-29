@@ -470,10 +470,37 @@ void connect (const CPPN &cppn,
 
 } // end of namespace evolvable substrate
 
+void computeDepth (phenotype::ANN::Neuron::ptr &n) {
+  int d = std::numeric_limits<int>::max();
+  n->depth = d;
+
+//  std::cerr << n->pos << "\n";
+  if (n->type != phenotype::ANN::Neuron::I) {
+    for (const phenotype::ANN::Neuron::Link &l: n->links()) {
+      phenotype::ANN::Neuron::ptr i = l.in.lock();
+
+//      std::cerr << "\t" << i->pos << "\n";
+
+      if (n.get() == i.get()) continue;
+      if (i->depth < 0) computeDepth(i);
+      if (i->depth < d) d = i->depth;
+    }
+
+//    std::cerr << n->pos << " [";
+//    for (const phenotype::ANN::Neuron::Link &l: n->links())
+//      std::cerr << " " << l.in.lock()->depth;
+//    std::cerr << " ] -> " << d << " + 1\n";
+
+    d++;
+
+  } else
+    d = 0;
+
+  n->depth = d;
+}
+
 bool ANN::empty(void) const {
-  for (const auto &p: _neurons)
-    if (!p.second->links().empty())
-      return false;
+  for (const auto &p: _neurons) if (!p->links().empty()) return false;
   return true;
 }
 
@@ -495,20 +522,22 @@ ANN ANN::build (const Coordinates &inputs,
 
   uint i = 0;
   ann._inputs.resize(inputs.size());
-  for (auto &p: inputs) neurons[p] = ann._inputs[i++] = add(p, Neuron::I);
+  for (auto &p: inputs) neurons.insert(ann._inputs[i++] = add(p, Neuron::I));
 
   i = 0;
   ann._outputs.resize(outputs.size());
-  for (auto &p: outputs) neurons[p] = ann._outputs[i++] = add(p, Neuron::O);
+  for (auto &p: outputs) neurons.insert(ann._outputs[i++] = add(p, Neuron::O));
 
   Coordinates hidden;
   evolvable_substrate::Connections connections;
   evolvable_substrate::connect(cppn, inputs, outputs, hidden,
                                connections);
 
-  for (auto &p: hidden) neurons[p] = add(p, Neuron::H);
+  for (auto &p: hidden) neurons.insert(add(p, Neuron::H));
   for (auto &c: connections)
-    neurons.at(c.to)->addLink(c.weight * weightRange, neurons.at(c.from));
+    ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
+
+  for (Neuron::ptr &n: ann._outputs)  computeDepth(n);
 
   return ann;
 }
@@ -539,9 +568,9 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
 //  set(g.graph, "overlap", "false");
 
   for (const auto &p: _neurons) {
-    Point pos = p.first;
-    auto neuron = p.second;
-    auto n = gvnodes[neuron.get()] = add_node(g.graph, "N", i++);
+    Point pos = p->pos;
+    auto &neuron = *p;
+    auto n = gvnodes[p.get()] = add_node(g.graph, "N", i++);
     set(n, "label", "");
 #if ESHN_SUBSTRATE_DIMENSION == 2
     set(n, "pos", scale*pos.x(), ",", scale*pos.y());
@@ -554,13 +583,14 @@ gvc::GraphWrapper ANN::build_gvc_graph (void) const {
     set(n, "margin", "0.01");
     set(n, "fixedsize", "true");
     set(n, "style", "filled");
-    set(n, "fillcolor", (neuron->type != Neuron::H) ? "black" : "gray");
-    set(n, "spos", p.first);
+    set(n, "fillcolor", (neuron.type != Neuron::H) ? "black" : "gray");
+    set(n, "spos", pos);
 
     bool selfRecurrent = false;
-    for (const auto &l: neuron->links()) {
-      links.push_back({ neuron.get(), l });
-      selfRecurrent |= (l.in.lock() == neuron);
+    for (const auto &l: neuron.links()) {
+      links.push_back({ p.get(), l });
+      selfRecurrent |= (l.in.lock() == p);
+      if (selfRecurrent) break;
     }
 
     set(n, "srecurrent", selfRecurrent);
@@ -601,7 +631,7 @@ void ANN::render_gvc_graph(const std::string &path) const {
 #endif
 
 void ANN::reset(void) {
-  for (auto &p: _neurons) p.second->reset();
+  for (auto &p: _neurons) p->reset();
 }
 
 void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
@@ -623,10 +653,10 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 #endif
 
     for (const auto &p: _neurons) {
-      if (p.second->isInput()) continue;
+      if (p->isInput()) continue;
 
-      float v = p.second->bias;
-      for (const auto &l: p.second->links()) {
+      float v = p->bias;
+      for (const auto &l: p->links()) {
 #ifdef DEBUG_COMPUTE
         std::cerr << "        i> v = " << v + l.weight * l.in.lock()->value
                   << " = " << v << " + " << l.weight << " * "
@@ -636,8 +666,8 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
         v += l.weight * l.in.lock()->value;
       }
 
-      p.second->value = activation(v);
-      assert(-1 <= p.second->value && p.second->value <= 1);
+      p->value = activation(v);
+      assert(-1 <= p->value && p->value <= 1);
 
 #ifdef DEBUG_COMPUTE
       std::cerr << "      <o " << p.first << ": " << p.second->value << " = "
@@ -700,7 +730,7 @@ void assertEqual (const ANN::Neuron &lhs, const ANN::Neuron &rhs,
   ASRT(type);
   ASRT(bias);
   ASRT(value);
-  ASRT(_links);
+  ASRT(_ilinks);
 }
 
 void assertEqual (const ANN::Neuron::Link &lhs, const ANN::Neuron::Link &rhs,
@@ -772,14 +802,14 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   std::map<Neuron*, uint> depths;
   if (withDepth)
     for (auto &p: ann.neurons())
-      if (p.second->type == Neuron::O)
-        computeDepths(depths, p.second.get());
+      if (p->type == Neuron::O)
+        computeDepths(depths, p.get());
 
   // First create all modules
   {
     std::vector<Module*> components;
     for (const auto &p: ann.neurons()) {
-      const Neuron &n = *p.second;
+      const Neuron &n = *p;
 
       Module *m = nullptr;
 
@@ -789,7 +819,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       } else {
         uint depth = 0;
         if (withDepth && n.type != ANN::Neuron::I)
-          depth = depths.at(p.second.get());
+          depth = depths.at(p.get());
         AggregationCriterion key (n, depth);
         auto it = moduleMap.find(key);
         if (it == moduleMap.end()) {
@@ -802,7 +832,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       assert(m);
       m->center += n.pos;
       m->neurons.push_back(std::ref(n));
-      neuronToModuleMap.emplace(p.second.get(), m);
+      neuronToModuleMap.emplace(p.get(), m);
 
       if (debugAgg)
         std::cerr << "\t" << n.pos << " (f=" << n.flags
@@ -861,10 +891,10 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   // Next (filter and) generate links using module coordinates
   ModulePtrMap<ModulePtrMap<float>> uniqueLinks;
   for (const auto &p: ann.neurons()) {
-    const Neuron &n = *p.second;
+    const Neuron &n = *p;
     if (n.type == Neuron::I)  continue;
 
-    Module *dst = neuronToModuleMap.at(p.second.get());
+    Module *dst = neuronToModuleMap.at(p.get());
     auto &mlist = uniqueLinks[dst];
 
     if (debugAgg)
