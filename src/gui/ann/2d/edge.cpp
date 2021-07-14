@@ -69,11 +69,15 @@ void Edge::updateIO(Node *i, Node *o) {
 
 void Edge::updateAnimation(float v) {
   static const auto& weightRange = config::EvolvableSubstrate::weightRange();
-  if (!std::isnan(v))// Running
-    _currentColor = kgd::gui::redBlackGradient(v * _weight / weightRange);
 
-  else
-    _currentColor = _color;
+  bool running = (!std::isnan(v));
+  if (running) v *= _weight / weightRange;
+  assert(-1 <= v && v <= 1);
+
+  _currentColor = running ? kgd::gui::redBlackGradient(v) : _color;
+
+  for (QColor &c: _customColors)
+    c.setAlphaF(running ? std::fabs(v) : 1);
 
   update();
 }
@@ -106,7 +110,7 @@ void Edge::updateCustomColor (void) {
 //               << i->neuron().pos.y() << "} -> H: " << ec;
 
   } else {
-    flag = i->flags() & o->flags();
+    flag = i->flags();// & o->flags();
 //      qDebug() << "{" << i->neuron().pos.x() << "," << i->neuron().pos.y()
 //               << "} -> {" << o->neuron().pos.x() << "," << o->neuron().pos.y()
 //               << "}: " << i->customColors() << "*"
@@ -115,7 +119,7 @@ void Edge::updateCustomColor (void) {
 
   _customColors = config::ESHNGui::colorsForFlag (flag);
   setZValue(std::min(-1., zValue()+_customColors.size()));
-  if (_customColors.isEmpty())  _customColors.push_back(QColor());
+  if (_customColors.isEmpty())  _customColors.push_back(Qt::gray);
 }
 
 void Edge::clearCustomColor(void) {
@@ -136,10 +140,7 @@ void Edge::paint (QPainter *painter, const QStyleOptionGraphicsItem*,
 
     if (!_customColors.empty()) {
       if (_customColors.size() == 1) {
-        if (_customColors.front().isValid())
-          painter->setPen(_customColors.front());
-        else
-          painter->setPen(Qt::gray);
+        painter->setPen(_customColors.front());
 
       } else {
         QPen p = painter->pen();

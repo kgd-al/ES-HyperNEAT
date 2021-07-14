@@ -889,7 +889,8 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   }
 
   // Next (filter and) generate links using module coordinates
-  ModulePtrMap<ModulePtrMap<float>> uniqueLinks;
+  struct ModuleLinkBuildData { uint count; float weight; };
+  ModulePtrMap<ModulePtrMap<ModuleLinkBuildData>> uniqueLinks;
   for (const auto &p: ann.neurons()) {
     const Neuron &n = *p;
     if (n.type == Neuron::I)  continue;
@@ -916,21 +917,25 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
                   << " [" << l.weight << "]\n";
 
       auto it = mlist.find(src);
-      if (it == mlist.end())  it = mlist.emplace(src, 0).first;
-      it->second += std::fabs(l.weight);
+      if (it == mlist.end())
+        it = mlist.emplace(src, ModuleLinkBuildData{0,0}).first;
+      it->second.count++;
+      it->second.weight += std::fabs(l.weight);
     }
   }
 
-  float nSize = ann.neurons().size();
+//  float nSize = ann.neurons().size();
   for (auto &pm: uniqueLinks) {
     Module *dst = pm.first;
     for (auto &pw: pm.second) {
       if (debugAgg)
         std::cerr << "\tul: " << pw.first->center << " -> "
-                  << dst->center << " [" << pw.second << "]\n";
+                  << dst->center << " [" << pw.second.count << ": "
+                  << pw.second.weight << "]\n";
 
       Module *in = _components.at(pw.first->center);
-      dst->links.push_back({ 5*pw.second / nSize, in });
+      ModuleLinkBuildData d = pw.second;
+      dst->links.push_back({ d.count, d.weight / d.count, in });
     }
 
     if (debugAgg) {
@@ -943,6 +948,8 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   }
 
   // Modules are ready!
+  update();
+
 #ifndef NDEBUG
   for (const auto &p: _components)
     for (const Module::Link &l: p.second->links)
@@ -972,7 +979,12 @@ void ModularANN::Module::update (void) {
   }
 }
 
+void ModularANN::update (void) {
+  for (auto &p: _components)  p.second->update();
+}
+
 #ifdef WITH_GVC
+
 gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
   using namespace gvc;
 
@@ -1024,7 +1036,9 @@ gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
                       "E", i++);
     auto w = p.second.weight;
     set(e, "color", w < 0 ? "red" : "black");
-    auto sw = std::fabs(w);// / config_t::weightBounds().max;
+//    auto sw = std::fabs(w);// / config_t::weightBounds().max;
+    auto sw = std::fabs(w) * .5 * p.second.count / _components.size();
+    /// TODO: magic numbers...
     set(e, "penwidth", .9*sw+.1);
     set(e, "w", w);
   }

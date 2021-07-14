@@ -23,13 +23,13 @@ public:
   void render (const QString &filename);
   using QGraphicsView::render;
 
-  template <typename Viewer>
-  static void render (const gvc::Graph &graph, const std::string &filename) {
+  template <typename Viewer, typename Graph>
+  static void render (const Graph &graph, const std::string &filename) {
     render<Viewer>(graph, QString::fromStdString(filename));
   }
 
-  template <typename Viewer>
-  static void render (const gvc::Graph &graph, const QString &filename) {
+  template <typename Viewer, typename Graph>
+  static void render (const Graph &graph, const QString &filename) {
     Viewer v;
     v.setGraph(graph);
     v.GraphViewer::render(filename);

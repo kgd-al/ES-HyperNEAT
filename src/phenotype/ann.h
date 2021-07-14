@@ -136,6 +136,7 @@ struct ModularANN : public gvc::Graph {
     bool recurrent;
 
     struct Link {
+      uint count;
       float weight;
       Module *in;
     };
@@ -175,6 +176,8 @@ struct ModularANN : public gvc::Graph {
   const auto& modules (void) const {
     return _components;
   }
+
+  void update (void);
 
 #ifdef WITH_GVC
   gvc::GraphWrapper build_gvc_graph (void) const;

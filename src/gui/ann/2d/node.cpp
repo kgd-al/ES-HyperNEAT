@@ -67,11 +67,18 @@ void Node::updateAnimation (bool running) {
   if (running) {
     float v = _ndata->value();
     _currentColor = kgd::gui::redBlackGradient(v);
+    assert(-1 <= v && v <= 1);
+
+    for (QColor &c: _customColors)
+      c.setAlphaF(std::fabs(v));
+
     for (Edge *e: out)  e->updateAnimation(v);
 
   } else {
     for (Edge *e: out)  e->updateAnimation(NAN);
     _currentColor = QColor();
+    for (QColor &c: _customColors)
+      c.setAlphaF(1);
   }
 
   update();
@@ -79,6 +86,8 @@ void Node::updateAnimation (bool running) {
 
 void Node::updateCustomColors(void) {
   _customColors = config::ESHNGui::colorsForFlag(_ndata->flags());
+  if (_ndata->type() == Neuron::H && _customColors.empty())
+    _customColors.push_back(Qt::gray);
 }
 
 void Node::paint (QPainter *painter, const QStyleOptionGraphicsItem*,

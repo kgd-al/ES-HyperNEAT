@@ -81,7 +81,11 @@ public:
   }
 
   friend bool operator< (const Point_t &lhs, const Point_t &rhs) {
-    return lhs._data < rhs._data;
+    /// TODO Restore
+//    return lhs._data < rhs._data;
+    /// TODO Remove
+    if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
+    return lhs.x() < rhs.x();
   }
 
   friend bool operator== (const Point_t &lhs, const Point_t &rhs) {

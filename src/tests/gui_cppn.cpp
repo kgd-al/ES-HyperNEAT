@@ -6,14 +6,15 @@
 #include "../gui/es_hyperneatpanel.h"
 #include "../gui/ann/3d/viewer.h"
 
-void make_sound (void) {
-
-}
-
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
 
-  config::EvolvableSubstrate::printConfig();
+  if (true) {
+    // manual 2d cppn
+    phenotype::CPPN cppn;
+  }
+
+//  config::EvolvableSubstrate::printConfig();
 
 //  rng::FastDice dice (6);
 //  genotype::ES_HyperNEAT genome = genotype::ES_HyperNEAT::random(dice);
@@ -50,7 +51,7 @@ int main (int argc, char **argv) {
     rng::FastDice dice (seed++);
     genome = genotype::ES_HyperNEAT::random(dice);
 
-    for (uint i=0; i<1000; i++) genome.mutate(dice);
+    for (uint i=0; i<100; i++) genome.mutate(dice);
 
     cppn = phenotype::CPPN::fromGenotype(genome);
 
