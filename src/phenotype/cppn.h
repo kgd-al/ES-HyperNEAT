@@ -55,9 +55,6 @@ public:
   auto inputSize (void) const { return _inputs.size();  }
   auto outputSize (void) const {  return _outputs.size();  }
 
-//  using Inputs = std::array<float, >;
-//  auto inputs (void) const {  return Inputs((inputSize()>>2)<<2); }
-
   using Outputs = std::array<float, genotype::ES_HyperNEAT::CPPN::OUTPUTS>;
 
   void operator() (const Point &src, const Point &dst, Outputs &outputs) const;

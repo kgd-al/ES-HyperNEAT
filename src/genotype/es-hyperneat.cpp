@@ -17,11 +17,11 @@ auto randomLinkWeight (rng::AbstractDice &dice) {
 #ifdef WITH_GVC
 static constexpr std::array<const char*, CPPN::INPUTS> ilabels = {{
   "x_0", "y_0",
-#if SUBSTRATE_DIMENSION == 3
+#if ESHN_SUBSTRATE_DIMENSION == 3
   "z_0",
 #endif
   "x_1", "y_1",
-#if SUBSTRATE_DIMENSION == 3
+#if ESHN_SUBSTRATE_DIMENSION == 3
   "z_1",
 #endif
 #if CPPN_WITH_DISTANCE
@@ -200,7 +200,8 @@ CPPN CPPN::fromDot(const std::string &data, rng::AbstractDice &dice) {
 
           if (functions.find(func) == functions.end())
             utils::doThrow<std::invalid_argument>(
-              "Function ", func, " is not a member of the current set");
+              "Function ", func, " is not a member of the current set: ",
+              functions);
 
         } else
           func = randomNodeFunction(dice);

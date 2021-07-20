@@ -249,7 +249,7 @@ void Viewer::setANN(const phenotype::ANN &ann) {
   for (const auto &n: ann.neurons()) {
     auto qn = new Node(*n, _scene);
     nodes[n->pos] = qn;
-    _entities.push_back(qn);
+    _nodes.push_back(qn);
     connect(qn, &Node::clicked, this, &Viewer::selectionChanged);
     connect(qn, &Node::hovered, this, &Viewer::neuronHovered);
 
@@ -260,18 +260,22 @@ void Viewer::setANN(const phenotype::ANN &ann) {
   for (const EdgeBuildData &d: edges) {
     Node *i = nodes.at(d.i->pos), *o = nodes.at(d.o->pos);
     auto qe = new Edge(i, o, _scene);
-    _entities.push_back(qe);
+    _edges.push_back(qe);
     i->out.push_back(qe);
     o->in.push_back(qe);
   }
 
-  qDebug() << "Set up" << this << _entities.size() << "entities";
+  qDebug() << "Set up" << this << _nodes.size() << "nodes &"
+           << _edges.size() << "edges";
 }
 
 void Viewer::clearANN(void) {
-  qDebug() << "Clearing" << this << _entities.size() << "entities";
-  for (Entity *e: _entities)  delete e;
-  _entities.clear();
+  qDebug() << "Clearing" << this << _nodes.size() << "nodes &"
+           << _edges.size() << "edges";
+  for (Node *n: _nodes)  delete n;
+  _nodes.clear();
+  for (Edge *e: _edges)  delete e;
+  _edges.clear();
 }
 
 void Viewer::selectionChanged(Node *n) {
@@ -324,6 +328,17 @@ void Viewer::keyReleaseEvent(QKeyEvent *e) {
 //    q << "\t>>\n";
 //    q << "\t" << camera()->viewCenter() << camera()->position() << "\n";
   }
+}
+
+void Viewer::depthDebugDraw (bool active) {
+  uint maxDepth = 0;  /// TODO Inefficient
+
+  if (active)
+    for (Node *n: _nodes)
+      maxDepth = std::max(n->depth(), maxDepth);
+
+  qDebug() << __PRETTY_FUNCTION__ << " max depth:" << maxDepth;
+  for (Node *n: _nodes) n->depthDebugDraw(active, maxDepth);
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

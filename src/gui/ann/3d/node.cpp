@@ -5,6 +5,8 @@
 #include <Qt3DRender/QPaintedTextureImage>
 #include <Qt3DExtras/QSphereMesh>
 
+#include <Qt3DExtras/QText2DEntity>
+
 #include "node.h"
 #include "edge.h"
 
@@ -44,7 +46,7 @@ Node::Node (const Neuron &n, Entity *parent)
 
   _pos = toQt3D(n.pos); // from pos attribute
 
-  _color = (n.type == Neuron::H ? hiddensColor : defaultColor);
+  _baseColor = (n.type == Neuron::H ? hiddensColor : defaultColor);
 
   static Qt3DExtras::QSphereMesh *mesh = [] (Entity *parent) {
     auto m = new Qt3DExtras::QSphereMesh (parent);
@@ -62,13 +64,13 @@ Node::Node (const Neuron &n, Entity *parent)
 //  auto *canvas = new TextureImage;
 
   _material = new Qt3DExtras::QDiffuseSpecularMaterial(this);
-  _material->setDiffuse(_color);
+  _material->setDiffuse(_baseColor);
   _material->setShininess(0);
 //  _material->diffuse()->addTextureImage(canvas);
 
   addComponent(mesh);
-  addComponent(transform);
   addComponent(_material);
+  addComponent(transform);
 
   _picker = new Qt3DRender::QObjectPicker(this);
   _picker->setHoverEnabled(true);
@@ -86,7 +88,7 @@ Node::Node (const Neuron &n, Entity *parent)
 
 void Node::setHighlighted (void) {
   bool h = _selected | _hovered;
-  _material->setDiffuse(h ? highlightColor : _color);
+  updateColor(h ? highlightColor : _currentColor);
   for (auto v: {in,out}) for (auto e: v) e->setVisible(h);
 }
 
@@ -104,6 +106,18 @@ void Node::hoverEntered(void) {
 void Node::hoverExited(void) {
   _hovered = false;
   setHighlighted();
+}
+
+void Node::depthDebugDraw(bool active, uint maxDepth) {
+  if (active)
+    _currentColor = QColor::fromHsvF(0, 0, _neuron.depth / float(maxDepth));
+  else
+    _currentColor = _baseColor;
+  updateColor(_currentColor);
+}
+
+void Node::updateColor (const QColor &c) {
+  _material->setDiffuse(c);
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

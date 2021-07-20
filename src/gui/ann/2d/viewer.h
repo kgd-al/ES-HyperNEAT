@@ -27,6 +27,8 @@ public:
   void updateCustomColors (void);
   void clearCustomColors (void);
 
+  void depthDebugDraw (bool active);
+
 signals:
   void neuronHovered (const phenotype::ANN::Neuron *n);
 

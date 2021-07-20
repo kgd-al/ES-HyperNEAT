@@ -174,4 +174,9 @@ void Viewer::clearCustomColors (void) {
   }
 }
 
+void Viewer::depthDebugDraw (bool active) {
+//  for ()
+  qDebug() << "Depth debug drawing not implemented for 2d ANN";
+}
+
 } // end of namespace kgd::es_hyperneat::gui::ann2d

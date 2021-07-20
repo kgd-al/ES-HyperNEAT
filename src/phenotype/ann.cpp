@@ -474,29 +474,73 @@ void computeDepth (phenotype::ANN::Neuron::ptr &n) {
   int d = std::numeric_limits<int>::max();
   n->depth = d;
 
-//  std::cerr << n->pos << "\n";
-  if (n->type != phenotype::ANN::Neuron::I) {
+  utils::IndentingOStreambuf indent (std::cerr);
+  std::cerr << "Inspecting: " << n->pos << "\n";
+  if (n->links().size() > 0) {
     for (const phenotype::ANN::Neuron::Link &l: n->links()) {
       phenotype::ANN::Neuron::ptr i = l.in.lock();
 
-//      std::cerr << "\t" << i->pos << "\n";
+      std::cerr << "  processing " << i->pos << " " << i->type << "\n";
 
       if (n.get() == i.get()) continue;
       if (i->depth < 0) computeDepth(i);
       if (i->depth < d) d = i->depth;
     }
 
-//    std::cerr << n->pos << " [";
-//    for (const phenotype::ANN::Neuron::Link &l: n->links())
-//      std::cerr << " " << l.in.lock()->depth;
-//    std::cerr << " ] -> " << d << " + 1\n";
+    std::cerr << "> " << n->pos << " [";
+    for (const phenotype::ANN::Neuron::Link &l: n->links())
+      std::cerr << " " << l.in.lock()->depth;
+    std::cerr << " ] -> " << d << " + 1\n";
 
+    assert(d < std::numeric_limits<int>::max());
     d++;
-
-  } else
-    d = 0;
+  }
 
   n->depth = d;
+}
+
+void computeDepth (ANN &ann) {
+  struct ReverseNeuron {
+    ANN::Neuron &n;
+    std::vector<ReverseNeuron*> o;
+    ReverseNeuron (ANN::Neuron &n) : n(n) {}
+  };
+
+  std::map<Point, ReverseNeuron*> neurons;
+  std::set<ReverseNeuron*> next;
+
+  for (const ANN::Neuron::ptr &n: ann.neurons()) {
+    auto p = neurons.emplace(std::make_pair(n->pos, new ReverseNeuron(*n)));
+    if (n->type == ANN::Neuron::I) next.insert(p.first->second);
+  }
+
+  for (const ANN::Neuron::ptr &n: ann.neurons())
+    for (phenotype::ANN::Neuron::Link &l: n->links())
+      neurons.at(l.in.lock()->pos)->o.push_back(neurons.at(n->pos));
+
+  std::set<ReverseNeuron*> seen;
+  int depth = 0;
+  while (seen.size() < neurons.size()) {
+    auto current = next;
+    next.clear();
+
+    for (ReverseNeuron *n: current) {
+      n->n.depth = depth;
+//      std::cerr << n->n.pos << ": " << depth << "\n";
+      seen.insert(n);
+      for (ReverseNeuron *o: n->o) next.insert(o);
+    }
+
+    decltype(seen) news;
+    std::set_difference(next.begin(), next.end(),
+                        seen.begin(), seen.end(),
+                        std::inserter(news, news.end()));
+    next = news;
+
+    depth++;
+  }
+
+  for (auto &p: neurons)  delete p.second;
 }
 
 bool ANN::empty(void) const {
@@ -537,7 +581,13 @@ ANN ANN::build (const Coordinates &inputs,
   for (auto &c: connections)
     ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
 
-  for (Neuron::ptr &n: ann._outputs)  computeDepth(n);
+//  for (Neuron::ptr &n: ann._inputs)   n->depth = 0;
+//  for (Neuron::ptr &n: ann._outputs)  computeDepth(n);
+  if (ann.empty()) {
+    for (Neuron::ptr &n: ann._inputs)   n->depth = 0;
+    for (Neuron::ptr &n: ann._outputs)  n->depth = 1;
+  } else
+    computeDepth(ann);
 
   return ann;
 }

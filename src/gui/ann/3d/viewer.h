@@ -12,6 +12,8 @@
 namespace kgd::es_hyperneat::gui::ann3d {
 
 struct Node;
+struct Edge;
+
 struct CameraController;
 class Viewer : public Qt3DExtras::Qt3DWindow {
   Q_OBJECT
@@ -22,6 +24,8 @@ public:
   void setANN (const phenotype::ANN &ann);
   void clearANN (void);
 
+  void depthDebugDraw (bool active);
+
 signals:
   void neuronHovered (const phenotype::ANN::Neuron *n);
 
@@ -29,7 +33,8 @@ private:
   using Entity = Qt3DCore::QEntity;
   Entity *_scene = nullptr, *_axis = nullptr;
 
-  QVector<Entity*> _entities;
+  QVector<Node*> _nodes;
+  QVector<Edge*> _edges;
 
   CameraController *_manipulator = nullptr;
 

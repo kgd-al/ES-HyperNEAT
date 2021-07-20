@@ -9,12 +9,58 @@
 int main (int argc, char **argv) {
   QApplication app (argc, argv);
 
-  if (true) {
-    // manual 2d cppn
-    phenotype::CPPN cppn;
-  }
+//  if (true) {
+  // manual 2d cppn for illustration purposes
+  // requires hacking into the es-hyperneat genome
+//    const stdfs::path obase = "tmp/cppn_illustrations/";
+//    rng::FastDice dice (6);
+//    genotype::ES_HyperNEAT genome = genotype::ES_HyperNEAT::random(dice);
 
-//  config::EvolvableSubstrate::printConfig();
+//    genome.cppn = genotype::ES_HyperNEAT::CPPN::fromDot(R"(
+//    CPPN(2,1)
+//      3;
+//      4 [sin];
+//      5 [sin];
+//      6 [gaus];
+//      1 -> 4 [+3];
+//      2 -> 5 [-3];
+//      4 -> 3 [+1];
+//      5 -> 3 [+1];
+//      1 -> 6 [-1];
+//      2 -> 6 [-1];
+//      6 -> 3 [+1];
+//      4 -> 6 [+1];
+//      5 -> 6 [+1];
+//    )", dice);
+//    genome.toFile(obase / "genome.json", 2);
+
+//    phenotype::CPPN cppn = phenotype::CPPN::fromGenotype(genome);
+
+//    auto viewer = new kgd::es_hyperneat::gui::cppn::Viewer;
+//    viewer->setGraph(genome.cppn);
+//    viewer->render(QString::fromStdString(obase / "cppn.pdf"));
+
+//    static constexpr int S = 500;
+//    QImage img (S, S, QImage::Format_ARGB32);
+//    for (int r=0; r<S; r++) {
+//      QRgb* bytes = (QRgb*)img.scanLine(r);
+
+//      phenotype::Point p;
+//      // Invert y to account for downward y axis windows
+//      p.set(1, -2.*r/(S-1) + 1);
+
+//      for (int c=0; c<S; c++) {
+//        p.set(0, 2.*c/(S-1) - 1);
+//        bytes[c] = QColor::fromHsvF(0, 0, .5*(cppn(p)+1)).rgb();
+//      }
+//    }
+
+//    img.save(QString::fromStdString(obase / "picture.png"));
+
+//    return 242;
+//  }
+
+  config::EvolvableSubstrate::printConfig();
 
 //  rng::FastDice dice (6);
 //  genotype::ES_HyperNEAT genome = genotype::ES_HyperNEAT::random(dice);
@@ -51,7 +97,7 @@ int main (int argc, char **argv) {
     rng::FastDice dice (seed++);
     genome = genotype::ES_HyperNEAT::random(dice);
 
-    for (uint i=0; i<100; i++) genome.mutate(dice);
+    for (uint i=0; i<1000; i++) genome.mutate(dice);
 
     cppn = phenotype::CPPN::fromGenotype(genome);
 
@@ -100,7 +146,7 @@ int main (int argc, char **argv) {
 #endif
 
     std::cout << "Seed " << dice.getSeed() << ":" << (ann.empty() ? "" : " not")
-              << " empty\n";
+              << " empty" << std::endl;
 
     if (!ann.empty()) {
       std::cout << "\t" << ann.neurons().size() << " neurons\n";
@@ -112,7 +158,8 @@ int main (int argc, char **argv) {
   } while (ann.empty() && seed < baseSeed+100);
 
   kgd::es_hyperneat::gui::ES_HyperNEATPanel p;
-  p.setData(genome, cppn, ann);
+  p.setData(genome, cppn, ann);  
+  p.setGeometry(0, 83, 1280, 997);
   p.show();
 
   genome.cppn.render_gvc_graph("tmp/cppn_genotype.png");
@@ -120,6 +167,8 @@ int main (int argc, char **argv) {
 #if ESHN_SUBSTRATE_DIMENSION == 2
   ann.render_gvc_graph("tmp/ann_phenotype.pdf");
   p.annViewer->render("tmp/ann_qt.pdf");
+#elif ESHN_SUBSTRATE_DIMENSION == 3
+  p.annViewer->depthDebugDraw(true);
 #endif
 
   auto r = app.exec();

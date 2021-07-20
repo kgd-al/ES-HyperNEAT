@@ -39,6 +39,11 @@ public:
     return _selected;
   }
 
+  uint depth (void) const {
+    return _neuron.depth;
+  }
+  void depthDebugDraw (bool active, uint maxDepth);
+
   std::vector<Edge*> in, out;
 
 signals:
@@ -51,13 +56,15 @@ private:
   Qt3DExtras::QDiffuseSpecularMaterial *_material;
   Qt3DRender::QObjectPicker *_picker;
   QVector3D _pos;
-  QColor _color;
+  QColor _baseColor, _currentColor;
   bool _selected, _hovered, _highlighted;
 
   void hoverEntered (void);
   void hoverExited (void);
 
   void setHighlighted (void);
+
+  void updateColor (const QColor &c);
 };
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d
