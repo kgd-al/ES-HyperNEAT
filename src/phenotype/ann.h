@@ -24,7 +24,7 @@ public:
     const float bias;
     float value;
 
-    int depth = -1;
+    uint depth = 0;
 
     // For clustering purposes (bitwise mask)
     using Flags_t = uint;

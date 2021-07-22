@@ -52,6 +52,8 @@ public:
   void firstGeneration (const stdfs::path &baseGenome);
   void show (void);
 
+  void depthSummary (void);
+
   enum Setting {
     AUTOPLAY, MANUAL_PLAY, STEP_PLAY,
     LOCK_SELECTION, PLAY, SELECT_NEXT,
@@ -63,7 +65,7 @@ private:
   QSplitter *_splitter;
   kgd::es_hyperneat::gui::ES_HyperNEATPanel *_details;
 
-  static constexpr uint N = 5;
+  static constexpr uint N = 3;
   static_assert(N%2 == 1, "Grid size must be odd");
 
   using IPtr = simu::Individual::ptr;

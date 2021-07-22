@@ -190,6 +190,57 @@ static void quadtreeDebugPrefix (const stdfs::path &base, uint i, uint j) {
 }
 #endif
 
+void BWWindow::depthSummary(void) {
+#if 1 && ESHN_SUBSTRATE_DIMENSION == 3
+  std::ofstream ofs ("tmp/depth_debug.log", std::ios_base::out
+                                            | (_generation == 0 ?
+                                                 std::ios_base::trunc
+                                               : std::ios_base::app));
+
+  if (_generation == 0)
+    ofs << "G IX D N E\n";
+
+  std::array<uint, N*N> depths;
+  uint maxDepth = 0;
+  for (uint i=0; i<N; i++) {
+    for (uint j=0; j<N; j++) {
+      uint d = 0;
+      uint IX = i*N+j;
+      uint edges = 0;
+      const auto &ann = _individuals[IX]->ann;
+      for (const auto &n: ann.neurons()) {
+        d = std::max(d, n->depth);
+        edges += n->links().size();
+      }
+
+      depths[IX] = d;
+      if (maxDepth < d)
+        maxDepth = d;
+
+      ofs << _generation << " " << IX << " " << d
+          << " " << ann.neurons().size() << " " << edges << "\n";
+    }
+  }
+
+  ofs << "\n";
+
+  uint w = std::ceil(std::log10(maxDepth));
+  std::ostringstream oss;
+  oss << std::setfill('#')
+      << "\\  ";
+  for (uint i=0; i<N; i++)
+    oss << " " << std::setw(w) << i;
+  oss << "\n\n";
+  for (uint i=0; i<N; i++) {
+    oss << std::setw(w) << i << "  ";
+    for (uint j=0; j<N; j++)
+      oss << " " << std::setw(w) << depths[i*N+j];
+    oss << "\n";
+  }
+  std::cout << oss.str() << std::endl;
+#endif
+}
+
 void BWWindow::firstGeneration(const stdfs::path &baseGenome) {
   _generation = 0;
   updateSavePath();
@@ -226,6 +277,8 @@ void BWWindow::firstGeneration(const stdfs::path &baseGenome) {
   if (setting(LOCK_SELECTION))
         setSelectedIndividual(N*N/2);
   else  showIndividualDetails(N*N/2);
+
+  depthSummary();
 }
 
 void BWWindow::nextGeneration(uint index) {
@@ -250,11 +303,16 @@ void BWWindow::nextGeneration(uint index) {
 #endif
 
       setIndividual(simu::Individual::mutated(*parent, _dice), i, j);
+      std::cerr << ".";
     }
   }
+  std::cerr << "\n";
+
   setIndividual(std::move(parent), mid, mid);
   showIndividualDetails(N*N/2);
-  QCursor::setPos(mapToGlobal(_visualizers[N*N/2]->geometry().center()));
+//  QCursor::setPos(mapToGlobal(_visualizers[N*N/2]->geometry().center()));
+
+  depthSummary();
 }
 
 void BWWindow::updateSavePath(void) {
@@ -355,7 +413,9 @@ void BWWindow::logIndividual(uint index, const stdfs::path &f,
   using GV = GraphViewer;
   if (level >= 2) GV::render<cppn::Viewer>(i.genome.cppn, f / "cppn_qt.pdf");
   if (level >= 3) i.ann.render_gvc_graph(f / "ann_gvc.png");
+#if ESHN_SUBSTRATE_DIMENSION == 2
   if (level >= 2) GV::render<ann::Viewer>(i.ann, f / "ann_qt.pdf");
+#endif
 
   const auto &v = *_visualizers[index];
   if (level >= 1) v.render(f / "song.png");
@@ -462,6 +522,11 @@ void BWWindow::showIndividualDetails(int index) {
   else {
     auto &i = _individuals.at(index);
     _details->setData(i->genome, i->cppn, i->ann);
+
+#if ESHN_SUBSTRATE_DIMENSION == 3
+    _details->annViewer->depthDebugDraw(true);
+#endif
+
     _shown = _visualizers[index];
     _shown->setHighlighted(true);
 
@@ -516,7 +581,10 @@ void BWWindow::startAnimateShownANN(void) {
   connect(_visualizers[_animation.index], &sound::Visualizer::notifyNote,
           this, &BWWindow::animateShownANN);
   _individuals[_animation.index]->ann.reset();
+
+#if ESHN_SUBSTRATE_DIMENSION == 2
   _details->annViewer->startAnimation();
+#endif
 
   std::cerr << "Started animation of individual " << _animation.index << "\n";
 }
@@ -531,7 +599,10 @@ void BWWindow::animateShownANN(void) {
             << _animation.index << "\n";
   evaluateIndividual(_individuals[_animation.index], _animation.step, false);
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
   _details->annViewer->updateAnimation();
+#endif
+
   _details->neuronViewer->updateState();
 
   _animation.step = (_animation.step + 1) % sound::StaticData::NOTES;
@@ -542,6 +613,7 @@ void BWWindow::stopAnimateShownANN(void) {
 
   std::cerr << "Stopped animation of individual " << _animation.index << "\n";
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
   auto &av = *_details->annViewer;
   if (av.isAnimating()) {
     assert(_animation.index >= 0);
@@ -551,6 +623,7 @@ void BWWindow::stopAnimateShownANN(void) {
     _animation.index = -1;
     _animation.step = -1;
   }
+#endif
 }
 
 void BWWindow::show(void) {

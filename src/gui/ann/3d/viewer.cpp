@@ -246,6 +246,8 @@ void Viewer::setANN(const phenotype::ANN &ann) {
   std::vector<EdgeBuildData> edges;
   std::map<phenotype::Point, Node*> nodes;
 
+  if (!_nodes.empty() || _edges.empty())  clearANN();
+
   for (const auto &n: ann.neurons()) {
     auto qn = new Node(*n, _scene);
     nodes[n->pos] = qn;
@@ -265,17 +267,18 @@ void Viewer::setANN(const phenotype::ANN &ann) {
     o->in.push_back(qe);
   }
 
-  qDebug() << "Set up" << this << _nodes.size() << "nodes &"
-           << _edges.size() << "edges";
+//  qDebug() << "Set up" << this << _nodes.size() << "nodes &"
+//           << _edges.size() << "edges";
 }
 
 void Viewer::clearANN(void) {
-  qDebug() << "Clearing" << this << _nodes.size() << "nodes &"
-           << _edges.size() << "edges";
+//  qDebug() << "Clearing" << this << _nodes.size() << "nodes &"
+//           << _edges.size() << "edges";
   for (Node *n: _nodes)  delete n;
   _nodes.clear();
   for (Edge *e: _edges)  delete e;
   _edges.clear();
+  selectionChanged(nullptr);
 }
 
 void Viewer::selectionChanged(Node *n) {
@@ -337,7 +340,10 @@ void Viewer::depthDebugDraw (bool active) {
     for (Node *n: _nodes)
       maxDepth = std::max(n->depth(), maxDepth);
 
-  qDebug() << __PRETTY_FUNCTION__ << " max depth:" << maxDepth;
+  qDebug() << __PRETTY_FUNCTION__
+           << _nodes.size() << "nodes"
+           << _edges.size() << "edges."
+           << "Max depth:" << maxDepth;
   for (Node *n: _nodes) n->depthDebugDraw(active, maxDepth);
 }
 

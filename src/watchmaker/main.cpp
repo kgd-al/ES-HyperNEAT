@@ -25,7 +25,7 @@ int main (int argc, char **argv) {
   Verbosity verbosity = Verbosity::QUIET;
 
   stdfs::path outputFolder = "";
-  int seed = -1;
+  long int seed = -1;
 
   stdfs::path baseCPPN = "";
   bool withSequencer = false;

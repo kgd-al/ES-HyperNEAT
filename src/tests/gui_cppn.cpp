@@ -93,11 +93,13 @@ int main (int argc, char **argv) {
   phenotype::CPPN cppn;
   phenotype::ANN ann;
 
+  uint mutations = (argc > 2 ? atoi(argv[2]) : 1000);
+
   do {
     rng::FastDice dice (seed++);
     genome = genotype::ES_HyperNEAT::random(dice);
 
-    for (uint i=0; i<1000; i++) genome.mutate(dice);
+    for (uint i=0; i<mutations; i++) genome.mutate(dice);
 
     cppn = phenotype::CPPN::fromGenotype(genome);
 
@@ -131,18 +133,19 @@ int main (int argc, char **argv) {
     );
 
 #elif ESHN_SUBSTRATE_DIMENSION == 3
-//    ann = phenotype::ANN::build(
-//      { { -1, -1, -1 }, { -1, -1, 0 }, { -1, -1,  1 },
-//        {  0, -1, 0 },
-//        {  1, -1, -1 }, {  1, -1, 0 }, {  1, -1,  1 } },
-//      { { -.5, 1, 0 }, { 0,  1, 0 }, { .5, 1, 0 }, { 0, 1, -1 } },
-//      cppn
-//    );
     ann = phenotype::ANN::build(
-      { {  0, -1, -1 }, {  0, -1, +1 } },
-      { { 0,  1, 0 } },
+      { { -1, -1, -1 }, { -1, -1, 0 }, { -1, -1,  1 },
+        {  0, -1, 0 },
+        {  1, -1, -1 }, {  1, -1, 0 }, {  1, -1,  1 } },
+      { { -.5, 1, 0 }, { 0,  1, 0 }, { .5, 1, 0 }, { 0, 1, -1 } },
       cppn
     );
+
+//    ann = phenotype::ANN::build(
+//      { {  0, -1, -1 }, {  0, -1, +1 } },
+//      { { 0,  1, 0 } },
+//      cppn
+//    );
 #endif
 
     std::cout << "Seed " << dice.getSeed() << ":" << (ann.empty() ? "" : " not")

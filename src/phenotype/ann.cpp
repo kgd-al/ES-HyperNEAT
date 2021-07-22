@@ -470,35 +470,6 @@ void connect (const CPPN &cppn,
 
 } // end of namespace evolvable substrate
 
-void computeDepth (phenotype::ANN::Neuron::ptr &n) {
-  int d = std::numeric_limits<int>::max();
-  n->depth = d;
-
-  utils::IndentingOStreambuf indent (std::cerr);
-  std::cerr << "Inspecting: " << n->pos << "\n";
-  if (n->links().size() > 0) {
-    for (const phenotype::ANN::Neuron::Link &l: n->links()) {
-      phenotype::ANN::Neuron::ptr i = l.in.lock();
-
-      std::cerr << "  processing " << i->pos << " " << i->type << "\n";
-
-      if (n.get() == i.get()) continue;
-      if (i->depth < 0) computeDepth(i);
-      if (i->depth < d) d = i->depth;
-    }
-
-    std::cerr << "> " << n->pos << " [";
-    for (const phenotype::ANN::Neuron::Link &l: n->links())
-      std::cerr << " " << l.in.lock()->depth;
-    std::cerr << " ] -> " << d << " + 1\n";
-
-    assert(d < std::numeric_limits<int>::max());
-    d++;
-  }
-
-  n->depth = d;
-}
-
 void computeDepth (ANN &ann) {
   struct ReverseNeuron {
     ANN::Neuron &n;
@@ -509,9 +480,11 @@ void computeDepth (ANN &ann) {
   std::map<Point, ReverseNeuron*> neurons;
   std::set<ReverseNeuron*> next;
 
+  uint hcount = 0, hseen = 0;
   for (const ANN::Neuron::ptr &n: ann.neurons()) {
     auto p = neurons.emplace(std::make_pair(n->pos, new ReverseNeuron(*n)));
     if (n->type == ANN::Neuron::I) next.insert(p.first->second);
+    else if (n->type == ANN::Neuron::H) hcount++;
   }
 
   for (const ANN::Neuron::ptr &n: ann.neurons())
@@ -519,8 +492,8 @@ void computeDepth (ANN &ann) {
       neurons.at(l.in.lock()->pos)->o.push_back(neurons.at(n->pos));
 
   std::set<ReverseNeuron*> seen;
-  int depth = 0;
-  while (seen.size() < neurons.size()) {
+  uint depth = 0;
+  while (!next.empty()) {
     auto current = next;
     next.clear();
 
@@ -528,6 +501,7 @@ void computeDepth (ANN &ann) {
       n->n.depth = depth;
 //      std::cerr << n->n.pos << ": " << depth << "\n";
       seen.insert(n);
+      if (n->n.type == ANN::Neuron::H)  hseen++;
       for (ReverseNeuron *o: n->o) next.insert(o);
     }
 
@@ -536,6 +510,7 @@ void computeDepth (ANN &ann) {
                         seen.begin(), seen.end(),
                         std::inserter(news, news.end()));
     next = news;
+    assert(hseen == hcount || next.size() > 0);
 
     depth++;
   }
@@ -581,8 +556,6 @@ ANN ANN::build (const Coordinates &inputs,
   for (auto &c: connections)
     ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
 
-//  for (Neuron::ptr &n: ann._inputs)   n->depth = 0;
-//  for (Neuron::ptr &n: ann._outputs)  computeDepth(n);
   if (ann.empty()) {
     for (Neuron::ptr &n: ann._inputs)   n->depth = 0;
     for (Neuron::ptr &n: ann._outputs)  n->depth = 1;
