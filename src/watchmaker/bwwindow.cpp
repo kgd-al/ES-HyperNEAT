@@ -582,9 +582,7 @@ void BWWindow::startAnimateShownANN(void) {
           this, &BWWindow::animateShownANN);
   _individuals[_animation.index]->ann.reset();
 
-#if ESHN_SUBSTRATE_DIMENSION == 2
   _details->annViewer->startAnimation();
-#endif
 
   std::cerr << "Started animation of individual " << _animation.index << "\n";
 }

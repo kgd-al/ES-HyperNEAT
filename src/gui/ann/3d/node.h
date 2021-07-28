@@ -39,6 +39,8 @@ public:
     return _selected;
   }
 
+  void updateAnimation (bool running);
+
   uint depth (void) const {
     return _neuron.depth;
   }

@@ -141,6 +141,9 @@ Viewer::Viewer(void) {
 
   _axis = buildAxis(_scene);
   _selectionHighlighter = buildSelectionHighlighter(_scene);
+
+  _ann = nullptr;
+  _animating = false;
 }
 
 Viewer::~Viewer (void) {
@@ -267,6 +270,8 @@ void Viewer::setANN(const phenotype::ANN &ann) {
     o->in.push_back(qe);
   }
 
+  _ann = &ann;
+
 //  qDebug() << "Set up" << this << _nodes.size() << "nodes &"
 //           << _edges.size() << "edges";
 }
@@ -278,7 +283,9 @@ void Viewer::clearANN(void) {
   _nodes.clear();
   for (Edge *e: _edges)  delete e;
   _edges.clear();
+
   selectionChanged(nullptr);
+  _ann = nullptr;
 }
 
 void Viewer::selectionChanged(Node *n) {
@@ -299,7 +306,7 @@ void Viewer::selectionChanged(Node *n) {
   } else
     _manipulator->setViewCenter({0,0,0});
 
-  qDebug() << "Selection:" << _selection;
+//  qDebug() << "Selection:" << _selection;
 }
 
 void Viewer::mouseDoubleClickEvent(QMouseEvent */*ev*/) {
@@ -334,17 +341,21 @@ void Viewer::keyReleaseEvent(QKeyEvent *e) {
 }
 
 void Viewer::depthDebugDraw (bool active) {
-  uint maxDepth = 0;  /// TODO Inefficient
+  for (Node *n: _nodes) n->depthDebugDraw(active, _ann->stats().depth);
+}
 
-  if (active)
-    for (Node *n: _nodes)
-      maxDepth = std::max(n->depth(), maxDepth);
+void Viewer::startAnimation(void) {
+  _animating = true;
+  for (Node *n: _nodes) n->updateAnimation(true);
+}
 
-  qDebug() << __PRETTY_FUNCTION__
-           << _nodes.size() << "nodes"
-           << _edges.size() << "edges."
-           << "Max depth:" << maxDepth;
-  for (Node *n: _nodes) n->depthDebugDraw(active, maxDepth);
+void Viewer::updateAnimation(void) {
+  for (Node *n: _nodes) n->updateAnimation(true);
+}
+
+void Viewer::stopAnimation(void) {
+  _animating = false;
+  for (Node *n: _nodes) n->updateAnimation(false);
 }
 
 } // end of namespace kgd::es_hyperneat::gui::ann3d

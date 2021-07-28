@@ -50,7 +50,8 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
 #if ESHN_SUBSTRATE_DIMENSION == 2
   _annSplitter->addWidget(annViewer);
 #elif ESHN_SUBSTRATE_DIMENSION == 3
-  _annSplitter->addWidget(QWidget::createWindowContainer(annViewer));
+  annViewerWidget = QWidget::createWindowContainer(annViewer);
+  _annSplitter->addWidget(annViewerWidget);
 #endif
   _annSplitter->addWidget(neuronViewer = new neurons::NeuronStateViewer);
   _mainSplitter->addWidget(row("ANN", _annSplitter));

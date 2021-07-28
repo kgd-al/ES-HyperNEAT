@@ -24,6 +24,14 @@ public:
   void setANN (const phenotype::ANN &ann);
   void clearANN (void);
 
+  void startAnimation (void);
+  void updateAnimation (void);
+  void stopAnimation (void);
+
+  bool isAnimating (void) const {
+    return _animating;
+  }
+
   void depthDebugDraw (bool active);
 
 signals:
@@ -40,6 +48,10 @@ private:
 
   Node *_selection = nullptr;
   Entity *_selectionHighlighter = nullptr;
+
+  bool _animating;
+
+  const phenotype::ANN *_ann;
 
   static Entity* buildAxis (Entity *parent);
   static Entity* buildSelectionHighlighter (Entity *parent);

@@ -13,6 +13,13 @@ float ssgn(float x) {
                         : 0;
 }
 
+float act2(float x) {
+  return x <= 0 ? 0
+                : 1 - std::exp(
+                        -x*x /* / (2*b*b) */
+                      );
+}
+
 #define F(NAME, BODY) \
  { NAME, [] (float x) -> float { return BODY; } }
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
@@ -42,7 +49,12 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x)),
 
   // Another custom-made activation function
-  F("ssgn", ssgn(x))
+  F("ssgn", ssgn(x)),
+
+  // Positive activation function
+  // forall x <=0, act2(x) = 0
+  // lim x -> inf act2(x) = 1
+  F("act2", act2(x)),
 };
 #undef F
 

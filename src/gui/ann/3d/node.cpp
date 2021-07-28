@@ -108,6 +108,15 @@ void Node::hoverExited(void) {
   setHighlighted();
 }
 
+void Node::updateAnimation(bool running) {
+  _currentColor = _baseColor;
+
+  if (running)  // No updating edges
+    _currentColor.setAlphaF(std::fabs(_neuron.value));
+
+  updateColor(_currentColor);
+}
+
 void Node::depthDebugDraw(bool active, uint maxDepth) {
   if (active)
     _currentColor = QColor::fromHsvF(0, 0, _neuron.depth / float(maxDepth));

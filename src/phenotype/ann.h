@@ -91,6 +91,11 @@ public:
 
   bool empty (void) const;
 
+  void computeStats (void);
+  const auto& stats (void) const {
+    return _stats;
+  }
+
   using Coordinates = std::vector<Point>;
   static ANN build (const Coordinates &inputs,
                     const Coordinates &outputs, const phenotype::CPPN &cppn);
@@ -123,6 +128,12 @@ private:
   NeuronsMap _neurons;
 
   std::vector<Neuron::ptr> _inputs, _outputs;
+
+  struct {
+    uint depth;
+    uint edges;
+    float axons;  // total length
+  } _stats;
 
   Neuron::ptr addNeuron (const Point &p, Neuron::Type t, float bias);
 };

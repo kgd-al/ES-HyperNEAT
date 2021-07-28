@@ -100,12 +100,12 @@ int main (int argc, char **argv) {
     sequencer->start("timidity", QStringList() << "-iA");
     bool s = sequencer->waitForStarted();
     qDebug() << "Timidity sequencer started:" << s;
-
-    QTimer::singleShot(50, [] {
-      qDebug() << "Initializing";
-      kgd::watchmaker::sound::MidiWrapper::initialize();
-    });
   }
+
+  QTimer::singleShot(50, [] {
+    qDebug() << "Initializing";
+    kgd::watchmaker::sound::MidiWrapper::initialize();
+  });
 
   BWWindow w (outputFolder, seed);
   w.firstGeneration(baseCPPN);

@@ -22,7 +22,7 @@ namespace phenotype {
 #ifndef NDEBUG
 //#define DEBUG
 //#define DEBUG_COMPUTE 1
-//#define DEBUG_ES 3
+#define DEBUG_ES 2
 #endif
 
 #if DEBUG_ES
@@ -401,10 +401,15 @@ void connect (const CPPN &cppn,
   }
 
 #if DEBUG_ES
-  oss << "[I -> H] found " << shidden.size() << " hidden neurons\n\t"
-      << shidden << "\n"
-      << " and " << tmpConnections.size() << " connections\n\t"
-      << tmpConnections << "\n";
+  oss << "[I -> H] found " << shidden.size() << " hidden neurons";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << shidden << "\n";
+#endif
+  oss << " and " << tmpConnections.size() << " connections";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << tmpConnections;
+#endif
+  oss << "\n";
 #endif
 
   connections.insert(connections.end(),
@@ -426,10 +431,15 @@ void connect (const CPPN &cppn,
     unexploredHidden = tmpHidden;
 
 #if DEBUG_ES
-  oss << "[H -> H] found " << unexploredHidden.size()
-      << " hidden neurons\n\t" << unexploredHidden << "\n"
-      << " and " << tmpConnections.size() << " connections\n\t"
-      << tmpConnections << "\n";
+  oss << "[H -> H] found " << unexploredHidden.size() << " hidden neurons";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << unexploredHidden << "\n";
+#endif
+  oss << " and " << tmpConnections.size() << " connections";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << tmpConnections;
+#endif
+  oss << "\n";
 #endif
 
     connections.insert(connections.end(),
@@ -443,8 +453,10 @@ void connect (const CPPN &cppn,
   }
 
 #if DEBUG_ES
-  oss << "[H -> O] found " << tmpConnections.size() << " connections\n\t"
-      << tmpConnections << "\n";
+  oss << "[H -> O] found " << tmpConnections.size() << " connections";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << tmpConnections << "\n";
+#endif
   std::cerr << oss.str() << std::endl;
 #endif
 
@@ -470,7 +482,50 @@ void connect (const CPPN &cppn,
 
 } // end of namespace evolvable substrate
 
-void computeDepth (ANN &ann) {
+bool ANN::empty(void) const {
+  for (const auto &p: _neurons) if (!p->links().empty()) return false;
+  return true;
+}
+
+ANN ANN::build (const Coordinates &inputs,
+                const Coordinates &outputs, const CPPN &cppn) {
+
+  static const auto& weightRange = config::EvolvableSubstrate::weightRange();
+
+  ANN ann;
+
+  NeuronsMap &neurons = ann._neurons;
+
+  const auto add = [&cppn, &ann] (auto p, auto t) {
+    float bias = 0;
+    if (t != Neuron::I)
+      bias = cppn(p, Point::null(), genotype::cppn::Output::BIAS);
+    return ann.addNeuron(p, t, bias);
+  };
+
+  uint i = 0;
+  ann._inputs.resize(inputs.size());
+  for (auto &p: inputs) neurons.insert(ann._inputs[i++] = add(p, Neuron::I));
+
+  i = 0;
+  ann._outputs.resize(outputs.size());
+  for (auto &p: outputs) neurons.insert(ann._outputs[i++] = add(p, Neuron::O));
+
+  Coordinates hidden;
+  evolvable_substrate::Connections connections;
+  evolvable_substrate::connect(cppn, inputs, outputs, hidden,
+                               connections);
+
+  for (auto &p: hidden) neurons.insert(add(p, Neuron::H));
+  for (auto &c: connections)
+    ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
+
+  ann.computeStats();
+
+  return ann;
+}
+
+uint computeDepth (ANN &ann) {
   struct ReverseNeuron {
     ANN::Neuron &n;
     std::vector<ReverseNeuron*> o;
@@ -515,54 +570,33 @@ void computeDepth (ANN &ann) {
     depth++;
   }
 
-  for (auto &p: neurons)  delete p.second;
+  uint d = 0;
+  for (auto &p: neurons) {
+    d = std::max(d, p.second->n.depth);
+    delete p.second;
+  }
+  return d;
 }
 
-bool ANN::empty(void) const {
-  for (const auto &p: _neurons) if (!p->links().empty()) return false;
-  return true;
-}
+void ANN::computeStats(void) {
+  if (empty()) {
+    for (Neuron::ptr &n: _inputs)   n->depth = 0;
+    for (Neuron::ptr &n: _outputs)  n->depth = 1;
+    _stats.depth = 1;
+    _stats.edges = 0;
+    _stats.axons = 0;
+    return;
+  }
 
-ANN ANN::build (const Coordinates &inputs,
-                const Coordinates &outputs, const CPPN &cppn) {
+  _stats.depth = computeDepth(*this);
 
-  static const auto& weightRange = config::EvolvableSubstrate::weightRange();
-
-  ANN ann;
-
-  NeuronsMap &neurons = ann._neurons;
-
-  const auto add = [&cppn, &ann] (auto p, auto t) {
-    float bias = 0;
-    if (t != Neuron::I)
-      bias = cppn(p, Point::null(), genotype::cppn::Output::BIAS);
-    return ann.addNeuron(p, t, bias);
-  };
-
-  uint i = 0;
-  ann._inputs.resize(inputs.size());
-  for (auto &p: inputs) neurons.insert(ann._inputs[i++] = add(p, Neuron::I));
-
-  i = 0;
-  ann._outputs.resize(outputs.size());
-  for (auto &p: outputs) neurons.insert(ann._outputs[i++] = add(p, Neuron::O));
-
-  Coordinates hidden;
-  evolvable_substrate::Connections connections;
-  evolvable_substrate::connect(cppn, inputs, outputs, hidden,
-                               connections);
-
-  for (auto &p: hidden) neurons.insert(add(p, Neuron::H));
-  for (auto &c: connections)
-    ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
-
-  if (ann.empty()) {
-    for (Neuron::ptr &n: ann._inputs)   n->depth = 0;
-    for (Neuron::ptr &n: ann._outputs)  n->depth = 1;
-  } else
-    computeDepth(ann);
-
-  return ann;
+  auto &e = _stats.edges;
+  float &l = _stats.axons;
+  for (const Neuron::ptr &n: _neurons) {
+    e += n->links().size();
+    for (const Neuron::Link &link: n->links())
+      l += (n->pos - link.in.lock()->pos).length();
+  }
 }
 
 ANN::Neuron::ptr ANN::addNeuron(const Point &p, Neuron::Type t, float bias) {
@@ -654,7 +688,7 @@ void ANN::render_gvc_graph(const std::string &path) const {
 #endif
 
 void ANN::reset(void) {
-  for (auto &p: _neurons) p->reset();
+  for (auto &n: _neurons) n->reset();
 }
 
 void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
@@ -1102,12 +1136,11 @@ DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
 
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
-                       activationFunc, "ssgn")
+                       activationFunc, "act2")
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 
 #undef CFILE
-
 
 #ifdef DEBUG_QUADTREE
 namespace quadtree_debug {

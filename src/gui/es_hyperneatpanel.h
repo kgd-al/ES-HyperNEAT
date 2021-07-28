@@ -40,6 +40,10 @@ struct ES_HyperNEATPanel : public QWidget {
   neurons::NeuronStateViewer *neuronViewer;
   std::map<std::string, QLabel*> otherFields;
 
+#if ESHN_SUBSTRATE_DIMENSION == 3
+  QWidget *annViewerWidget;
+#endif
+
   ES_HyperNEATPanel (QWidget *parent = nullptr);
   void setData (const genotype::ES_HyperNEAT &genome,
                 const phenotype::CPPN &cppn,
