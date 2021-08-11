@@ -22,7 +22,7 @@ namespace phenotype {
 #ifndef NDEBUG
 //#define DEBUG
 //#define DEBUG_COMPUTE 1
-#define DEBUG_ES 2
+//#define DEBUG_ES 1
 #endif
 
 #if DEBUG_ES
@@ -374,20 +374,23 @@ void connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
 
+  using utils::operator<<;
   static const auto &iterations = Config::iterations();
 
   Coordinates_s sio;  // All fixed positions
   for (const auto &vec: {inputs, outputs}) {
     for (Point p: vec) {
       auto r = sio.insert(p);
-      if (!r.second)
+      if (!r.second) {
+        std::cerr << "inputs: " << inputs << "\noutputs: " << outputs
+                  << std::endl;
         utils::doThrow<std::invalid_argument>(
           "Unable to insert duplicate coordinate ", p);
+      }
     }
   }
 
 #if DEBUG_ES
-  using utils::operator<<;
   std::ostringstream oss;
   oss << "\n## --\nStarting evolvable substrate instantiation\n";
 #endif
@@ -416,8 +419,9 @@ void connect (const CPPN &cppn,
                      tmpConnections.begin(), tmpConnections.end());
   tmpConnections.clear();
 
+  bool converged = false;
   Coordinates_s unexploredHidden = shidden;
-  for (uint i=0; i<iterations; i++) {
+  for (uint i=0; i<iterations && !converged; i++) {
     for (const Point &p: unexploredHidden) {
       auto t = divisionAndInitialisation(cppn, p, true);
       pruneAndExtract(cppn, p, tmpConnections, t, true);
@@ -442,6 +446,12 @@ void connect (const CPPN &cppn,
   oss << "\n";
 #endif
 
+    converged = (unexploredHidden.empty() && tmpConnections.empty());
+#if DEBUG_ES
+    if (converged)
+      oss << "\t> Premature convergence at iteration " << i << "\n";
+#endif
+
     connections.insert(connections.end(),
                        tmpConnections.begin(), tmpConnections.end());
     tmpConnections.clear();
@@ -457,7 +467,7 @@ void connect (const CPPN &cppn,
 #if DEBUG_ES >= 3
   oss << "\n\t" << tmpConnections << "\n";
 #endif
-  std::cerr << oss.str() << std::endl;
+  oss << "\n";
 #endif
 
   connections.insert(connections.end(),
@@ -467,24 +477,27 @@ void connect (const CPPN &cppn,
   removeUnconnectedNeurons(inputs, outputs, shidden2, connections);
 
 #if DEBUG_ES
-  oss << "[Filtrd] total " << shidden2.size()
-      << " hidden neurons\n\t" << shidden2 << "\n"
-      << " and " << connections.size() << " connections\n\t"
-      << connections << "\n";
+  oss << "[Filtrd] total " << shidden2.size() << " hidden neurons";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << shidden2 << "\n";
+#endif
+  oss << " and " << connections.size() << " connections";
+#if DEBUG_ES >= 3
+  oss << "\n\t" << connections << "\n";
+#endif
 #endif
 
   std::copy(shidden2.begin(), shidden2.end(), std::back_inserter(hidden));
 
 #if DEBUG_ES
-  std::cerr << oss.rdbuf() << std::endl;
+  std::cerr << oss.str() << std::endl;
 #endif
 }
 
 } // end of namespace evolvable substrate
 
 bool ANN::empty(void) const {
-  for (const auto &p: _neurons) if (!p->links().empty()) return false;
-  return true;
+  return stats().edges == 0;
 }
 
 ANN ANN::build (const Coordinates &inputs,
@@ -590,8 +603,8 @@ void ANN::computeStats(void) {
 
   _stats.depth = computeDepth(*this);
 
-  auto &e = _stats.edges;
-  float &l = _stats.axons;
+  auto &e = _stats.edges = 0;
+  float &l = _stats.axons = 0;
   for (const Neuron::ptr &n: _neurons) {
     e += n->links().size();
     for (const Neuron::Link &link: n->links())

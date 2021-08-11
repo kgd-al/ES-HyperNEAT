@@ -1,7 +1,6 @@
 #include "es-hyperneat.h"
 
 using CPPN = genotype::ES_HyperNEAT::CPPN;
-static constexpr bool debugMutations = false;
 
 namespace genotype {
 
@@ -429,34 +428,32 @@ auto initialCPPN (rng::AbstractDice &dice) {
 }
 
 
-void CPPN_add_node (CPPN &d, rng::AbstractDice &dice) {
+void CPPN_add_node (CPPN &d, rng::AbstractDice &dice, bool log) {
   auto it = dice(d.links);
   const CPPN::Link &l = *it;
   NID nid = addNode(d, dice);
   addLink(d, l.nid_src, nid, 1);
   addLink(d, nid, l.nid_dst, l.weight);
-  if constexpr (debugMutations)
-    std::cerr << "\n+ " << nid
-              << " (" << d.nextNID << ")\n"
-              << "+ " << l.nid_src << " -> " << nid << "\n"
-              << "+ " << nid << " -> " << l.nid_dst << "\n"
-              << "- " << l.nid_src << " -> " << l.nid_dst << "\n";
+  if (log)
+    std::cerr << " created node " << nid << " in " << l.nid_src << " -> "
+              << l.nid_dst;
   d.links.erase(it);
 }
 
 using MAddLCandidates = std::set<std::pair<NID,NID>>;
 void CPPN_add_link (CPPN &d, const MAddLCandidates &candidates,
-                    rng::AbstractDice &dice) {
+                    rng::AbstractDice &dice, bool log) {
   auto p = *dice(candidates);
-  addLink(d, p.first, p.second, dice);
+  auto lid = addLink(d, p.first, p.second, dice);
 
-  if constexpr (debugMutations)
-    std::cerr << "\n+ " << p.first << " -> " << p.second << "\n";
+  if (log)
+    std::cerr << " added " << p.first << " -(" << d.links.find(lid)->weight
+              << ")-> " << p.second;
 }
 
 using MDelNCandidates = std::set<NID>;
 void CPPN_del_node (CPPN &d, const MDelNCandidates &candidates,
-                    rng::AbstractDice &dice) {
+                    rng::AbstractDice &dice, bool log) {
   static constexpr uint target = 100;
   NID nid = *dice(candidates);
   auto lit = d.links.begin();
@@ -475,9 +472,8 @@ void CPPN_del_node (CPPN &d, const MDelNCandidates &candidates,
   }
   assert(found == 2);
 
-  if constexpr (debugMutations)
-    std::cerr << "\n- " << nid << "\n"
-              << "+ " << src << " -> " << dst << "\n";
+  if (log)
+    std::cerr << " removed node " << nid;
 
   d.nodes.erase(d.nodes.find(nid));
   addLink(d, src, dst, weight);
@@ -485,33 +481,45 @@ void CPPN_del_node (CPPN &d, const MDelNCandidates &candidates,
 
 using MDelLCandidates = std::set<LID>;
 void CPPN_del_link (CPPN &d, const MDelLCandidates &candidates,
-                    rng::AbstractDice &dice) {
+                    rng::AbstractDice &dice, bool log) {
   auto it = dice(candidates);
   auto lit = d.links.find(*it);
-  if constexpr (debugMutations)
-    std::cerr << "\n- " << lit->nid_src << " -> " << lit->nid_dst << "\n";
+  if (log)
+    std::cerr << " removed link " << lit->nid_src << " -> " << lit->nid_dst;
 
   d.links.erase(d.links.find(*it));
 }
 
-void CPPN_mutate_weight (CPPN &d, rng::AbstractDice &dice) {
+void CPPN_mutate_weight (CPPN &d, rng::AbstractDice &dice, bool log) {
   auto node = d.links.extract(dice(d.links));
   const auto &b = Config::weightBounds();
   using MO = config::MutationSettings::BoundsOperators<float>;
-  MO::mutate(node.value().weight, b.min, b.max, dice);
+  if (log)
+    std::cerr << " mutated weight in " << node.value().nid_src << " -> "
+              << node.value().nid_dst << " from " << node.value().weight;
+
+  MO::mutate(node.value().weight, b.min, b.max, b.stddev, dice);
+  if (log)
+    std::cerr << " to " << node.value().weight;
+
   d.links.insert(std::move(node));
 }
 
-void CPPN_mutate_function (CPPN &d, rng::AbstractDice &dice) {
+void CPPN_mutate_function (CPPN &d, rng::AbstractDice &dice, bool log) {
   auto node = d.nodes.extract(dice(d.nodes));
   CPPN::Node &n = node.value();
   auto f = n.func;
+  if (log)
+    std::cerr << " mutated node " << n.id << " function from " << f;
   while (f == n.func) n.func = randomNodeFunction(dice);
+  if (log)
+    std::cerr << " to " << n.func;
   d.nodes.insert(std::move(n));
 }
 
 void mutateCPPN (CPPN &d, rng::AbstractDice &dice) {
   auto rates = Config::cppn_mutationRates();
+  bool log = config::EDNAConfigFile_common::autologMutations();
 
   struct N { NID id; enum T { I, O, H }; T type; };
   std::vector<N> allNodes;
@@ -564,24 +572,21 @@ void mutateCPPN (CPPN &d, rng::AbstractDice &dice) {
   rates["mut_f"] *= (d.nodes.size() > 0);
   auto type = dice.pickOne(rates);
 
-  if constexpr (debugMutations)
-    std::cerr << "Mutation: " << type << "\n";
-
   if (type == "add_l")
-    CPPN_add_link(d, potentialLinks, dice);
+    CPPN_add_link(d, potentialLinks, dice, log);
   else if (type == "del_n")
-    CPPN_del_node(d, simpleNodes, dice);
+    CPPN_del_node(d, simpleNodes, dice, log);
   else if (type == "del_l")
-    CPPN_del_link(d, nonEssentialLinks, dice);
+    CPPN_del_link(d, nonEssentialLinks, dice, log);
   else {
     static const std::map<std::string,
-                          void(*)(CPPN&, rng::AbstractDice&)>
+                          void(*)(CPPN&, rng::AbstractDice&, bool)>
         mutators {
         { "add_n", &CPPN_add_node },
         { "mut_w", &CPPN_mutate_weight },
         { "mut_f", &CPPN_mutate_function },
     };
-    mutators.at(type)(d, dice);
+    mutators.at(type)(d, dice, log);
   }
 }
 
@@ -589,7 +594,9 @@ DEFINE_GENOME_FIELD_WITH_FUNCTOR(CPPN, cppn, "", [] {
   GENOME_FIELD_FUNCTOR(CPPN, cppn) functor;
 
   functor.random = &initialCPPN;
+
   functor.mutate = &mutateCPPN;
+  (void)log;  // Retrieved from inside the aforementioned function
 
   functor.cross = [] (auto &lhs, auto &rhs, auto &dice) {
     /// TODO Implement cppn crossing

@@ -13,12 +13,18 @@ class Point_t {
   static_assert(DE <= MAX_DECIMALS,
                 "Cannot represent such precision in fixed point type");
 
-  static constexpr int RATIO = std::pow(10, DE);
   std::array<int, DI> _data;
 
 public:
   static constexpr auto DIMENSIONS = DI;
   static constexpr auto DECIMALS = DE;
+  static constexpr int RATIO = std::pow(10, DE);
+
+  static constexpr float EPSILON = [] {
+    float v = 1;
+    for (uint i=0; i<DECIMALS; i++)  v /= 10.f;
+    return v;
+  }();
 
   Point_t(std::initializer_list<float> &&flist) {
     uint i=0;
