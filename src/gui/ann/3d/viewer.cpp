@@ -119,11 +119,11 @@ Viewer::Viewer(void) {
 //  manipulator->setZoomInLimit(2);
   _manipulator->setCamera(camera);
 
-  auto lightEntity = new Qt3DCore::QEntity(camera);
-  auto light = new Qt3DRender::QPointLight(lightEntity);
+  _light = new Qt3DCore::QEntity(camera);
+  auto light = new Qt3DRender::QPointLight(_light);
   light->setColor(Qt::white);
   light->setIntensity(1);
-  lightEntity->addComponent(light);
+  _light->addComponent(light);
 
   auto *renderStateSet = new Qt3DRender::QRenderStateSet(_scene);
 
@@ -147,7 +147,7 @@ Viewer::Viewer(void) {
 }
 
 Viewer::~Viewer (void) {
-//  delete _manipulator;
+  delete _light;
   delete _scene;
 }
 

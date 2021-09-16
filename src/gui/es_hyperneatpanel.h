@@ -45,6 +45,8 @@ struct ES_HyperNEATPanel : public QWidget {
 #endif
 
   ES_HyperNEATPanel (QWidget *parent = nullptr);
+  ~ES_HyperNEATPanel (void);
+
   void setData (const genotype::ES_HyperNEAT &genome,
                 const phenotype::CPPN &cppn,
                 const phenotype::ANN &ann);

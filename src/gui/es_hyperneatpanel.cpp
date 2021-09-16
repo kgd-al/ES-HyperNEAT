@@ -79,6 +79,12 @@ ES_HyperNEATPanel::ES_HyperNEATPanel (QWidget *parent) : QWidget(parent) {
   noData();
 }
 
+ES_HyperNEATPanel::~ES_HyperNEATPanel (void) {
+#if ESHN_SUBSTRATE_DIMENSION == 3
+  delete annViewerWidget;
+#endif
+}
+
 void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
                                  const phenotype::CPPN &cppn,
                                  const phenotype::ANN &ann) {

@@ -65,6 +65,7 @@ Node::Node (const Neuron &n, Entity *parent)
 
   _material = new Qt3DExtras::QDiffuseSpecularMaterial(this);
   _material->setDiffuse(_baseColor);
+  _material->setAlphaBlendingEnabled(true);
   _material->setShininess(0);
 //  _material->diffuse()->addTextureImage(canvas);
 
@@ -113,6 +114,9 @@ void Node::updateAnimation(bool running) {
 
   if (running)  // No updating edges
     _currentColor.setAlphaF(std::fabs(_neuron.value));
+
+//  std::cerr << __PRETTY_FUNCTION__ << " " << _neuron.pos << " "
+//            << " " << _neuron.value << " " << _currentColor.alphaF() << "\n";
 
   updateColor(_currentColor);
 }

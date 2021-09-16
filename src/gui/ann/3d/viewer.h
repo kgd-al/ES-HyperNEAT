@@ -39,7 +39,7 @@ signals:
 
 private:
   using Entity = Qt3DCore::QEntity;
-  Entity *_scene = nullptr, *_axis = nullptr;
+  Entity *_scene = nullptr, *_axis = nullptr, *_light = nullptr;
 
   QVector<Node*> _nodes;
   QVector<Edge*> _edges;
