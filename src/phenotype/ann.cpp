@@ -841,14 +841,14 @@ static constexpr bool debugAgg = false;
 uint computeDepths (std::map<ANN::Neuron*, uint> &depths, ANN::Neuron *n) {
 //  utils::IndentingOStreambuf indent (std::cerr);
 //  std::cerr << "> Computing depth(" << n->pos << ", " << n->type << ")\n";
-  uint d = UINT_MAX;
+  uint d = std::numeric_limits<uint>::max();
   if (n->type == ANN::Neuron::I)
     d = 0;
 
   else {
     auto it = depths.find(n);
     if (it == depths.end()) {
-      depths[n] = UINT_MAX;
+      depths[n] = std::numeric_limits<uint>::max();
       for (const auto &l: n->links()) {
         d = std::min(computeDepths(depths, l.in.lock().get()), d);
 //        if (d == 0) break;
