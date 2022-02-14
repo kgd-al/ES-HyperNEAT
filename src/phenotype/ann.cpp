@@ -740,7 +740,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
       assert(-1 <= p->value && p->value <= 1);
 
 #ifdef DEBUG_COMPUTE
-      std::cerr << "      <o " << p.first << ": " << p.second->value << " = "
+      std::cerr << "      <o " << p->pos << ": " << p->value << " = "
                 << config::EvolvableSubstrate::activationFunc() << "("
                 << v << ")\n";
 #endif
@@ -1149,7 +1149,7 @@ DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
 
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
-                       activationFunc, "act2")
+                       activationFunc, "ssgn")
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 

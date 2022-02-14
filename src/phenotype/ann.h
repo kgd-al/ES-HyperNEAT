@@ -80,10 +80,12 @@ public:
 #endif
 
   using Inputs = std::vector<float>;
-  auto inputs (void) {  return Inputs(_inputs.size(), 0);  }
+  auto inputsCount (void) const { return _inputs.size(); }
+  auto inputs (void) const {  return Inputs(inputsCount(), 0);  }
 
   using Outputs = Inputs;
-  auto outputs (void) { return Outputs(_outputs.size(), 0);  }
+  auto outputsCount (void) const { return _outputs.size(); }
+  auto outputs (void) const { return Outputs(outputsCount(), 0);  }
 
   void reset (void);
 
@@ -109,7 +111,9 @@ private:
   struct NeuronCMP {
     using is_transparent = void;
     bool operator() (const Point &lhs, const Point &rhs) const {
-      return lhs < rhs;
+      if (lhs.y() != rhs.y()) return lhs.y() < rhs.y();
+      if (lhs.z() != rhs.z()) return lhs.z() < rhs.z();
+      return lhs.x() < rhs.x();
     }
 
     bool operator() (const Neuron::ptr &lhs, const Point &rhs) const {
