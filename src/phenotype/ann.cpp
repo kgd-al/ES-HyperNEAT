@@ -370,12 +370,23 @@ void collectIfDiscovered (Connections &connections,
   }
 }
 
-void connect (const CPPN &cppn,
+bool connect (const CPPN &cppn,
               const Coordinates &inputs, const Coordinates &outputs,
               Coordinates &hidden, Connections &connections) {
 
   using utils::operator<<;
   static const auto &iterations = Config::iterations();
+  static const auto overflow = [] (Coordinates_s &h, Connections &c) {
+    static const auto &H = Config::neuronsUpperBound();
+    static const auto &C = Config::connectionsUpperBound();
+    if (H <= h.size() || C <= c.size()) {
+      std::cerr << "[ANN BUILD] overflow: "
+                << H << " < " << h.size() << " | "
+                << C << " < " << c.size() << std::endl;
+      return true;
+    } else
+      return false;
+  };
 
   Coordinates_s sio;  // All fixed positions
   for (const auto &vec: {inputs, outputs}) {
@@ -419,6 +430,8 @@ void connect (const CPPN &cppn,
                      tmpConnections.begin(), tmpConnections.end());
   tmpConnections.clear();
 
+  if (overflow(shidden, connections)) return false;
+
   bool converged = false;
   Coordinates_s unexploredHidden = shidden;
   for (uint i=0; i<iterations && !converged; i++) {
@@ -455,6 +468,8 @@ void connect (const CPPN &cppn,
     connections.insert(connections.end(),
                        tmpConnections.begin(), tmpConnections.end());
     tmpConnections.clear();
+
+    if (overflow(shidden, connections)) return false;
   }
 
   for (const Point &p: outputs) {
@@ -472,6 +487,8 @@ void connect (const CPPN &cppn,
 
   connections.insert(connections.end(),
                      tmpConnections.begin(), tmpConnections.end());
+
+  if (overflow(shidden, connections)) return false;
 
   Coordinates_s shidden2;
   removeUnconnectedNeurons(inputs, outputs, shidden2, connections);
@@ -492,6 +509,8 @@ void connect (const CPPN &cppn,
 #if DEBUG_ES
   std::cerr << oss.str() << std::endl;
 #endif
+
+  return true;
 }
 
 } // end of namespace evolvable substrate
@@ -526,12 +545,12 @@ ANN ANN::build (const Coordinates &inputs,
 
   Coordinates hidden;
   evolvable_substrate::Connections connections;
-  evolvable_substrate::connect(cppn, inputs, outputs, hidden,
-                               connections);
-
-  for (auto &p: hidden) neurons.insert(add(p, Neuron::H));
-  for (auto &c: connections)
-    ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
+  if (evolvable_substrate::connect(cppn, inputs, outputs, hidden,
+                                   connections)) {
+    for (auto &p: hidden) neurons.insert(add(p, Neuron::H));
+    for (auto &c: connections)
+      ann.neuronAt(c.to)->addLink(c.weight * weightRange, ann.neuronAt(c.from));
+  }
 
   ann.computeStats();
 
@@ -1150,6 +1169,9 @@ DEFINE_PARAMETER(float, bndThr, .15)  // band-pruning
 DEFINE_PARAMETER(float, weightRange, 3)
 DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
                        activationFunc, "ssgn")
+
+DEFINE_PARAMETER(uint, neuronsUpperBound, -1)
+DEFINE_PARAMETER(uint, connectionsUpperBound, -1)
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 

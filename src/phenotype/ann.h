@@ -221,6 +221,9 @@ struct CONFIG_FILE(EvolvableSubstrate) {
   DECLARE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
                           activationFunc)
 
+  DECLARE_PARAMETER(uint, neuronsUpperBound)
+  DECLARE_PARAMETER(uint, connectionsUpperBound)
+
   DECLARE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 };
 
