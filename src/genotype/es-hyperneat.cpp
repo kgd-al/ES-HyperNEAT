@@ -135,9 +135,8 @@ void parseOrExcept (const std::string &str, T &field,
   std::istringstream iss (str);
   iss >> field;
   if (!iss)
-    utils::doThrow<std::invalid_argument>(
-      "Could not parse '", str, "' as a value of type ",
-      utils::className<T>(), " in ", line, " (row ", row, ")");
+    utils::Thrower("Could not parse '", str, "' as a value of type ",
+                    utils::className<T>(), " in ", line, " (row ", row, ")");
 }
 
 CPPN CPPN::fromDot(const std::string &data, rng::AbstractDice &dice) {
@@ -176,14 +175,12 @@ CPPN CPPN::fromDot(const std::string &data, rng::AbstractDice &dice) {
 //                << "\n";
 
       if (inputs != CPPN::INPUTS)
-        utils::doThrow<std::invalid_argument>(
-          "Header declares ", inputs, " inputs while ",
-          CPPN::INPUTS, " were expected");
+        utils::Thrower("Header declares ", inputs, " inputs while ",
+                        CPPN::INPUTS, " were expected");
 
       if (outputs != CPPN::OUTPUTS)
-        utils::doThrow<std::invalid_argument>(
-          "Header declares ", outputs, " outputs while ",
-          CPPN::OUTPUTS, " were expected");
+        utils::Thrower("Header declares ", outputs, " outputs while ",
+                        CPPN::OUTPUTS, " were expected");
 
     } else if (std::regex_match(line, matches, node) && matches.size() > 1) {
       bool funcProvided = (matches.size() == 4 && matches[3].length() > 0);
@@ -198,9 +195,8 @@ CPPN CPPN::fromDot(const std::string &data, rng::AbstractDice &dice) {
           func = CPPN::Node::FuncID(matches[3]);
 
           if (functions.find(func) == functions.end())
-            utils::doThrow<std::invalid_argument>(
-              "Function ", func, " is not a member of the current set: ",
-              functions);
+            utils::Thrower("Function ", func,
+                           " is not a member of the current set: ", functions);
 
         } else
           func = randomNodeFunction(dice);
@@ -304,18 +300,15 @@ void from_json (const nlohmann::json &j, CPPN &d) {
   std::array<CPPN::Node::FuncID, CPPN::OUTPUTS> outputFunctions = j[i++];
 
   if (inputs != CPPN::INPUTS)
-    utils::doThrow<std::invalid_argument>(
-      "Parsed cppn has wrong input size! Expected ", CPPN::INPUTS, " got ",
-      inputs);
+    utils::Thrower("Parsed cppn has wrong input size! Expected ",
+                   CPPN::INPUTS, " got ", inputs);
   if (outputs != CPPN::OUTPUTS)
-    utils::doThrow<std::invalid_argument>(
-      "Parsed cppn has wrong output size! Expected ", CPPN::OUTPUTS, " got ",
-      outputs);
+    utils::Thrower("Parsed cppn has wrong output size! Expected ",
+                   CPPN::OUTPUTS, " got ", outputs);
   for (uint i=0; i<CPPN::OUTPUTS; i++)
     if (outputFunctions[i] != outputFuncs[i])
-      utils::doThrow<std::invalid_argument>(
-        "Wrong output function for output ", i, "! Expected ",
-        outputFuncs[i], " got ", outputFunctions[i]);
+      utils::Thrower("Wrong output function for output ", i, "! Expected ",
+                      outputFuncs[i], " got ", outputFunctions[i]);
 }
 
 bool operator== (const CPPN &lhs, const CPPN &rhs) {

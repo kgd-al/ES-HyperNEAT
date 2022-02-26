@@ -139,6 +139,8 @@ Viewer::Viewer(void) {
   sort->setSortTypes(sortTypes);
   setActiveFrameGraph(framegraph);
 
+  _renderCapture = new Qt3DRender::QRenderCapture(_scene);
+
   _axis = buildAxis(_scene);
   _selectionHighlighter = buildSelectionHighlighter(_scene);
 

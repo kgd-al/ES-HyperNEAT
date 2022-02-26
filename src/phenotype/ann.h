@@ -69,8 +69,7 @@ public:
   const Neuron::ptr& neuronAt (const Point &p) const {
     auto it = _neurons.find(p);
     if (it == _neurons.end())
-      utils::doThrow<std::invalid_argument>(
-        "No neuron at position ", p);
+      utils::Thrower("No neuron at position ", p);
     return *it;
   }
 

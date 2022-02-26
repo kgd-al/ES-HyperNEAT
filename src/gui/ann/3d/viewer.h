@@ -5,6 +5,9 @@
 #include <Qt3DExtras/Qt3DWindow>
 #include <Qt3DExtras/QOrbitCameraController>
 
+#include <Qt3DRender/QRenderCapture>
+#include <Qt3DRender/QRenderCaptureReply>
+
 #include "../../../phenotype/ann.h"
 #include "../../../misc/gvc_wrapper.h"
 
@@ -34,6 +37,14 @@ public:
 
   void depthDebugDraw (bool active);
 
+  auto* scene (void) {
+    return _scene;
+  }
+
+  Qt3DRender::QRenderCaptureReply* capture (void) {
+    return _renderCapture->requestCapture();
+  }
+
 signals:
   void neuronHovered (const phenotype::ANN::Neuron *n);
 
@@ -48,6 +59,7 @@ private:
 
   Node *_selection = nullptr;
   Entity *_selectionHighlighter = nullptr;
+  Qt3DRender::QRenderCapture* _renderCapture = nullptr;
 
   bool _animating;
 

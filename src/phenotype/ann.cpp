@@ -308,21 +308,29 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   std::cerr << "\n";
 #endif
 
-  std::queue<N*> q;
-  const auto breathFirstSearch =
-      [&q] (const auto &src, auto &set, auto field) {
-    for (const auto &n: src)  q.push(n);
+  const auto breadthFirstSearch =
+      [] (const auto &src, auto &set, auto field) {
+    std::queue<N*> q;
+    typename std::remove_reference_t<decltype(set)> seen;
+    for (const auto &n: src)  q.push(n), seen.insert(n);
     while (!q.empty()) {
       N *n = q.front();
       q.pop();
 
-      if (n->t == Type::H) set.insert(n);
-      for (auto &l: n->*field) if (set.find(l.n) == set.end()) q.push(l.n);
+      for (auto &l: n->*field) {
+        N *n_ = l.n;
+        if (seen.find(n_) == seen.end()) {
+          if (n_->t == Type::H) set.insert(n_);
+          seen.insert(n_);
+          q.push(n_);
+        }
+      }
     }
   };
+
   std::set<N*, CMP> iseen, oseen;
-  breathFirstSearch(inodes, iseen, &N::o);
-  breathFirstSearch(onodes, oseen, &N::i);
+  breadthFirstSearch(inodes, iseen, &N::o);
+  breadthFirstSearch(onodes, oseen, &N::i);
 
 #if DEBUG_ES >= 2
   std::cerr << "hidden nodes:\n\tiseen:\n";
@@ -395,8 +403,7 @@ bool connect (const CPPN &cppn,
       if (!r.second) {
         std::cerr << "inputs: " << inputs << "\noutputs: " << outputs
                   << std::endl;
-        utils::doThrow<std::invalid_argument>(
-          "Unable to insert duplicate coordinate ", p);
+        utils::Thrower("Unable to insert duplicate coordinate ", p);
       }
     }
   }
