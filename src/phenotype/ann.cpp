@@ -618,7 +618,7 @@ uint computeDepth (ANN &ann) {
 }
 
 void ANN::computeStats(void) {
-  if (empty()) {
+  if (_neurons.size() == _inputs.size() + _outputs.size()) {
     for (Neuron::ptr &n: _inputs)   n->depth = 0;
     for (Neuron::ptr &n: _outputs)  n->depth = 1;
     _stats.depth = 1;
@@ -864,42 +864,12 @@ template <typename T> using ModulePtrMap = std::map<ModularANN::Module*, T>;
 
 static constexpr bool debugAgg = false;
 
-uint computeDepths (std::map<ANN::Neuron*, uint> &depths, ANN::Neuron *n) {
-//  utils::IndentingOStreambuf indent (std::cerr);
-//  std::cerr << "> Computing depth(" << n->pos << ", " << n->type << ")\n";
-  uint d = std::numeric_limits<uint>::max();
-  if (n->type == ANN::Neuron::I)
-    d = 0;
-
-  else {
-    auto it = depths.find(n);
-    if (it == depths.end()) {
-      depths[n] = std::numeric_limits<uint>::max();
-      for (const auto &l: n->links()) {
-        d = std::min(computeDepths(depths, l.in.lock().get()), d);
-//        if (d == 0) break;
-      }
-      d++;
-      depths[n] = d;
-
-    } else
-      d = it->second;
-  }
-
-//  std::cerr << "< depth(" << n->pos << ", " << n->type << ") = " << d << "\n";
-  return d;
-}
+inline Point2D convert (const Point2D &p) { return p; }
+inline Point2D convert (const Point3D &p) { return {p.x(), p.y()}; }
 
 ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
   std::map<AggregationCriterion, Module*> moduleMap;
   std::map<Neuron*, Module*> neuronToModuleMap;
-
-  // Compute depths
-  std::map<Neuron*, uint> depths;
-  if (withDepth)
-    for (auto &p: ann.neurons())
-      if (p->type == Neuron::O)
-        computeDepths(depths, p.get());
 
   // First create all modules
   {
@@ -913,10 +883,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
         m = components.emplace_back(new Module(n.flags));
 
       } else {
-        uint depth = 0;
-        if (withDepth && n.type != ANN::Neuron::I)
-          depth = depths.at(p.get());
-        AggregationCriterion key (n, depth);
+        AggregationCriterion key (n, withDepth ? p->depth : 0);
         auto it = moduleMap.find(key);
         if (it == moduleMap.end()) {
           m = components.emplace_back(new Module(n.flags));
@@ -926,7 +893,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       }
 
       assert(m);
-      m->center += n.pos;
+      m->center += convert(n.pos);
       m->neurons.push_back(std::ref(n));
       neuronToModuleMap.emplace(p.get(), m);
 
@@ -943,7 +910,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       assert(size > 0);
 
       m.center /= size;
-      m.bl = m.ur = m.neurons.front().get().pos;
+      m.bl = m.ur = convert(m.neurons.front().get().pos);
       for (uint i=1; i<m.neurons.size(); i++) {
         auto p = m.neurons[i].get().pos;
         for (uint j=0; j<2; j++) {

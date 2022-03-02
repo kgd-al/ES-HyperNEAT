@@ -56,6 +56,7 @@ void Viewer::setGraph(const phenotype::ModularANN &ann) {
   GraphViewer::setGraph(ann);
 }
 
+#if ESHN_SUBSTRATE_DIMENSION == 2
 struct NeuronData : public NeuralData {
   const Neuron &_neuron;
   NeuronData (const Neuron &n) : _neuron(n) {}
@@ -65,9 +66,11 @@ struct NeuronData : public NeuralData {
   Neuron::Flags_t flags (void) const override { return _neuron.flags; }
   float value (void) const override {           return _neuron.value; }
 };
+#endif
 
 struct ModuleData : public NeuralData {
   using Module = phenotype::ModularANN::Module;
+  using Point = phenotype::ModularANN::Point;
   const Module &_module;
   ModuleData (const Module &m) : _module(m) {}
   const Neuron* neuron (void) const override {  return nullptr;         }
@@ -82,6 +85,7 @@ struct ModuleData : public NeuralData {
 const char* Viewer::gvc_layout (void) const { return "nop"; }
 
 void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
+  using Point = phenotype::Point2D;
   std::map<std::string, Edge*> edges;
 
   auto scene = this->scene();
@@ -105,13 +109,16 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
     return qe;
   };
 
-  std::function<NeuralData*(const phenotype::Point&)> neuralData;
+  std::function<NeuralData*(const Point&)> neuralData;
+#if ESHN_SUBSTRATE_DIMENSION == 2
   if (auto *ann = dynamic_cast<const phenotype::ANN*>(&g))
     neuralData = [ann] (auto p) {
       return new NeuronData (*ann->neuronAt(p));
     };
 
-  else if (auto *mann = dynamic_cast<const phenotype::ModularANN*>(&g))
+  else
+#endif
+  if (auto *mann = dynamic_cast<const phenotype::ModularANN*>(&g))
     neuralData = [mann] (auto p) {
       return new ModuleData (*mann->module(p));
     };
@@ -122,7 +129,7 @@ void Viewer::processGraph(const gvc::Graph &g, const gvc::GraphWrapper &gw) {
 
   _nodes.clear();
   for (auto *n = agfstnode(gvc); n != NULL; n = agnxtnode(gvc, n)) {
-    auto p = gvc::get(n, "spos", phenotype::Point{NAN,NAN});
+    auto p = gvc::get(n, "spos", Point{NAN,NAN});
 
     auto qn = new Node(n, neuralData(p));
     scene->addItem(qn);

@@ -134,6 +134,8 @@ public:
     assertEqual(lhs._data, rhs._data, deepcopy);
   }
 };
+using Point2D = Point_t<2, 3>;
+using Point3D = Point_t<3, 3>;
 using Point = Point_t<ESHN_SUBSTRATE_DIMENSION, 3>;
 
 } // end of namespace phenotype

@@ -142,6 +142,7 @@ private:
 };
 
 struct ModularANN : public gvc::Graph {
+  using Point = Point2D;
   using Neuron = ANN::Neuron;
   struct Module {
     Point center, bl, ur;

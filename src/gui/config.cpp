@@ -24,11 +24,9 @@ namespace config {
 #define CFILE ESHNGui
 
 DEFINE_CONTAINER_PARAMETER(CFILE::ANNCustomColors, annColorMapping, {
-  { 1<<8,  QColor("#00FF00") },
-  { 1<<9,  QColor("#0000FF") },
-  { 1<<10, QColor("#FF0000") },
-  { 1<<11, QColor("#FF0000") },
-  { 1<<12, QColor("#0000FF") },
+  { 1<<1, QColor("#FF0000") },
+  { 1<<2, QColor("#00FF00") },
+  { 1<<3, QColor("#0000FF") },
 })
 
 #undef CFILE

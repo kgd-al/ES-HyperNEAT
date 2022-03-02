@@ -11,7 +11,7 @@
 namespace kgd::es_hyperneat::gui::ann2d {
 
 struct NeuralData {
-  using Point = phenotype::Point;
+  using Point = phenotype::Point2D;
   using Neuron = phenotype::ANN::Neuron;
 
   virtual ~NeuralData (void) {}

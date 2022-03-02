@@ -154,9 +154,9 @@ if (NOT CLUSTER_BUILD)
     set_property(TARGET eshn-gui PROPERTY AUTOMOC ON)
     list(APPEND NEW_GUI_LIBS ${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>)
 
-##################################################################################
-#### Target (watchmaker)
-##################################################################################
+################################################################################
+## Target (watchmaker)
+################################################################################
     if (WITH_SONGMAKER)
         set(SOUND_SRC
             "generator.cpp"
@@ -233,6 +233,9 @@ message("> Cluster building mode is " ${CLUSTER_BUILD})
 if(CLUSTER_BUILD)
     add_definitions(-DCLUSTER_BUILD)
 endif()
+
+option(NO_GVC "Whether to prevent looking for the gvc library" OFF)
+message("> Disable gvc: " ${NO_GVC})
 
 option(WITH_TESTS "Whether or not to build all test targets" OFF)
 message("> Building tests: " ${WITH_TESTS})
