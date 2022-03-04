@@ -40,15 +40,19 @@ message("  > Gui libraries " "${GUI_LIBS}")
 
 list(APPEND KGD_DEFINITIONS ${APOGeT_KGD_DEFINITIONS})
 
-find_package(PkgConfig)
-pkg_search_module(gvc libgvc libcgraph libcdt)
-if (${gvc_FOUND})
-    list(APPEND KGD_DEFINITIONS -DWITH_GVC)
-    include_directories(${gvc_INCLUDE_DIRS})
-    list(APPEND CORE_LIBS ${gvc_LIBRARIES})
-elseif(NOT ${CLUSTER_BUILD})
-    message(FATAL_ERROR
-            "gvc is essential in graphic mode. Please install it properly")
+if (${NO_GVC})
+    message("Not searching for gvc")
+else()
+    find_package(PkgConfig)
+    pkg_search_module(gvc libgvc libcgraph libcdt)
+    if (${gvc_FOUND})
+        list(APPEND KGD_DEFINITIONS -DWITH_GVC)
+        include_directories(${gvc_INCLUDE_DIRS})
+        list(APPEND CORE_LIBS ${gvc_LIBRARIES})
+    elseif(NOT ${CLUSTER_BUILD})
+        message(FATAL_ERROR
+                "gvc is essential in graphic mode. Please install it properly")
+    endif()
 endif()
 
 ################################################################################

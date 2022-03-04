@@ -368,14 +368,16 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
 void collectIfDiscovered (Connections &connections,
                           const Coordinates_s &io,
                           Coordinates_s &h) {
-  for (auto it = connections.begin(); it != connections.end(); ) {
-    auto c = *it;
-    if (io.find(c.to) == io.end()) {
-      h.insert(c.to);
-      it++;
-    } else
-      it = connections.erase(it);
-  }
+//  for (auto it = connections.begin(); it != connections.end(); ) {
+//    auto c = *it;
+//    if (io.find(c.to) == io.end()) {
+//      h.insert(c.to);
+//      it++;
+//    } else
+//      it = connections.erase(it);
+//  }
+
+  for (auto &c: connections) h.insert(c.to);
 }
 
 bool connect (const CPPN &cppn,
