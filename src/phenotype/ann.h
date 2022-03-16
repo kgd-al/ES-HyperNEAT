@@ -182,7 +182,7 @@ struct ModularANN : public gvc::Graph {
     void update (void);
   };
 
-  ModularANN (const ANN &ann, bool withDepth = false);
+  ModularANN (const ANN &ann);
   ~ModularANN (void);
 
   Module* module (const Point &p) { return _components.at(p); }
@@ -223,6 +223,9 @@ struct CONFIG_FILE(EvolvableSubstrate) {
 
   DECLARE_PARAMETER(uint, neuronsUpperBound)
   DECLARE_PARAMETER(uint, connectionsUpperBound)
+
+  DECLARE_PARAMETER(bool, mannWithDepth)
+  DECLARE_PARAMETER(bool, mannWithSymmetry)
 
   DECLARE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 };

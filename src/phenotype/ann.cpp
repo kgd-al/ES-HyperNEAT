@@ -849,16 +849,24 @@ void assertEqual (const ANN &lhs, const ANN &rhs, bool deepcopy) {
 // =============================================================================
 
 struct AggregationCriterion {
-  decltype(ModularANN::Neuron::flags) flags;
-  uint depth;
-
-  AggregationCriterion (const ModularANN::Neuron &n, uint d)
-    : flags(n.flags), depth(d) {}
+  const ModularANN::Neuron &n;
+  AggregationCriterion (const ModularANN::Neuron &n) : n(n) {}
 
   friend bool operator< (const AggregationCriterion &lhs,
                          const AggregationCriterion &rhs) {
-    if (lhs.depth != rhs.depth) return lhs.depth < rhs.depth;
-    return lhs.flags < rhs.flags;
+
+    static const bool &D = config::EvolvableSubstrate::mannWithDepth();
+    static const bool &S = config::EvolvableSubstrate::mannWithSymmetry();
+
+    if (lhs.n.flags != 0 && rhs.n.flags != 0) {
+      if (D && lhs.n.depth != rhs.n.depth)
+        return lhs.n.depth < rhs.n.depth;
+
+      if (S && utils::sgn(lhs.n.pos.x()) != utils::sgn(rhs.n.pos.x()))
+        return utils::sgn(lhs.n.pos.x()) < utils::sgn(rhs.n.pos.x());
+    }
+
+    return lhs.n.flags < rhs.n.flags;
   }
 };
 
@@ -869,7 +877,24 @@ static constexpr bool debugAgg = false;
 inline Point2D convert (const Point2D &p) { return p; }
 inline Point2D convert (const Point3D &p) { return {p.x(), p.y()}; }
 
-ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
+using BIN = std::bitset<8*sizeof(ANN::Neuron::Flags_t)>;
+template <typename T>
+struct SBIN {
+  const T v;
+  SBIN (T v) : v(v) {}
+  friend std::ostream& operator<< (std::ostream &os, const SBIN &s) {
+    std::ostringstream oss;
+    oss << BIN(s.v);
+    std::string str = oss.str();
+    auto p = str.find_first_of('1');
+    if (p == std::string::npos)
+      return os << "0";
+    else
+      return os << str.substr(p);
+  }
+};
+
+ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
   std::map<AggregationCriterion, Module*> moduleMap;
   std::map<Neuron*, Module*> neuronToModuleMap;
 
@@ -885,7 +910,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
         m = components.emplace_back(new Module(n.flags));
 
       } else {
-        AggregationCriterion key (n, withDepth ? p->depth : 0);
+        AggregationCriterion key (n);
         auto it = moduleMap.find(key);
         if (it == moduleMap.end()) {
           m = components.emplace_back(new Module(n.flags));
@@ -900,7 +925,7 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
       neuronToModuleMap.emplace(p.get(), m);
 
       if (debugAgg)
-        std::cerr << "\t" << n.pos << " (f=" << n.flags
+        std::cerr << "\t" << n.pos << " (f=" << SBIN(n.flags)
                   << ") -> " << m << "\n";
     }
 
@@ -931,20 +956,23 @@ ModularANN::ModularANN (const ANN &ann, bool withDepth) : _ann(ann) {
 
       auto it = _components.find(mptr->center);
       while (it != _components.end()) {
-        if (debugAgg)
-          std::cerr << "/!\\Position " << mptr->center << " is already taken!"
-                    << " Applying small shi(f)t\n";
         static constexpr auto M = .05f;
-        mptr->center += {
+        Point dp {
          utils::sgn(mptr->center.x()) * M, utils::sgn(mptr->center.y()) * M,
         };
+        if (dp == Point::null())  dp += { M * (size % 2 ? -1 : 1), 0 };
+        if (debugAgg)
+          std::cerr << "/!\\Position " << mptr->center << " is already taken!"
+                    << " Applying small shi(f)t: " << dp << "\n";
+        mptr->center += dp;
         it = _components.find(mptr->center);
       }
       _components[mptr->center] = mptr;
 
 
       if (debugAgg) {
-        std::cerr << "Processed module " << m.center << "@" << mptr << " ("
+        std::cerr << "Processed module " << m.center << "@" << mptr << " (f="
+                  << SBIN(m.flags) << ", "
                   << m.neurons.size() << " neurons):";
         for (const auto &n: m.neurons)
           std::cerr << " " << n.get().pos;
@@ -1102,7 +1130,7 @@ gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
     auto w = p.second.weight;
     set(e, "color", w < 0 ? "red" : "black");
 //    auto sw = std::fabs(w);// / config_t::weightBounds().max;
-    auto sw = std::fabs(w) * .5 * p.second.count / _components.size();
+    auto sw = std::fabs(w) * 2 * log(p.second.count) / log(_ann.stats().edges);
     /// TODO: magic numbers...
     set(e, "penwidth", .9*sw+.1);
     set(e, "w", w);
@@ -1148,6 +1176,9 @@ DEFINE_CONST_PARAMETER(genotype::ES_HyperNEAT::CPPN::Node::FuncID,
 
 DEFINE_PARAMETER(uint, neuronsUpperBound, -1)
 DEFINE_PARAMETER(uint, connectionsUpperBound, -1)
+
+DEFINE_PARAMETER(bool, mannWithDepth, false)
+DEFINE_PARAMETER(bool, mannWithSymmetry, false)
 
 DEFINE_SUBCONFIG(genotype::ES_HyperNEAT::config_t, configGenotype)
 
