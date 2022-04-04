@@ -23,11 +23,22 @@ std::ostream& operator<< (std::ostream &os, const QColor &c) {
 namespace config {
 #define CFILE ESHNGui
 
-DEFINE_CONTAINER_PARAMETER(CFILE::ANNCustomColors, annColorMapping, {
-  { 1<<1, QColor("#FF0000") },
-  { 1<<2, QColor("#00FF00") },
-  { 1<<3, QColor("#0000FF") },
-})
+auto colors (void) {
+//  ESHNGui::ANNCustomColors colors {
+//    { 1<<1, QColor("#FF0000") },
+//    { 1<<2, QColor("#00FF00") },
+//    { 1<<3, QColor("#0000FF") },
+//  };
+
+  ESHNGui::ANNCustomColors colors;
+  float count = 3;
+  for (uint i=0; i<count; i++)
+    colors[1<<i] = QColor::fromHsvF(i / count, 1, 1);
+
+  return colors;
+}
+
+DEFINE_CONTAINER_PARAMETER(CFILE::ANNCustomColors, annColorMapping, colors())
 
 #undef CFILE
 
