@@ -158,42 +158,6 @@ if (NOT CLUSTER_BUILD)
     set_property(TARGET eshn-gui PROPERTY AUTOMOC ON)
     list(APPEND NEW_GUI_LIBS ${LIB_BASE}/$<TARGET_FILE_NAME:eshn-gui>)
 
-################################################################################
-## Target (watchmaker)
-################################################################################
-    if (WITH_SONGMAKER)
-        set(SOUND_SRC
-            "generator.cpp"
-            "visualizer.cpp"
-
-            "rtmidi/RtMidi.cpp"
-        )
-        PREPEND(SOUND_SRC "sound")
-        set(MIDI_DEFS __LINUX_ALSA__)
-        set(MIDI_LIBS asound pthread)
-
-        add_subdirectory(midi/midifile/)
-        list(APPEND MIDI_LIBS midifile)
-
-        set(WATCHMAKER_SRC
-            ${SOUND_SRC}
-            "qflowlayout.cpp"
-            "config.cpp"
-            "bwwindow.cpp"
-            "main.cpp"
-        )
-        PREPEND(WATCHMAKER_SRC "src/watchmaker")
-
-        add_executable(
-          watchmaker
-          ${WATCHMAKER_SRC}
-        )
-        set_property(TARGET watchmaker PROPERTY AUTOMOC ON)
-        target_link_libraries(watchmaker eshn-core eshn-gui
-                                         ${CORE_LIBS} ${GUI_LIBS} ${MIDI_LIBS})
-
-        target_compile_definitions(watchmaker PRIVATE ${MIDI_DEFS})
-    endif()
 
 
 ################################################################################
@@ -243,9 +207,6 @@ message("> Disable gvc: " ${NO_GVC})
 
 option(WITH_TESTS "Whether or not to build all test targets" OFF)
 message("> Building tests: " ${WITH_TESTS})
-
-option(WITH_SONGMAKER "Whether or not to build songmaker" OFF)
-message("> SongMaker: " ${WITH_SONGMAKER})
 
 option(ESHN_WITH_DISTANCE "Whether CPPN inputs include connection length" OFF)
 message("> CPPN distance: ${CPPN_WITH_DISTANCE}")
