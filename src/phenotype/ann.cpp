@@ -872,7 +872,7 @@ struct AggregationCriterion {
 
 template <typename T> using ModulePtrMap = std::map<ModularANN::Module*, T>;
 
-static constexpr bool debugAgg = false;
+static constexpr int debugAgg = 0;
 
 inline Point2D convert (const Point2D &p) { return p; }
 inline Point2D convert (const Point3D &p) { return {p.x(), p.y()}; }
@@ -895,6 +895,8 @@ struct SBIN {
 };
 
 ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
+  static constexpr auto SCALE = .1;
+
   std::map<AggregationCriterion, Module*> moduleMap;
   std::map<Neuron*, Module*> neuronToModuleMap;
 
@@ -924,7 +926,7 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
       m->neurons.push_back(std::ref(n));
       neuronToModuleMap.emplace(p.get(), m);
 
-      if (debugAgg)
+      if (debugAgg > 3)
         std::cerr << "\t" << n.pos << " (f=" << SBIN(n.flags)
                   << ") -> " << m << "\n";
     }
@@ -945,13 +947,11 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
           if (m.ur.get(j) < p.get(j)) m.ur.set(j, p.get(j));
         }
       }
-      if (size == 1)  m.size = {1,1};
+      if (size == 1)  m.radius = SCALE;
       else {
         /// TODO make up your mind about anisotropic modules
 //        Module::Size s { m.ur.x() - m.bl.x(), m.ur.y() - m.bl.y() };
-        float aratio = 1;// std::max(.5f, std::min(s.w / s.h, 2.f));
-        float r = (1+5*size/hSize);
-        m.size = { std::max(1.f, r * aratio), std::max(1.f, r / aratio) };
+        m.radius = SCALE * std::max(1.f, 1+5*size/hSize);
       }
 
       auto it = _components.find(mptr->center);
@@ -991,13 +991,13 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
     Module *dst = neuronToModuleMap.at(p.get());
     auto &mlist = uniqueLinks[dst];
 
-    if (debugAgg)
+    if (debugAgg > 2)
       std::cerr << "Links for " << n.pos << " (module " << dst->center << ")\n";
 
     for (const Neuron::Link &l: n.links()) {
       Module* src = neuronToModuleMap.at(l.in.lock().get());
       if (dst == src) {
-        if (debugAgg)
+        if (debugAgg > 2)
           std::cerr << "\tSkipping " << l.in.lock()->pos << " -> " << n.pos
                     << " (" << dst->center << " == " << src->center << ")\n";
 
@@ -1005,7 +1005,7 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
         continue;
       }
 
-      if (debugAgg)
+      if (debugAgg > 3)
         std::cerr << "\tnl: " << l.in.lock()->pos << " -> " << dst->center
                   << " [" << l.weight << "]\n";
 
@@ -1021,7 +1021,7 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
   for (auto &pm: uniqueLinks) {
     Module *dst = pm.first;
     for (auto &pw: pm.second) {
-      if (debugAgg)
+      if (debugAgg > 3)
         std::cerr << "\tul: " << pw.first->center << " -> "
                   << dst->center << " [" << pw.second.count << ": "
                   << pw.second.weight << "]\n";
@@ -1031,7 +1031,7 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
       dst->links.push_back({ d.count, d.weight / d.count, in });
     }
 
-    if (debugAgg) {
+    if (debugAgg > 2) {
       std::cerr << "\t--\n";
       for (const Module::Link &l: dst->links)
         std::cerr << "\t\tml: " << l.in->center << " -> "
@@ -1039,6 +1039,47 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
       std::cerr << "----\n\n";
     }
   }
+
+  // Move stuff around until there are no more collisions
+  std::cerr << "Potentially colliding objects: " << _components.size() << "\n";
+  using CollidingPair = std::pair<Module*,Module*>;
+  using CollidingPairs = std::set<CollidingPair>;
+  CollidingPairs collisions;
+  static const auto collision = [] (const Module *lhs, const Module *rhs) {
+    return (lhs->center - rhs->center).length() < (lhs->radius + rhs->radius);
+  };
+  for (auto l_it = _components.begin(); l_it != _components.end(); ++l_it) {
+    Module *lhs = l_it->second;
+    for (auto r_it = std::next(l_it); r_it != _components.end(); ++r_it) {
+      Module *rhs = r_it->second;
+      if (collision(lhs, rhs)) collisions.insert({lhs, rhs});
+    }
+  }
+
+  using CollisionCorrections = std::map<Module*, Point>;
+  CollisionCorrections corrections;
+  std::cerr << "\t" << collisions.size() << " confirmed\n";
+  for (const CollidingPair &p: collisions) {
+    std::cerr << "\t\t" << p.first->center << " " << p.second->center
+              << " (" << p.first->radius << " + " << p.second->radius << ")\n";
+    Point v = p.second->center - p.first->center;
+    float vl = v.length(),
+          dl = .5 * (v.length() - p.first->radius - p.second->radius);
+    v /= vl;
+
+    if (p.first->type() == Neuron::H)   corrections[p.first]  += dl * v;
+    if (p.second->type() == Neuron::H)  corrections[p.second] -= dl * v;
+  }
+
+  std::cerr << "\tEffecting corrections:\n";
+  for (auto &p: corrections) {
+    std::cerr << "\t\t" << p.first->center;
+    _components.erase(p.first->center);
+    p.first->center += p.second;
+    _components[p.first->center] = p.first;
+    std::cerr << " -> " << p.first->center << "\n";
+  }
+
 
   // Modules are ready!
   update();
@@ -1101,8 +1142,8 @@ gvc::GraphWrapper ModularANN::build_gvc_graph (void) const {
 
     set(n, "pos", scale*pos.x(), ",", scale*pos.y());
 
-    set(n, "width", .1 * m.size.w);
-    set(n, "height", .1 * m.size.h);
+    set(n, "width", m.radius);
+    set(n, "height", m.radius);
     set(n, "style", "filled");
     set(n, "fillcolor", (m.type() != Neuron::H) ? "black" : "gray");
     set(n, "spos", pos);

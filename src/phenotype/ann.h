@@ -146,7 +146,7 @@ struct ModularANN : public gvc::Graph {
   using Neuron = ANN::Neuron;
   struct Module {
     Point center, bl, ur;
-    struct Size { float w, h; } size;
+    float radius;
     std::vector<std::reference_wrapper<const Neuron>> neurons;
     bool recurrent;
 

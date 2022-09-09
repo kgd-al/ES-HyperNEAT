@@ -61,28 +61,35 @@ public:
   }
 
   Point_t& operator+= (const Point_t &that) {
-    for (uint i=0; i<DIMENSIONS; i++)
-      set(i, get(i) + that.get(i));
+    for (uint i=0; i<DIMENSIONS; i++) set(i, get(i) + that.get(i));
+    return *this;
+  }
+
+  Point_t& operator-= (const Point_t &that) {
+    for (uint i=0; i<DIMENSIONS; i++) set(i, get(i) - that.get(i));
     return *this;
   }
 
   Point_t& operator/= (float v) {
-    for (uint i=0; i<DIMENSIONS; i++)
-      set(i, get(i) / v);
+    for (uint i=0; i<DIMENSIONS; i++) set(i, get(i) / v);
     return *this;
   }
 
   float length (void) const {
     float sum = 0;
-    for (uint i=0; i<DIMENSIONS; i++)
-      sum += get(i)*get(i);
+    for (uint i=0; i<DIMENSIONS; i++) sum += get(i)*get(i);
     return std::sqrt(sum);
   }
 
   friend Point_t operator- (const Point_t &lhs, const Point_t &rhs) {
     Point_t res;
-    for (uint i=0; i<DIMENSIONS; i++)
-      res.set(i, lhs.get(i) - rhs.get(i));
+    for (uint i=0; i<DIMENSIONS; i++) res.set(i, lhs.get(i) - rhs.get(i));
+    return res;
+  }
+
+  friend Point_t operator* (float v, const Point_t &p) {
+    Point_t res;
+    for (uint i=0; i<DIMENSIONS; i++) res.set(i, v * p.get(i));
     return res;
   }
 
