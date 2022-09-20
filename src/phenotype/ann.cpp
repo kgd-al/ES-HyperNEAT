@@ -24,6 +24,7 @@ namespace phenotype {
 //#define DEBUG_COMPUTE 1
 //#define DEBUG_ES 1
 #endif
+//#define DEBUG_ES 1
 
 #if DEBUG_ES
 //#define DEBUG_ES_QUADTREE 1
@@ -159,8 +160,12 @@ struct Connection {
     return os << "{ " << c.from << " -> " << c.to << " [" << c.weight << "]}";
   }
 #endif
+  friend bool operator< (const Connection &lhs, const Connection &rhs) {
+    if (lhs.from != rhs.from) return lhs.from < rhs.from;
+    return lhs.to < rhs.to;
+  }
 };
-using Connections = std::vector<Connection>;
+using Connections = std::set<Connection>;//std::vector<Connection>;
 void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
                       const QOTree &t, bool out) {
 
@@ -235,7 +240,7 @@ void pruneAndExtract (const CPPN &cppn, const Point &p, Connections &con,
       if (bnd > bndThr
           && leo(cppn, out ? p : c->center, out ? c->center : p)
           && c->weight != 0) {
-        con.push_back({
+        con.insert({
           out ? p : c->center, out ? c->center : p, c->weight
         });
 #ifdef DEBUG_QUADTREE_PRUNING
@@ -291,7 +296,7 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
     if (it != nodes.end())  return *it;
     else                    return *nodes.insert(new N(p)).first;
   };
-  for (Connection &c: connections) {
+  for (const Connection &c: connections) {
     N *i = getOrCreate(c.from), *o = getOrCreate(c.to);
     i->o.push_back({o,c.weight});
     o->i.push_back({i,c.weight});
@@ -351,10 +356,10 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
     std::cerr << "\t" << n->p << "\n";
 #endif
     shidden.insert(n->p);
-    for (const L &l: n->i)  connections.push_back({l.n->p, n->p, l.w});
+    for (const L &l: n->i)  connections.insert({l.n->p, n->p, l.w});
     for (const L &l: n->o)
       if (l.n->t == Type::O)
-        connections.push_back({n->p, l.n->p, l.w});
+        connections.insert({n->p, l.n->p, l.w});
   }
 
   for (auto it=nodes.begin(); it!=nodes.end();) {
@@ -363,21 +368,14 @@ void removeUnconnectedNeurons (const Coordinates &inputs,
   }
 }
 
-/// Collect new hidden nodes IFF they do not appear in provided coordinates
-/// otherwise ignore them and remove their connection
-void collectIfDiscovered (Connections &connections,
-                          const Coordinates_s &io,
-                          Coordinates_s &h) {
-//  for (auto it = connections.begin(); it != connections.end(); ) {
-//    auto c = *it;
-//    if (io.find(c.to) == io.end()) {
-//      h.insert(c.to);
-//      it++;
-//    } else
-//      it = connections.erase(it);
-//  }
-
-  for (auto &c: connections) h.insert(c.to);
+/// Collect new hidden nodes and connections
+void collect (const Connections &newConnections, Connections &connections,
+              Coordinates_s &hiddens, Coordinates_s &newHiddens) {
+  for (auto &c: newConnections) {
+    auto r = hiddens.insert(c.to);
+    if (r.second) newHiddens.insert(c.to);
+  }
+  connections.insert(newConnections.begin(), newConnections.end());
 }
 
 bool connect (const CPPN &cppn,
@@ -413,89 +411,97 @@ bool connect (const CPPN &cppn,
 #if DEBUG_ES
   std::ostringstream oss;
   oss << "\n## --\nStarting evolvable substrate instantiation\n";
+  uint n_hidden = 0, n_connections = 0;
 #endif
 
   Coordinates_s shidden;
-  Connections tmpConnections;
+
   for (const Point &p: inputs) {
+    Connections tmpConnections;
     auto t = divisionAndInitialisation(cppn, p, true);
     pruneAndExtract(cppn, p, tmpConnections, t, true);
-    collectIfDiscovered(tmpConnections, sio, shidden);
+
+    Coordinates_s newHiddens;
+    collect(tmpConnections, connections, shidden, newHiddens);
   }
 
 #if DEBUG_ES
-  oss << "[I -> H] found " << shidden.size() << " hidden neurons";
+  oss << "[I -> H] found " << shidden.size() - n_hidden << " hidden neurons";
 #if DEBUG_ES >= 3
   oss << "\n\t" << shidden << "\n";
 #endif
-  oss << " and " << tmpConnections.size() << " connections";
+  oss << " and " << connections.size() - n_connections << " connections";
 #if DEBUG_ES >= 3
   oss << "\n\t" << tmpConnections;
 #endif
+  n_hidden = shidden.size();
+  n_connections = connections.size();
   oss << "\n";
 #endif
-
-  connections.insert(connections.end(),
-                     tmpConnections.begin(), tmpConnections.end());
-  tmpConnections.clear();
 
   if (overflow(shidden, connections)) return false;
 
   bool converged = false;
   Coordinates_s unexploredHidden = shidden;
   for (uint i=0; i<iterations && !converged; i++) {
+
+    Coordinates_s newHiddens;
     for (const Point &p: unexploredHidden) {
+      Connections tmpConnections;
       auto t = divisionAndInitialisation(cppn, p, true);
       pruneAndExtract(cppn, p, tmpConnections, t, true);
-      collectIfDiscovered(tmpConnections, sio, shidden);
+      collect(tmpConnections, connections, shidden, newHiddens);
     }
 
-    Coordinates_s tmpHidden;
-    std::set_difference(shidden.begin(), shidden.end(),
-                        unexploredHidden.begin(), unexploredHidden.end(),
-                        std::inserter(tmpHidden, tmpHidden.end()));
-    unexploredHidden = tmpHidden;
+//    Coordinates_s tmpHidden;
+//    std::set_difference(shidden.begin(), shidden.end(),
+//                        unexploredHidden.begin(), unexploredHidden.end(),
+//                        std::inserter(tmpHidden, tmpHidden.end()));
+    unexploredHidden = newHiddens;
+
+//    oss << "\t\t\t" << shidden.size() << " - " << unexploredHidden.size()
+//        << " = " << tmpHidden.size() << "\n";
+//    unexploredHidden = tmpHidden;
 
 #if DEBUG_ES
-  oss << "[H -> H] found " << unexploredHidden.size() << " hidden neurons";
+  oss << "[H -> H] found " << shidden.size() - n_hidden
+      << " hidden neurons (" << unexploredHidden.size() << " to explore)";
 #if DEBUG_ES >= 3
   oss << "\n\t" << unexploredHidden << "\n";
 #endif
-  oss << " and " << tmpConnections.size() << " connections";
+  oss << " and " << connections.size() - n_connections << " connections";
 #if DEBUG_ES >= 3
   oss << "\n\t" << tmpConnections;
 #endif
+  n_hidden = shidden.size();
+  n_connections = connections.size();
   oss << "\n";
 #endif
 
-    converged = (unexploredHidden.empty() && tmpConnections.empty());
+    converged = unexploredHidden.empty();
 #if DEBUG_ES
     if (converged)
       oss << "\t> Premature convergence at iteration " << i << "\n";
 #endif
 
-    connections.insert(connections.end(),
-                       tmpConnections.begin(), tmpConnections.end());
-    tmpConnections.clear();
-
     if (overflow(shidden, connections)) return false;
   }
 
   for (const Point &p: outputs) {
+    Connections tmpConnections;
     auto t = divisionAndInitialisation(cppn, p, false);
     pruneAndExtract(cppn, p, tmpConnections, t, false);
+    connections.insert(tmpConnections.begin(), tmpConnections.end());
   }
 
 #if DEBUG_ES
-  oss << "[H -> O] found " << tmpConnections.size() << " connections";
+  oss << "[H -> O] found " << connections.size() - n_connections
+      << " connections";
 #if DEBUG_ES >= 3
   oss << "\n\t" << tmpConnections << "\n";
 #endif
   oss << "\n";
 #endif
-
-  connections.insert(connections.end(),
-                     tmpConnections.begin(), tmpConnections.end());
 
   if (overflow(shidden, connections)) return false;
 
@@ -564,6 +570,37 @@ ANN ANN::build (const Coordinates &inputs,
   ann.computeStats();
 
   return ann;
+}
+
+void ANN::copyInto(ANN &that) const {
+  // Copy neurons
+  for (const Neuron::ptr &n: _neurons) {
+    Neuron::ptr n_ = that.addNeuron(n->pos, n->type, n->bias);
+    that._neurons.insert(n_);
+    n_->value = n->value;
+    n_->depth = n->depth;
+    n_->flags = n->flags;
+  }
+
+  // Generates links
+  for (const Neuron::ptr &n: _neurons) {
+    const Neuron::ptr n_ = that.neuronAt(n->pos);
+    for (const Neuron::Link &l: n->links()) {
+      n_->addLink(l.weight, that.neuronAt(l.in.lock()->pos));
+    }
+  }
+
+  // Update I/O buffers
+  that._inputs.reserve(_inputs.size());
+  for (const Neuron::ptr &n: _inputs)
+    that._inputs.push_back(that.neuronAt(n->pos));
+
+  that._outputs.reserve(_outputs.size());
+  for (const Neuron::ptr &n: _outputs)
+    that._outputs.push_back(that.neuronAt(n->pos));
+
+  // Copy stats
+  that._stats = _stats;
 }
 
 uint computeDepth (ANN &ann) {

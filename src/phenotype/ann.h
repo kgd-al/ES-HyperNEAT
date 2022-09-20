@@ -97,6 +97,8 @@ public:
     return _stats;
   }
 
+  void copyInto (ANN &that) const;
+
   using Coordinates = std::vector<Point>;
   static ANN build (const Coordinates &inputs,
                     const Coordinates &outputs, const phenotype::CPPN &cppn);
