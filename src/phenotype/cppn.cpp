@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include "cppn.h"
 
 namespace phenotype {
@@ -6,16 +8,35 @@ namespace phenotype {
 //#define DEBUG
 #endif
 
+// =============================================================================
+// -- Ugly solution to numerical non-determinism
+// Divergences observed on local/remote machines can be solved by requesting
+//  value in double precision (accurate within 1ULP?) and truncating back to
+//  float. Computationally more expensive but ensures bitwise identical CPPN/ANN
+
+float fd_exp(float x) {
+  return static_cast<double(*)(double)>(std::exp)(x);
+}
+
+float fd_sin(float x) {
+  return static_cast<double(*)(double)>(std::sin)(x);
+}
+
+#define KGD_EXP fd_exp
+#define KGD_EXP_STR "dexp"
+
+// =============================================================================
+
 float ssgn(float x) {
   static constexpr float a = 1;
-  return x < -a ? std::exp(-(x+a)*(x+a))-1
-                : x > a ? 1 - std::exp(-(x-a)*(x-a))
+  return x < -a ? KGD_EXP(-(x+a)*(x+a))-1
+                : x > a ? 1 - KGD_EXP(-(x-a)*(x-a))
                         : 0;
 }
 
 float act2(float x) {
   return x <= 0 ? 0
-                : 1 - std::exp(
+                : 1 - KGD_EXP(
                         -x*x /* / (2*b*b) */
                       );
 }
@@ -36,17 +57,17 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
 
   // Personal take on the function set
   F( "abs", std::fabs(x)),
-  F("gaus", std::exp(-6.25*x*x)), // Same steepness as Risi's but positive
+  F("gaus", KGD_EXP(-6.25f*x*x)), // Same steepness as Risi's but positive
   F(  "id", x),
-  F("ssgm", 1.f / (1.f + std::exp(-4.9*x))),
-  F("bsgm", 2.f / (1.f + std::exp(-4.9*x)) - 1.f),
-  F( "sin", std::sin(2*x)),
-  F("step", x <= 0 ? 0 : 1),
+  F("ssgm", 1.f / (1.f + KGD_EXP(-4.9f*x))),
+  F("bsgm", 2.f / (1.f + KGD_EXP(-4.9f*x)) - 1.f),
+  F( "sin", fd_sin(2.f*x)),
+  F("step", x <= 0.f ? 0.f : 1.f),
 
   // Custom-made activation function
   // kact(-inf) = 0, kact(0) = 0, kact(+inf) = 1
   // kact'(0^-) = kact'(0^+) = 2
-  F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x)),
+//  F("kact", x < 0 ? 4.f * x / (1.f + std::exp(-4*x)) : std::tanh(2*x)),
 
   // Another custom-made activation function
   F("ssgn", ssgn(x)),
@@ -54,9 +75,20 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   // Positive activation function
   // forall x <=0, act2(x) = 0
   // lim x -> inf act2(x) = 1
-  F("act2", act2(x)),
+//  F("act2", act2(x)),
 };
 #undef F
+
+template <typename K, typename V>
+std::map<V, K> reverse (const std::map<K, V> &m) {
+  std::map<V, K> m_;
+  for (const auto &p: m) m_.emplace(p.second, p.first);
+  return m_;
+}
+
+const std::map<CPPN::Function, genotype::ES_HyperNEAT::CPPN::Node::FuncID>
+  CPPN::functionToName = reverse(CPPN::functions);
+
 
 #define F(NAME, MIN, MAX) { NAME, { MIN, MAX }}
 const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
@@ -77,7 +109,7 @@ const std::map<genotype::ES_HyperNEAT::CPPN::Node::FuncID,
   F( "sin", -1, 1),
   F("step",  0, 1),
 
-  F("kact", -1, 1), // Not really (min value ~ .278)
+//  F("kact", -1, 1), // Not really (min value ~ .278)
 };
 #undef F
 
@@ -111,8 +143,8 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
   cppn._outputs.resize(CPPN_g::OUTPUTS);
   for (uint i=0; i<CPPN_g::OUTPUTS; i++) {
 #ifdef DEBUG
-    std::cerr << "(O) " << NID(i+cppn_g.inputs) << " " << i << " "
-              << ofuncs[i] << std::endl;
+    std::cerr << "(O) " << NID(i+CPPN_g::INPUTS) << " " << i << " "
+              << ofuncs(i) << std::endl;
 #endif
     nodes[NID(i+CPPN_g::INPUTS)] = cppn._outputs[i] = fnode(ofuncs(i));
   }
@@ -130,6 +162,26 @@ CPPN CPPN::fromGenotype(const genotype::ES_HyperNEAT &es_hyperneat) {
     FNode &n = dynamic_cast<FNode&>(*nodes.at(l_g.nid_dst));
     n.links.push_back({l_g.weight, nodes.at(l_g.nid_src)});
   }
+
+#ifdef DEBUG
+  i=0;
+  std::map<Node_ptr, uint> map;
+  printf("Built CPPN:\n");
+  for (const auto &v: {cppn._inputs, cppn._outputs, cppn._hidden})
+    for (const Node_ptr &n: v)
+      map[n] = i++;
+
+  for (const auto &v: {cppn._hidden, cppn._outputs}) {
+    for (const Node_ptr &n: v) {
+      FNode &fn = *static_cast<FNode*>(n.get());
+      printf("\t[%d]\n", map.at(n));
+      std::string fname (functionToName.at(fn.func));
+      printf("\t\t%s\n", fname.c_str());
+      for (const Link &l: fn.links)
+        printf("\t\t[%d]\t%g %a\n", map.at(l.node.lock()), l.weight, l.weight);
+    }
+  }
+#endif
 
   return cppn;
 }
@@ -151,10 +203,15 @@ float CPPN::FNode::value (void) {
     data = 0;
     for (Link &l: links)
       data += l.weight * l.node.lock()->value();
+
 #ifdef DEBUG
-    std::cout << func(data) << " = func(" << data << ")\n";
-#endif
+    auto val = func(data);
+    std::cout << val << " = " << functionToName.at(func)
+              << "(" << data << ")\n";
+    data = val;
+#else
     data = func(data);
+#endif
 
 #ifdef DEBUG
   } else
@@ -172,12 +229,6 @@ std::ostream& operator<< (std::ostream &os, const std::vector<float> &v) {
 }
 
 void CPPN::pre_evaluation(const Point &src, const Point &dst) const {
-  /// TODO Should replace this test by a constexpr enum check
-  #ifdef DEBUG
-  utils::IndentingOStreambuf indent (std::cout);
-  std::cout << "compute step\n" << inputs << std::endl;
-  #endif
-
   static constexpr auto N = DIMENSIONS;
   for (uint i=0; i<N; i++)  _inputs[i]->data = src.get(i);
   for (uint i=0; i<N; i++)  _inputs[i+N]->data = dst.get(i);
@@ -191,6 +242,14 @@ void CPPN::pre_evaluation(const Point &src, const Point &dst) const {
 
   for (auto &n: _hidden)  n->data = NAN;
   for (auto &n: _outputs)  n->data = NAN;
+
+#ifdef DEBUG
+  utils::IndentingOStreambuf indent (std::cout);
+  std::cout << "compute step\n\tInputs:"
+            << std::setprecision(std::numeric_limits<float>::max_digits10);
+  for (auto &i: _inputs) std::cout << " " << i->data;
+  std::cout << "\n";
+#endif
 }
 
 void CPPN::operator() (const Point &src, const Point &dst,
@@ -201,6 +260,7 @@ void CPPN::operator() (const Point &src, const Point &dst,
   for (uint i=0; i<outputs.size(); i++) outputs[i] = _outputs[i]->value();
 
 #ifdef DEBUG
+  using utils::operator<<;
   std::cout << outputs << "\n" << std::endl;
 #endif
 }
@@ -214,6 +274,7 @@ void CPPN::operator() (const Point &src, const Point &dst, Outputs &outputs,
   for (auto o: oset) outputs[uint(o)] = _outputs[uint(o)]->value();
 
 #ifdef DEBUG
+  using utils::operator<<;
   std::cout << outputs << "\n" << std::endl;
 #endif
 }

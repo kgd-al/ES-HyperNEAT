@@ -778,6 +778,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
   for (uint i=0; i<inputs.size(); i++) _inputs[i]->value = inputs[i];
 
 #ifdef DEBUG_COMPUTE
+  std::cerr << std::setprecision(std::numeric_limits<float>::max_digits10);
   using utils::operator<<;
   std::cerr << "## Compute step --\n inputs:\t" << inputs << "\n";
 #endif
@@ -792,7 +793,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
 
       float v = p->bias;
       for (const auto &l: p->links()) {
-#ifdef DEBUG_COMPUTE
+#if DEBUG_COMPUTE >= 3
         std::cerr << "        i> v = " << v + l.weight * l.in.lock()->value
                   << " = " << v << " + " << l.weight << " * "
                   << l.in.lock()->value << "\n";
@@ -804,7 +805,7 @@ void ANN::operator() (const Inputs &inputs, Outputs &outputs, uint substeps) {
       p->value = activation(v);
       assert(-1 <= p->value && p->value <= 1);
 
-#ifdef DEBUG_COMPUTE
+#if DEBUG_COMPUTE >= 2
       std::cerr << "      <o " << p->pos << ": " << p->value << " = "
                 << config::EvolvableSubstrate::activationFunc() << "("
                 << v << ")\n";

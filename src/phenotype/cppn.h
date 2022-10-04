@@ -13,6 +13,7 @@ public:
   using FuncID = genotype::ES_HyperNEAT::CPPN::Node::FuncID;
   using Function = float (*) (float);
   static const std::map<FuncID, CPPN::Function> functions;
+  static const std::map<CPPN::Function, FuncID> functionToName;
 
   struct Range { float min, max; };
   static const std::map<FuncID, Range> functionRanges;
