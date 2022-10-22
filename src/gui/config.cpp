@@ -17,7 +17,7 @@ std::istream& operator>> (std::istream &is, QColor &c) {
 }
 
 std::ostream& operator<< (std::ostream &os, const QColor &c) {
-  return os << c.name();
+  return os << c.name().toStdString();
 }
 
 namespace config {

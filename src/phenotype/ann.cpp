@@ -1079,7 +1079,8 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
   }
 
   // Move stuff around until there are no more collisions
-  std::cerr << "Potentially colliding objects: " << _components.size() << "\n";
+  if (debugAgg > 0)
+    std::cerr << "Potentially colliding objects: " << _components.size() << "\n";
   using CollidingPair = std::pair<Module*,Module*>;
   using CollidingPairs = std::set<CollidingPair>;
   CollidingPairs collisions;
@@ -1096,10 +1097,12 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
 
   using CollisionCorrections = std::map<Module*, Point>;
   CollisionCorrections corrections;
-  std::cerr << "\t" << collisions.size() << " confirmed\n";
+  if (debugAgg > 0) std::cerr << "\t" << collisions.size() << " confirmed\n";
   for (const CollidingPair &p: collisions) {
-    std::cerr << "\t\t" << p.first->center << " " << p.second->center
-              << " (" << p.first->radius << " + " << p.second->radius << ")\n";
+    if (debugAgg > 2)
+      std::cerr << "\t\t" << p.first->center << " " << p.second->center
+                << " (" << p.first->radius << " + " << p.second->radius
+                << ")\n";
     Point v = p.second->center - p.first->center;
     float vl = v.length(),
           dl = .5 * (v.length() - p.first->radius - p.second->radius);
@@ -1109,13 +1112,14 @@ ModularANN::ModularANN (const ANN &ann) : _ann(ann) {
     if (p.second->type() == Neuron::H)  corrections[p.second] -= dl * v;
   }
 
-  std::cerr << "\tEffecting corrections:\n";
+  if (debugAgg > 2)
+    std::cerr << "\tEffecting corrections:\n";
   for (auto &p: corrections) {
-    std::cerr << "\t\t" << p.first->center;
+    if (debugAgg > 2) std::cerr << "\t\t" << p.first->center;
     _components.erase(p.first->center);
     p.first->center += p.second;
     _components[p.first->center] = p.first;
-    std::cerr << " -> " << p.first->center << "\n";
+    if (debugAgg > 2) std::cerr << " -> " << p.first->center << "\n";
   }
 
 

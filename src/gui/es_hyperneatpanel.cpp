@@ -95,10 +95,14 @@ void ES_HyperNEATPanel::setData (const genotype::ES_HyperNEAT &genome,
   cppnViewer->setGraph(genome.cppn);
   cppnOViewer->phenotypes(cppn, {0,0}, cppn::OutputSummary::ALL);
 
+#if 0
 #if ESHN_SUBSTRATE_DIMENSION == 2
   annViewer->setGraph(ann);
 #elif ESHN_SUBSTRATE_DIMENSION == 3
   annViewer->setANN(ann);
+#endif
+#else
+  std::cout << __PRETTY_FUNCTION__ << ": Deactivated ANN Visualisation\n";
 #endif
 
   for (const auto &p: otherFields)
